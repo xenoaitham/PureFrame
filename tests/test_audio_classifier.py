@@ -5,7 +5,9 @@ from pathlib import Path
 from pureframe.pipeline.detect.audio import AudioClassifier
 from pureframe.hardware import get_settings, HardwareProfile
 
-@pytest.mark.slow
+pytestmark = pytest.mark.slow
+
+
 def test_audio_classifier_silence(tmp_path):
     settings = get_settings(HardwareProfile.CPU)
     settings.detection_resolution = 300
@@ -18,7 +20,7 @@ def test_audio_classifier_silence(tmp_path):
     assert ctx.moaning_score < 0.1
     assert ctx.sexual_audio_score < 0.1
 
-@pytest.mark.slow
+
 def test_audio_classifier_tone(tmp_path):
     settings = get_settings(HardwareProfile.CPU)
     settings.detection_resolution = 300

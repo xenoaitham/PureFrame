@@ -4,6 +4,9 @@ import cv2
 from pureframe.pipeline.detect.scene_clip import SceneClassifier
 from pureframe.hardware import get_settings, HardwareProfile
 
+pytestmark = pytest.mark.slow
+
+
 def test_clip_classifier_synthetic():
     settings = get_settings(HardwareProfile.LOW)
     settings.detection_resolution = 300

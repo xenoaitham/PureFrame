@@ -7,6 +7,8 @@ import cv2
 import numpy as np
 from pureframe.hardware import HardwareProfile
 
+pytestmark = pytest.mark.slow
+
 def get_audio_hash(path: Path) -> str:
     # Run ffmpeg to extract audio and hash it
     try:
@@ -21,7 +23,6 @@ def get_audio_hash(path: Path) -> str:
         return ""
     return ""
 
-@pytest.mark.slow
 def test_pipeline_e2e(synthetic_video, tmp_path, monkeypatch):
     out_path = tmp_path / "output.mp4"
     
