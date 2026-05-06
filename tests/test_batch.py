@@ -65,12 +65,13 @@ def test_batch_folder_execution(tmp_path, monkeypatch, mock_store):
                 res = fn(*args, **kwargs)
                 return DummyFuture(res)
             except Exception as e:
-                # Re-raise so test fails or handle it
+                err_msg = str(e)  # capture before 'e' goes out of scope (Python 3)
+
                 class FailedFuture:
                     def result(self):
-                        return "err", "FAILED", str(e)
+                        return "err", "FAILED", err_msg
                 return FailedFuture()
-                
+
     monkeypatch.setattr("pureframe.batch.ProcessPoolExecutor", DummyExecutor)
     monkeypatch.setattr("pureframe.batch.as_completed", lambda futures: futures)
     
