@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <!-- Film Strip -->
+  <rect x="50" y="180" width="300" height="60" fill="#000" rx="4" />
+  
+  <!-- Film Strip Holes Top -->
+  <g fill="#fff">
+    <rect x="60" y="185" width="20" height="15" rx="2" />
+    <rect x="100" y="185" width="20" height="15" rx="2" />
+    <rect x="140" y="185" width="20" height="15" rx="2" />
+    <rect x="180" y="185" width="20" height="15" rx="2" />
+    <rect x="220" y="185" width="20" height="15" rx="2" />
+    <rect x="260" y="185" width="20" height="15" rx="2" />
+    <rect x="300" y="185" width="20" height="15" rx="2" />
+    <rect x="340" y="185" width="20" height="15" rx="2" />
+  </g>
+
+  <!-- Film Strip Holes Bottom -->
+  <g fill="#fff">
+    <rect x="60" y="220" width="20" height="15" rx="2" />
+    <rect x="100" y="220" width="20" height="15" rx="2" />
+    <rect x="140" y="220" width="20" height="15" rx="2" />
+    <rect x="180" y="220" width="20" height="15" rx="2" />
+    <rect x="220" y="220" width="20" height="15" rx="2" />
+    <rect x="260" y="220" width="20" height="15" rx="2" />
+    <rect x="300" y="220" width="20" height="15" rx="2" />
+    <rect x="340" y="220" width="20" height="15" rx="2" />
+  </g>
+
+  <!-- Hovering Black Square -->
+  <rect x="140" y="40" width="120" height="120" fill="#000" rx="8" />
+</svg>

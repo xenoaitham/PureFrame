@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Debug scripts (dev-only)
+debug_test*.py
+update_cli.py
+
+# Lock files (generated)
+uv.lock
+
+# Tauri build artifacts
+gui/src-tauri/target/
+gui/node_modules/
+gui/dist/
+
+# Demo intermediates (keep demo.gif and logo.svg)
+assets/demo_input.mp4
+assets/demo_output.mp4
+assets/demo_plan.json
