@@ -19,3 +19,4 @@ PureFrame operates within the following strict boundaries to ensure legal compli
 5. **No Built-in Content:** The software comes with no copyrighted media.
 
 By using PureFrame, you acknowledge that you are responsible for the source files you provide to it and that you are using it in compliance with your local copyright laws for private viewing.
+
