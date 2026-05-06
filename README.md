@@ -151,16 +151,6 @@ Yes. Run <code>pureframe plan</code> to generate a <code>.censorplan.json</code>
 No. PureFrame only processes local, unencrypted video files. It will not attempt to bypass DRM or intercept streaming content.
 </details>
 
-## Roadmap
-
-- [x] CLI pipeline with YOLOv8 detection and tracked blurring
-- [x] Audio-aware confidence fusion
-- [x] Batch folder processing with crash recovery
-- [x] Editable filter plan (detect → review → render)
-- [x] Tauri desktop GUI with visual timeline editor
-- [ ] Plex plugin for in-library filtering
-- [ ] Hardware encoding (NVENC / QSV / VideoToolbox)
-- [ ] Whisper-based subtitle profanity bleeping
 
 ## Acknowledgments
 
