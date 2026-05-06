@@ -49,7 +49,7 @@ def test_batch_folder_execution(tmp_path, monkeypatch, mock_store):
     
     # Mock ProcessPoolExecutor to run synchronously
     class DummyExecutor:
-        def __init__(self, max_workers=None):
+        def __init__(self, max_workers=None, mp_context=None):
             pass
         def __enter__(self):
             return self
