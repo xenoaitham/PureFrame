@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pureframe"
-version = "0.1.0-beta"
+version = "0.1.0b1"
 description = "Local AI tool that applies smooth, localized blur over explicit visuals in movies and TV files. No scene cutting, no audio changes."
 readme = "README.md"
 license = {text = "MIT"}
@@ -16,6 +16,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Multimedia :: Video",
 ]
 requires-python = ">=3.11"
@@ -46,6 +47,7 @@ dev = [
     "flake8",
     "mypy",
     "build",
+    "twine",
 ]
 
 [project.scripts]
@@ -55,6 +57,7 @@ pureframe = "pureframe.cli:app"
 Homepage = "https://github.com/xenoaitham/PureFrame"
 Documentation = "https://github.com/xenoaitham/PureFrame/tree/master/docs"
 Issues = "https://github.com/xenoaitham/PureFrame/issues"
+Source = "https://github.com/xenoaitham/PureFrame"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pureframe"]

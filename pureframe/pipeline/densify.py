@@ -44,10 +44,8 @@ def densify_shot(
     densified = {}
     for i in range(len(frame_indices) - 1):
         idx1 = frame_indices[i]
-        idx2 = frame_indices[i + 1]
 
         dets1 = results[idx1]
-        dets2 = results[idx2]
 
         densified[idx1] = dets1
 

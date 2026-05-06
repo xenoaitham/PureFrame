@@ -55,8 +55,6 @@ def test_pipeline_e2e(synthetic_video, tmp_path, monkeypatch):
 
     monkeypatch.setattr(pureframe.cli, "get_settings", mocked_get_settings)
 
-    original_detect_batch = NudityDetector.detect_batch
-
     def mocked_detect_batch(self, frames_bgr):
         batch_res = []
         for frame in frames_bgr:

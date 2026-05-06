@@ -36,11 +36,9 @@ def test_plan_and_apply_commands(tmp_path: Path, synthetic_video: Path):
     assert plan.config_snapshot["no_clip"] is True
 
     # Let's say we want to whitelist the first shot that has an action
-    found_action = False
     for v in plan.verdicts:
         if v.action != Action.NONE:
             v.action = Action.NONE
-            found_action = True
 
     # Resave plan
     plan.serialize(plan_json)

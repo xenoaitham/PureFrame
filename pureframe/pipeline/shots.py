@@ -96,7 +96,6 @@ def detect_shots(path: Path, threshold: float = 27.0) -> list[Shot]:
 
     if not merged_shots:
         video = open_video(str(path))
-        fps = video.frame_rate
         duration = video.duration.get_seconds()
         total_frames = video.duration.get_frames()
         merged_shots.append(

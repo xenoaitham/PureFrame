@@ -1,4 +1,6 @@
 import typer
+from importlib.metadata import PackageNotFoundError, version
+from typing import Optional
 import platformdirs
 import os
 import subprocess
@@ -40,6 +42,30 @@ app.add_typer(jobs_app, name="jobs")
 console = Console()
 
 
+def version_callback(value: bool) -> None:
+    if value:
+        try:
+            package_version = version("pureframe")
+        except PackageNotFoundError:
+            package_version = "unknown"
+        typer.echo(f"PureFrame {package_version}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version_option: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        "-V",
+        callback=version_callback,
+        is_eager=True,
+        help="Show PureFrame version and exit.",
+    ),
+) -> None:
+    pass
+
+
 def get_store() -> CheckpointStore:
     db_path = Path(platformdirs.user_data_dir("PureFrame")) / "jobs.db"
     return CheckpointStore(db_path)
@@ -51,7 +77,7 @@ def generate_plan(config: Config) -> CensorPlan:
 
     settings = get_settings(config.profile)
 
-    console.print("[bold blue]PureFrame[/bold blue] v0.1.0-beta")
+    console.print("[bold blue]PureFrame[/bold blue] v0.1.0b1")
     console.print(f"Job ID: {job.id}")
     console.print(f"Profile: [bold]{settings.profile.value}[/bold]")
     console.print(f"Input: {config.input_path}")

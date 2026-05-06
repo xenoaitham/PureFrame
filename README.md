@@ -48,7 +48,7 @@ The plan file is plain JSON - open it, review every flagged shot, whitelist anyt
 
 **No cloud, no subscription.** Everything runs on your machine. Your videos never leave your disk. Once the AI models download on first run (~400MB), PureFrame works fully offline.
 
-**Works on any file.** VidAngel and ClearPlay only support a curated list of popular titles. PureFrame uses computer vision - it works on any MP4, MKV, AVI, or WebM you throw at it. Foreign films, indie movies, decades-old DVDs, whatever.
+**Works on common local video files.** VidAngel and ClearPlay only support a curated list of popular titles. PureFrame uses computer vision - it works on any MP4, MKV, AVI, or WebM you throw at it. Foreign films, indie movies, decades-old DVDs, whatever.
 
 **Audio-aware detection.** An audio classifier runs alongside the visual pipeline to disambiguate scenes that look ambiguous on camera but are clear from context - keeping false positives low without sacrificing coverage.
 
@@ -84,20 +84,21 @@ graph LR
 | Cuts video length? | **No** - localized blur | Yes - skips scenes | Optional |
 | Cost | **Free & open source** | $9.99/mo subscription | Expensive software |
 | Requires internet? | **No** | Yes | No |
-| Works on any file? | **Yes** | No - curated list only | Yes |
+| Works on local files? | **Yes** | No - curated list only | Yes |
 | Reviewable before apply? | **Yes** - JSON plan | No | N/A |
 
 ## Performance
 
-Target numbers for a 90-minute 1080p H.264 movie *(run `scripts/bench.py` for real measurements on your hardware)*:
+Measured on author's machine: RTX 3060 12GB, i5-10400F, Pop!_OS.
 
-| Hardware | Time* (target) | Profile |
-|---|---|---|
-| RTX 4090 | ~45 min* | `HIGH` |
-| RTX 3060 | ~124 min* | `MEDIUM` |
-| GTX 1650 (4GB) | ~250 min* | `LOW` |
-| M2 Pro | ~140 min* | `MEDIUM` |
-| 12-core CPU (no GPU) | ~14 hours* | `CPU` |
+| Profile | 30s synthetic 1080p clip | Extrapolated 90-min movie |
+|---|---:|---:|
+| HIGH | 25.96s | ~78 min |
+| MEDIUM | 41.23s | ~124 min |
+| LOW | 27.83s | ~83 min |
+| CPU | 21.37s* | ~64 min* |
+
+These are synthetic zero-detection numbers. Real movies with detections can be slower.
 
 Set your profile with `--profile`:
 ```bash
@@ -106,9 +107,11 @@ pureframe process movie.mp4 --output out.mp4 --profile MEDIUM
 
 See [BENCHMARKS.md](BENCHMARKS.md) for full metrics and how to run benchmarks.
 
-## Desktop App (Experimental WIP)
+## Desktop App
 
-PureFrame includes an experimental desktop GUI template built on [Tauri](https://tauri.app/). It is currently a work-in-progress to allow drag-and-drop videos, visual scrubbing, and whitelisting.
+PureFrame includes a Tauri desktop GUI with drag-and-drop video import, flagged-shot review, and one-click whitelisting.
+
+![PureFrame GUI screenshot](assets/gui-screenshot.png)
 
 ```bash
 cd gui && npm install && npm run tauri dev
@@ -130,7 +133,7 @@ PureFrame is open-source AI software in early stages. Real-world performance dep
 <details>
 <summary><strong>Is this legal?</strong></summary>
 <br />
-Since PureFrame currently generates an output video file, the direct applicability of the Family Movie Act is uncertain and untested. PureFrame is intended for **US-focused, private use only**. It does not bypass DRM and should only be used on files you legally own. **This is not legal advice.** See <a href="docs/legal.md">docs/legal.md</a> for details.
+PureFrame is intended for private, local use on media files you legally possess. It does not bypass DRM, download media, upload media, or distribute altered copies. Laws vary by jurisdiction, and because PureFrame can create an output file, the legal status may depend on your use case. This is not legal advice.
 </details>
 
 <details>
