@@ -4,7 +4,9 @@ PureFrame is an open-source tool designed to allow individuals to automatically 
 
 ## The Family Movie Act of 2005
 
-In the United States, the [Family Movie Act of 2005](https://en.wikipedia.org/wiki/Family_Movie_Act_of_2005) (Title II of the Family Entertainment and Copyright Act) explicitly amended the Copyright Act of 1976. It states that it is not a copyright infringement to make imperceptible portions of a motion picture audio or video content during a performance in or transmitted to a private household for private home viewing, provided no fixed copy of the altered version is created or distributed.
+In the United States, the [Family Movie Act of 2005](https://en.wikipedia.org/wiki/Family_Movie_Act_of_2005) (Title II of the Family Entertainment and Copyright Act) limits copyright infringement liability when making imperceptible portions of a motion picture audio or video content during a performance in a private household. A key condition of this safe harbor is that "no fixed copy of the altered version" is created. 
+
+Since PureFrame currently generates an output video file, the direct applicability of the Family Movie Act is uncertain and untested. PureFrame is intended for **US-focused, private use only**. It does not bypass DRM and should only be used on files you legally own. **This is not legal advice.**
 
 While PureFrame does generate an output file, its core intended use is completely aligned with the spirit of allowing families to filter content they have already purchased.
 

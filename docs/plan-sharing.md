@@ -14,7 +14,7 @@ PureFrame's plan files contain **no video data**. They contain only:
 - Confidence scores and reasoning text
 - A hash of the source file so the plan applies cleanly
 
-When User B downloads User A's plan and applies it to User B's own legal copy of the file, no copyrighted bytes ever moved between users. The Family Movie Act (US) protects this exactly: filtering of media you legally possess.
+When User B downloads User A's plan and applies it to User B's own legal copy of the file, no copyrighted bytes ever moved between users. This fits the spirit of allowing families to filter content they possess, though it is not legal advice.
 
 ## Planned design
 

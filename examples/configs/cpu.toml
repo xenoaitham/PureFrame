@@ -1,0 +1,8 @@
+profile = "CPU"
+strict = false
+disable_nude = false
+disable_kiss = false
+disable_audio = true
+nudity_threshold = 0.65
+kissing_threshold = 0.75
+log_level = "INFO"

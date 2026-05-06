@@ -16,7 +16,7 @@
 
 ---
 
-PureFrame is a local AI tool that finds explicit visuals in any video file - nudity, sexual activity, intense kissing - and applies a localized, smoothly-tracked blur over the flagged regions. No scene skipping. No audio cuts. No streaming, no cloud, no subscription. The full movie plays normally; you just don't see the parts you'd rather not.
+PureFrame is a local AI tool that finds explicit visuals in common local video files - nudity, sexual activity, intense kissing - and applies a localized, smoothly-tracked blur over the flagged regions. No scene skipping. No audio cuts. No streaming, no cloud, no subscription. The full movie plays normally; you just don't see the parts you'd rather not.
 
 ## Install
 
@@ -93,11 +93,11 @@ Target numbers for a 90-minute 1080p H.264 movie *(run `scripts/bench.py` for re
 
 | Hardware | Time* (target) | Profile |
 |---|---|---|
-| RTX 4090 | ~12 min* | `HIGH` |
-| RTX 3060 | ~24 min* | `MEDIUM` |
-| GTX 1650 (4GB) | ~55 min* | `LOW` |
-| M2 Pro | ~28 min* | `MEDIUM` |
-| 12-core CPU (no GPU) | ~3 hours* | `CPU` |
+| RTX 4090 | ~45 min* | `HIGH` |
+| RTX 3060 | ~124 min* | `MEDIUM` |
+| GTX 1650 (4GB) | ~250 min* | `LOW` |
+| M2 Pro | ~140 min* | `MEDIUM` |
+| 12-core CPU (no GPU) | ~14 hours* | `CPU` |
 
 Set your profile with `--profile`:
 ```bash
@@ -106,9 +106,9 @@ pureframe process movie.mp4 --output out.mp4 --profile MEDIUM
 
 See [BENCHMARKS.md](BENCHMARKS.md) for full metrics and how to run benchmarks.
 
-## Desktop App
+## Desktop App (Experimental WIP)
 
-PureFrame ships with an optional desktop GUI built on [Tauri](https://tauri.app/). Drag-and-drop videos, visually scrub through flagged shots on a timeline, whitelist with one click.
+PureFrame includes an experimental desktop GUI template built on [Tauri](https://tauri.app/). It is currently a work-in-progress to allow drag-and-drop videos, visual scrubbing, and whitelisting.
 
 ```bash
 cd gui && npm install && npm run tauri dev
@@ -130,13 +130,13 @@ PureFrame is open-source AI software in early stages. Real-world performance dep
 <details>
 <summary><strong>Is this legal?</strong></summary>
 <br />
-In the US, yes. The <a href="https://en.wikipedia.org/wiki/Family_Movie_Act_of_2005">Family Movie Act of 2005</a> explicitly legalized technology that filters objectionable content from movies for private home viewing. PureFrame only processes files you already own, locally, without distributing anything. See <a href="docs/legal.md">docs/legal.md</a> for details.
+Since PureFrame currently generates an output video file, the direct applicability of the Family Movie Act is uncertain and untested. PureFrame is intended for **US-focused, private use only**. It does not bypass DRM and should only be used on files you legally own. **This is not legal advice.** See <a href="docs/legal.md">docs/legal.md</a> for details.
 </details>
 
 <details>
 <summary><strong>Does it work offline?</strong></summary>
 <br />
-Yes. After the first run downloads the AI models (~400MB), PureFrame never makes a network request.
+Yes. After the first run downloads the AI models (~500MB), PureFrame never makes a network request.
 </details>
 
 <details>

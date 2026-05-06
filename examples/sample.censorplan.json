@@ -1,0 +1,29 @@
+{
+  "pureframe_version": "0.1.0-beta",
+  "plan_version": 1,
+  "input_metadata": {
+    "duration_sec": 5400.0,
+    "fps": 24.0,
+    "width": 1920,
+    "height": 1080
+  },
+  "config_snapshot": {
+    "profile": "MEDIUM",
+    "strict": false,
+    "nudity_threshold": 0.6
+  },
+  "file_hash": "a1b2c3d4e5f6...",
+  "shots": [
+    {
+      "start_time": 120.5,
+      "end_time": 125.0,
+      "action": "BLUR",
+      "category": "NUDITY",
+      "confidence": 0.89,
+      "reason": "NudeNet box + CLIP context",
+      "boxes": [
+        {"frame": 2892, "x1": 500, "y1": 400, "x2": 600, "y2": 500}
+      ]
+    }
+  ]
+}

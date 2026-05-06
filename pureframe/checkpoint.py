@@ -1,11 +1,11 @@
 import sqlite3
-import json
 from pathlib import Path
 from pydantic import BaseModel
 from typing import Optional
 
 from pureframe.config import Config
-from pureframe.pipeline.shots import ShotVerdict, Category, Action
+from pureframe.pipeline.shots import ShotVerdict
+
 
 class Job(BaseModel):
     id: int
@@ -20,6 +20,7 @@ class Job(BaseModel):
     error: Optional[str] = None
     config_json: Optional[str] = None
 
+
 class CheckpointStore:
     def __init__(self, db_path: Path):
         self.db_path = db_path
@@ -27,7 +28,7 @@ class CheckpointStore:
         self.conn = sqlite3.connect(str(self.db_path))
         self.conn.row_factory = sqlite3.Row
         self._init_db()
-        
+
     def _init_db(self):
         with self.conn:
             self.conn.executescript("""
@@ -52,72 +53,89 @@ class CheckpointStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_jobs_input ON jobs(input_path, config_hash);
             """)
-            
-    def find_or_create_job(self, input_path: Path, output_path: Path, config: Config) -> Job:
+
+    def find_or_create_job(
+        self, input_path: Path, output_path: Path, config: Config
+    ) -> Job:
         inp_str = str(input_path.absolute())
         out_str = str(output_path.absolute())
         cfg_hash = config.config_hash
-        
+
         with self.conn:
             cursor = self.conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM jobs 
                 WHERE input_path = ? AND config_hash = ?
                 ORDER BY id DESC LIMIT 1
-            """, (inp_str, cfg_hash))
+            """,
+                (inp_str, cfg_hash),
+            )
             row = cursor.fetchone()
-            
+
             if row:
                 return Job(**dict(row))
-                
-            cursor.execute("""
+
+            cursor.execute(
+                """
                 INSERT INTO jobs (input_path, output_path, config_hash, status, config_json)
                 VALUES (?, ?, ?, ?, ?)
-            """, (inp_str, out_str, cfg_hash, "PENDING", config.model_dump_json()))
+            """,
+                (inp_str, out_str, cfg_hash, "PENDING", config.model_dump_json()),
+            )
             job_id = cursor.lastrowid
-            
+
             cursor.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
             return Job(**dict(cursor.fetchone()))
-            
+
     def save_verdict(self, job_id: int, verdict: ShotVerdict) -> None:
         with self.conn:
-            self.conn.execute("""
+            self.conn.execute(
+                """
                 INSERT OR REPLACE INTO shot_verdicts (job_id, shot_index, verdict_json)
                 VALUES (?, ?, ?)
-            """, (job_id, verdict.shot_index, verdict.model_dump_json()))
-            
-            self.conn.execute("""
+            """,
+                (job_id, verdict.shot_index, verdict.model_dump_json()),
+            )
+
+            self.conn.execute(
+                """
                 UPDATE jobs SET completed_shots = completed_shots + 1
                 WHERE id = ?
-            """, (job_id,))
-            
+            """,
+                (job_id,),
+            )
+
     def load_verdicts(self, job_id: int) -> list[ShotVerdict]:
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT verdict_json FROM shot_verdicts
             WHERE job_id = ? ORDER BY shot_index ASC
-        """, (job_id,))
-        
+        """,
+            (job_id,),
+        )
+
         verdicts = []
         for row in cursor:
             verdicts.append(ShotVerdict.model_validate_json(row["verdict_json"]))
         return verdicts
-        
+
     def update_status(self, job_id: int, status: str, **fields) -> None:
         updates = ["status = ?"]
         params = [status]
         for k, v in fields.items():
             updates.append(f"{k} = ?")
             params.append(v)
-            
+
         if status in ("DONE", "FAILED"):
             updates.append("finished_at = CURRENT_TIMESTAMP")
-            
+
         query = f"UPDATE jobs SET {', '.join(updates)} WHERE id = ?"
         params.append(job_id)
-        
+
         with self.conn:
             self.conn.execute(query, params)
-            
+
     def list_unfinished(self) -> list[Job]:
         cursor = self.conn.execute("""
             SELECT * FROM jobs

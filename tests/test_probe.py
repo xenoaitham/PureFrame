@@ -1,5 +1,6 @@
 from pureframe.pipeline.probe import probe_video
 
+
 def test_probe(synthetic_video):
     meta = probe_video(synthetic_video)
     assert meta.width == 1280

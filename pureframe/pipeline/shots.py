@@ -3,12 +3,14 @@ from pathlib import Path
 from scenedetect import open_video, SceneManager, ContentDetector
 from enum import Enum
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional
 from pureframe.pipeline.detect.nudity import Detection
+
 
 class FrameResult(BaseModel):
     frame_idx: int
     detections: List[Detection]
+
 
 class Shot(BaseModel):
     index: int
@@ -17,6 +19,7 @@ class Shot(BaseModel):
     start_time: float
     end_time: float
     frames: Dict[int, FrameResult] = {}
+
 
 class Category(str, Enum):
     NUDITY_EXPLICIT = "NUDITY_EXPLICIT"
@@ -27,10 +30,12 @@ class Category(str, Enum):
     VIOLENCE_GORE = "VIOLENCE_GORE"
     SAFE = "SAFE"
 
+
 class Action(str, Enum):
     BLACK_BOX = "BLACK_BOX"
     FULL_FRAME_BLUR = "FULL_FRAME_BLUR"
     NONE = "NONE"
+
 
 class Box(BaseModel):
     x1: int
@@ -38,6 +43,7 @@ class Box(BaseModel):
     x2: int
     y2: int
     frame_idx: Optional[int] = None
+
 
 class ShotVerdict(BaseModel):
     shot_index: int
@@ -47,29 +53,32 @@ class ShotVerdict(BaseModel):
     boxes: Optional[List[Box]] = None
     reasoning: str
 
+
 def detect_shots(path: Path, threshold: float = 27.0) -> list[Shot]:
     video = open_video(str(path))
     scene_manager = SceneManager()
     scene_manager.add_detector(ContentDetector(threshold=threshold))
     scene_manager.detect_scenes(video)
-    
+
     scene_list = scene_manager.get_scene_list()
-    
+
     shots = []
     for i, scene in enumerate(scene_list):
         start_frame = scene[0].get_frames()
         end_frame = scene[1].get_frames()
         start_time = scene[0].get_seconds()
         end_time = scene[1].get_seconds()
-        
-        shots.append(Shot(
-            index=i,
-            start_frame=start_frame,
-            end_frame=end_frame,
-            start_time=start_time,
-            end_time=end_time
-        ))
-        
+
+        shots.append(
+            Shot(
+                index=i,
+                start_frame=start_frame,
+                end_frame=end_frame,
+                start_time=start_time,
+                end_time=end_time,
+            )
+        )
+
     merged_shots = []
     i = 0
     while i < len(shots):
@@ -81,21 +90,23 @@ def detect_shots(path: Path, threshold: float = 27.0) -> list[Shot]:
             i += 1
         merged_shots.append(current)
         i += 1
-        
+
     for j, s in enumerate(merged_shots):
         s.index = j
-        
+
     if not merged_shots:
         video = open_video(str(path))
         fps = video.frame_rate
         duration = video.duration.get_seconds()
         total_frames = video.duration.get_frames()
-        merged_shots.append(Shot(
-            index=0,
-            start_frame=0,
-            end_frame=total_frames,
-            start_time=0.0,
-            end_time=duration
-        ))
-        
+        merged_shots.append(
+            Shot(
+                index=0,
+                start_frame=0,
+                end_frame=total_frames,
+                start_time=0.0,
+                end_time=duration,
+            )
+        )
+
     return merged_shots

@@ -1,0 +1,8 @@
+profile = "HIGH"
+strict = true
+disable_nude = false
+disable_kiss = false
+disable_audio = false
+nudity_threshold = 0.4
+kissing_threshold = 0.5
+log_level = "DEBUG"

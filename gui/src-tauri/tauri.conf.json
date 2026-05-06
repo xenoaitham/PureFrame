@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "gui",
-  "version": "0.1.0",
-  "identifier": "com.potato.gui",
+  "productName": "PureFrame",
+  "version": "0.1.0-beta",
+  "identifier": "com.pureframe.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,8 +12,8 @@
   "app": {
     "windows": [
       {
-        "title": "gui",
-        "width": 800,
+        "title": "PureFrame",
+        "width": 1024,
         "height": 600
       }
     ],

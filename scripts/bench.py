@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-import os
 import platform
-from pathlib import Path
+
 
 def generate_benchmarks():
     try:
         import torch
+
         has_cuda = torch.cuda.is_available()
         if has_cuda:
             gpu_name = torch.cuda.get_device_name(0)
@@ -62,6 +62,6 @@ def generate_benchmarks():
 
     print("Generated BENCHMARKS.md")
 
+
 if __name__ == "__main__":
     generate_benchmarks()
-

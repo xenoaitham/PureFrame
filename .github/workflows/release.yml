@@ -69,4 +69,4 @@ jobs:
         releaseBody: 'Release ${{ github.ref_name }}'
         releaseDraft: true
         prerelease: false
-        args: ${{ matrix.os == 'macos-latest' && '--target ${{ matrix.target }}' || '' }}
+        args: ${{ matrix.os == 'macos-latest' && format('--target {0}', matrix.target) || '' }}

@@ -1,0 +1,51 @@
+name: Bug Report
+description: Create a report to help us improve
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Also tell us what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command executed
+      description: What exact CLI command did you run?
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Error Traceback / Logs
+      description: Paste any error messages, logs, or tracebacks here.
+      render: log
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: e.g. Windows 11, Ubuntu 22.04, macOS Sonoma
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python Version
+      description: Run `python --version`
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU / Hardware
+      description: e.g. RTX 3060, M2 Max, CPU only
+    validations:
+      required: true

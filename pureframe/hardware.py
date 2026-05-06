@@ -4,25 +4,29 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class HardwareProfile(str, Enum):
     HIGH = "HIGH"
     MEDIUM = "MEDIUM"
     LOW = "LOW"
     CPU = "CPU"
 
+
 class ProfileSettings(BaseModel):
     profile: HardwareProfile
-    detection_resolution: int          # max edge in px, downscale before detection
+    detection_resolution: int  # max edge in px, downscale before detection
     detection_batch_size: int
     use_fp16: bool
-    keep_models_loaded: bool           # if False, unload model between stages
+    keep_models_loaded: bool  # if False, unload model between stages
     sample_keyframes_per_shot: int
-    densify_every_n_frames: int        # 1 = every frame, 3 = every 3rd
-    onnx_providers: list[str]          # e.g. ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    densify_every_n_frames: int  # 1 = every frame, 3 = every 3rd
+    onnx_providers: list[str]  # e.g. ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
 
 def detect_profile() -> HardwareProfile:
     try:
         import torch
+
         if not torch.cuda.is_available():
             return HardwareProfile.CPU
         # Get free VRAM in GB
@@ -39,8 +43,11 @@ def detect_profile() -> HardwareProfile:
         logger.warning("Torch not found, falling back to CPU profile.")
         return HardwareProfile.CPU
     except Exception as e:
-        logger.warning(f"Error detecting hardware profile: {e}, falling back to CPU profile.")
+        logger.warning(
+            f"Error detecting hardware profile: {e}, falling back to CPU profile."
+        )
         return HardwareProfile.CPU
+
 
 def get_settings(profile: HardwareProfile) -> ProfileSettings:
     if profile == HardwareProfile.HIGH:
@@ -52,7 +59,7 @@ def get_settings(profile: HardwareProfile) -> ProfileSettings:
             keep_models_loaded=True,
             sample_keyframes_per_shot=5,
             densify_every_n_frames=1,
-            onnx_providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
+            onnx_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
         )
     elif profile == HardwareProfile.MEDIUM:
         return ProfileSettings(
@@ -63,7 +70,7 @@ def get_settings(profile: HardwareProfile) -> ProfileSettings:
             keep_models_loaded=True,
             sample_keyframes_per_shot=3,
             densify_every_n_frames=2,
-            onnx_providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
+            onnx_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
         )
     elif profile == HardwareProfile.LOW:
         return ProfileSettings(
@@ -74,9 +81,9 @@ def get_settings(profile: HardwareProfile) -> ProfileSettings:
             keep_models_loaded=False,
             sample_keyframes_per_shot=3,
             densify_every_n_frames=3,
-            onnx_providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
+            onnx_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
         )
-    else: # CPU
+    else:  # CPU
         return ProfileSettings(
             profile=profile,
             detection_resolution=480,
@@ -85,5 +92,5 @@ def get_settings(profile: HardwareProfile) -> ProfileSettings:
             keep_models_loaded=False,
             sample_keyframes_per_shot=2,
             densify_every_n_frames=5,
-            onnx_providers=["CPUExecutionProvider"]
+            onnx_providers=["CPUExecutionProvider"],
         )
