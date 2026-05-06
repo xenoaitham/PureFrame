@@ -5,13 +5,13 @@ build-backend = "hatchling.build"
 [project]
 name = "pureframe"
 version = "0.1.0"
-description = "Watch movies and TV episodes with localized explicit visual censorship."
+description = "Local AI tool that applies localized smart-blur over explicit visuals in movies and TV files. No scene cutting, no audio changes."
 readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "PureFrame Contributors"}]
-keywords = ["video", "censorship", "family", "filter", "yolo", "ai", "privacy"]
+keywords = ["video", "family", "filter", "blur", "yolo", "ai", "privacy", "nsfw"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",
@@ -51,9 +51,9 @@ dev = [
 pureframe = "pureframe.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/PureFrame/pureframe"
-Documentation = "https://github.com/PureFrame/pureframe/tree/main/docs"
-Issues = "https://github.com/PureFrame/pureframe/issues"
+Homepage = "https://github.com/xenoaitham/PureFrame"
+Documentation = "https://github.com/xenoaitham/PureFrame/tree/main/docs"
+Issues = "https://github.com/xenoaitham/PureFrame/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pureframe"]

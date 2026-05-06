@@ -2,10 +2,12 @@
   <img src="assets/logo.svg" alt="PureFrame" width="180" />
   <h1>PureFrame</h1>
   <p><strong>Watch any movie with your family. Without cutting a single second.</strong></p>
+  <p>PureFrame applies smart, localized blurs over explicit visuals - no cuts, no audio edits, no streaming, no subscription.</p>
 
   <a href="#install"><img src="https://img.shields.io/pypi/v/pureframe?color=%2334D058&label=PyPI" alt="PyPI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
   <a href="https://github.com/xenoaitham/PureFrame/actions"><img src="https://img.shields.io/github/actions/workflow/status/xenoaitham/PureFrame/ci.yml?label=CI" alt="CI" /></a>
+  <img src="https://img.shields.io/badge/status-v0.1.0--beta-orange" alt="Status: v0.1.0-beta" />
 
   <br /><br />
   <img src="assets/demo.gif" alt="PureFrame in action" width="640" />
@@ -28,7 +30,7 @@ pip install pureframe
 ## Quick Start
 
 ```bash
-# One-shot: detect and censor in a single pass
+# One-shot: detect and blur in a single pass
 pureframe run movie.mp4 -o movie_clean.mp4
 
 # Or split it: generate a plan, review it, then apply
@@ -46,7 +48,7 @@ The plan file is plain JSON - open it, review every flagged shot, whitelist anyt
 
 **Works on any file.** VidAngel and ClearPlay only support a curated list of popular titles. PureFrame uses computer vision - it works on any MP4, MKV, AVI, or WebM you throw at it. Foreign films, indie movies, decades-old DVDs, whatever.
 
-**Audio-aware detection.** A zero-shot audio classifier runs alongside the visual pipeline to distinguish between ambiguous scenes. It knows the difference between a gym and a bedroom.
+**Audio-aware detection.** A zero-shot audio classifier runs alongside the visual pipeline, providing ambient context that helps disambiguate scenes where visual signals alone are insufficient.
 
 **Review before rendering.** The `plan` command generates a JSON file with every detection, bounding box, confidence score, and reasoning. You can inspect it, whitelist false positives, or adjust thresholds before committing to the render.
 
@@ -60,7 +62,7 @@ graph LR
     C --> E[Audio Context Classifier]
     D --> F[Confidence Fusion]
     E --> F
-    F --> G[Censor Plan JSON]
+    F --> G[Filter Plan JSON]
     G --> H[Optional: Review & Edit]
     H --> I[Frame Renderer + FFmpeg]
     I --> J[Clean Output Video]
@@ -70,7 +72,7 @@ graph LR
 2. **YOLOv8** analyzes sampled frames for nudity, sexual content, and face proximity (kissing detection).
 3. **Audio classification** provides ambient context to reduce false positives.
 4. A **confidence fusion engine** combines visual + audio signals with configurable thresholds.
-5. Results are written to a **censor plan** (JSON) - fully editable.
+5. Results are written to a **filter plan** (`.censorplan.json`) - fully editable before rendering.
 6. The **renderer** reads the plan, applies tracked bounding-box blurs frame-by-frame, and re-encodes with FFmpeg.
 
 ## Comparison
@@ -85,22 +87,22 @@ graph LR
 
 ## Performance
 
-Tested on a 90-minute 1080p H.264 movie:
+Target numbers for a 90-minute 1080p H.264 movie *(run `scripts/bench.py` for real measurements on your hardware)*:
 
-| Hardware | Time | Profile |
+| Hardware | Time* (target) | Profile |
 |---|---|---|
-| RTX 4090 | ~12 min | `HIGH` |
-| RTX 3060 | ~24 min | `MEDIUM` |
-| GTX 1650 (4GB) | ~55 min | `LOW` |
-| M2 Pro | ~28 min | `MEDIUM` |
-| 12-core CPU (no GPU) | ~3 hours | `CPU` |
+| RTX 4090 | ~12 min* | `HIGH` |
+| RTX 3060 | ~24 min* | `MEDIUM` |
+| GTX 1650 (4GB) | ~55 min* | `LOW` |
+| M2 Pro | ~28 min* | `MEDIUM` |
+| 12-core CPU (no GPU) | ~3 hours* | `CPU` |
 
 Set your profile with `--profile`:
 ```bash
 pureframe run movie.mp4 -o out.mp4 --profile MEDIUM
 ```
 
-See [BENCHMARKS.md](BENCHMARKS.md) for full metrics.
+See [BENCHMARKS.md](BENCHMARKS.md) for full metrics and how to run benchmarks.
 
 ## Desktop App
 
@@ -109,6 +111,13 @@ PureFrame ships with an optional desktop GUI built on [Tauri](https://tauri.app/
 ```bash
 cd gui && npm install && npm run tauri dev
 ```
+
+## Known Limitations
+
+- **False positives are likely on first runs.** The default thresholds are conservative. Use `pureframe plan` to review detections and whitelist false flags before rendering.
+- **Animation and cartoon content** may need different confidence thresholds than live-action footage. Tune via `--threshold` or edit the plan JSON directly.
+- **First run downloads ~400MB** of AI models (YOLOv8, NudeNet, CLIP, PANNs). Subsequent runs are fully offline.
+- **Hardware encoding (NVENC / QSV / VideoToolbox)** is on the roadmap but not yet implemented. All rendering currently goes through software FFmpeg encoding.
 
 ## FAQ
 
@@ -131,7 +140,7 @@ No. PureFrame never cuts audio, skips frames, or alters the timeline. It applies
 </details>
 
 <details>
-<summary><strong>Can I review what gets censored before applying?</strong></summary>
+<summary><strong>Can I review what gets filtered before applying?</strong></summary>
 <br />
 Yes. Run <code>pureframe plan</code> to generate a <code>.censorplan.json</code> file. Open it in the desktop GUI or any text editor. Every flagged shot includes the category, confidence, reasoning, and frame-level bounding boxes. Whitelist anything you disagree with, then run <code>pureframe apply</code>.
 </details>
@@ -147,11 +156,22 @@ No. PureFrame only processes local, unencrypted video files. It will not attempt
 - [x] CLI pipeline with YOLOv8 detection and tracked blurring
 - [x] Audio-aware confidence fusion
 - [x] Batch folder processing with crash recovery
-- [x] Editable censor plan (detect → review → render)
+- [x] Editable filter plan (detect → review → render)
 - [x] Tauri desktop GUI with visual timeline editor
 - [ ] Plex plugin for in-library filtering
 - [ ] Hardware encoding (NVENC / QSV / VideoToolbox)
 - [ ] Whisper-based subtitle profanity bleeping
+
+## Acknowledgments
+
+PureFrame is built on the shoulders of excellent open-source projects:
+
+- [NudeNet](https://github.com/notAI-tech/NudeNet) - nudity detection model
+- [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) - adaptive scene/shot boundary detection
+- [FFmpeg](https://ffmpeg.org/) - video decoding, encoding, and muxing
+- [CLIP](https://huggingface.co/openai/clip-vit-base-patch32) (HuggingFace) - zero-shot scene classification
+- [PANNs](https://github.com/qiuqiangkong/panns_inference) - pre-trained audio neural networks for audio context
+- [Tauri](https://tauri.app/) - lightweight cross-platform desktop app framework
 
 ## Contributing
 
