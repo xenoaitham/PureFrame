@@ -1,6 +1,7 @@
 import platformdirs
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
 import rich
 from rich.live import Live
 from rich.table import Table
@@ -9,6 +10,16 @@ from pydantic import BaseModel
 
 from pureframe.config import Config
 from pureframe.hardware import get_settings
+
+
+def _batch_worker(cfg: Config):
+    """Module-level worker so ProcessPoolExecutor can pickle it."""
+    from pureframe.cli import process_file
+    try:
+        process_file(cfg)
+        return cfg.input_path.name, "DONE", None
+    except Exception as e:
+        return cfg.input_path.name, "FAILED", str(e)
 
 class BatchReport(BaseModel):
     processed: int = 0
@@ -42,6 +53,10 @@ def process_folder(
             
     report = BatchReport()
     
+    # Resolve profile once here - don't pass None into subprocesses
+    from pureframe.hardware import detect_profile
+    resolved_profile = base_config.profile or detect_profile()
+
     jobs_to_run = []
     
     for v in videos:
@@ -51,7 +66,7 @@ def process_folder(
         cfg = Config(
             input_path=v,
             output_path=out_path,
-            profile=base_config.profile,
+            profile=resolved_profile,
             nudity_threshold=base_config.nudity_threshold,
             box_padding_pct=base_config.box_padding_pct,
             box_color=base_config.box_color,
@@ -88,24 +103,19 @@ def process_folder(
             t.add_row(k, v)
         return t
 
-    # Helper function for the worker pool
-    def worker(cfg: Config):
-        try:
-            process_file(cfg)
-            return cfg.input_path.name, "DONE", None
-        except Exception as e:
-            return cfg.input_path.name, "FAILED", str(e)
 
+    # Use 'spawn' start method - CUDA cannot be re-initialized in forked subprocesses
+    mp_ctx = multiprocessing.get_context("spawn")
     with Live(render_table(), refresh_per_second=2) as live:
-        with ProcessPoolExecutor(max_workers=parallel) as executor:
-            futures = {executor.submit(worker, cfg): cfg for cfg in jobs_to_run}
+        with ProcessPoolExecutor(max_workers=parallel, mp_context=mp_ctx) as executor:
+            futures = {executor.submit(_batch_worker, cfg): cfg for cfg in jobs_to_run}
             for k in status_map:
                 status_map[k] = "PROCESSING"
             live.update(render_table())
             
             for future in as_completed(futures):
                 name, st, err = future.result()
-                status_map[name] = st
+                status_map[name] = st if not err else f"FAILED: {err[:60]}"
                 if st == "DONE":
                     report.processed += 1
                 else:
