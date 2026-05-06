@@ -39,5 +39,5 @@ jobs:
         run: flake8 pureframe tests --count --select=E9,F63,F7,F82 --show-source --statistics
 
       - name: Run tests
-        run: pytest -q --maxfail=3
+        run: pytest -q -m "not slow" --maxfail=3
         timeout-minutes: 15

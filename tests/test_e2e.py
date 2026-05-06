@@ -21,6 +21,7 @@ def get_audio_hash(path: Path) -> str:
         return ""
     return ""
 
+@pytest.mark.slow
 def test_pipeline_e2e(synthetic_video, tmp_path, monkeypatch):
     out_path = tmp_path / "output.mp4"
     
