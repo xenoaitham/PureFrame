@@ -5,11 +5,11 @@ build-backend = "hatchling.build"
 [project]
 name = "pureframe"
 version = "0.1.0"
-description = "Local AI tool that applies localized smart-blur over explicit visuals in movies and TV files. No scene cutting, no audio changes."
+description = "Local AI tool that applies smooth, localized blur over explicit visuals in movies and TV files. No scene cutting, no audio changes."
 readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "PureFrame Contributors"}]
-keywords = ["video", "family", "filter", "blur", "yolo", "ai", "privacy", "nsfw"]
+keywords = ["video", "filter", "family-friendly", "computer-vision", "censoring", "smart-blur", "ai", "privacy", "offline"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: End Users/Desktop",
@@ -43,6 +43,7 @@ dev = [
     "pytest",
     "ruff",
     "black",
+    "flake8",
     "mypy",
     "build",
 ]
