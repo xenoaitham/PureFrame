@@ -101,7 +101,7 @@ See [Evaluation Report](docs/evaluation.md) for threshold calibration guide.
 ## How It Works
 
 ```mermaid
-graph LR
+flowchart TD
     A[Input Video] --> B[Scene Detection]
     A --> C[Audio Extraction]
     B --> D[NudeNet Frame Analysis]
