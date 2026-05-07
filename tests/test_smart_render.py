@@ -1,9 +1,8 @@
 """Tests for smart segment rendering."""
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock
 
-import numpy as np
 import pytest
 
 from pureframe.pipeline.render.smart import (
@@ -347,7 +346,7 @@ class TestSmartRendering:
     def test_zero_duration_defaults_ratio(self, config, profile_settings):
         """If total_frames=0, dirty_ratio defaults to 1.0 → fallback."""
         actions = {0: {"action": "blur"}}
-        with patch("pureframe.pipeline.render.apply.apply_censoring") as mock_full:
+        with patch("pureframe.pipeline.render.apply.apply_censoring"):
             apply_censoring_smart(
                 config.input_path,
                 config.output_path,
