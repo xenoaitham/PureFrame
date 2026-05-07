@@ -21,7 +21,13 @@ PureFrame is a local AI tool that finds explicit visuals in common local video f
 ## Install
 
 ```bash
+# From PyPI (once published)
 pip install pureframe
+
+# From source (development)
+git clone https://github.com/xenoaitham/PureFrame.git
+cd PureFrame
+pip install -e ".[dev]"
 ```
 
 > **Requirements:** Python 3.11+, FFmpeg installed and on PATH. GPU recommended but not required.
@@ -46,7 +52,7 @@ The plan file is plain JSON - open it, review every flagged shot, whitelist anyt
 
 **No scene skipping.** Most "family-friendly" tools just fast-forward through flagged scenes. You lose dialog, plot, pacing. PureFrame applies a localized Gaussian blur tracked to bounding boxes - the scene plays normally, you just can't see what's behind the blur.
 
-**No cloud, no subscription.** Everything runs on your machine. Your videos never leave your disk. Once the AI models download on first run (~400MB), PureFrame works fully offline.
+**No cloud, no subscription.** Everything runs on your machine. Your videos never leave your disk. Once the AI models download on first run (~400-500MB), PureFrame works fully offline.
 
 **Works on common local video files.** VidAngel and ClearPlay only support a curated list of popular titles. PureFrame uses computer vision - it works on any MP4, MKV, AVI, or WebM you throw at it. Foreign films, indie movies, decades-old DVDs, whatever.
 
@@ -107,11 +113,9 @@ pureframe process movie.mp4 --output out.mp4 --profile MEDIUM
 
 See [BENCHMARKS.md](BENCHMARKS.md) for full metrics and how to run benchmarks.
 
-## Desktop App
+## Desktop App (Experimental)
 
-PureFrame includes a Tauri desktop GUI with drag-and-drop video import, flagged-shot review, and one-click whitelisting.
-
-![PureFrame GUI screenshot](assets/gui-screenshot.png)
+PureFrame includes an experimental Tauri desktop GUI. Current status: **work-in-progress**. The GUI shell is functional but features like timeline scrubbing and visual whitelisting are still being built.
 
 ```bash
 cd gui && npm install && npm run tauri dev
@@ -121,7 +125,7 @@ cd gui && npm install && npm run tauri dev
 
 PureFrame is open-source AI software in early stages. Real-world performance depends on the content:
 
-- **First run downloads ~500MB of AI model weights.** Subsequent runs are fully offline.
+- **First run downloads ~400-500MB of AI model weights.** Subsequent runs are fully offline.
 - **False positives are real.** Especially on swimwear, intimate-but-non-sexual content, and stylized animation. Always run `pureframe plan` first and review the JSON before committing to a render. Use `pureframe plan-whitelist` to remove false positives.
 - **Animation needs different thresholds** than live action. A `--content-type` flag is planned for v0.2.
 - **Detection is not perfect.** Some explicit content will slip through. PureFrame is a tool to make most content family-safe - it is not a replacement for parental judgment.
@@ -139,7 +143,7 @@ PureFrame is intended for private, local use on media files you legally possess.
 <details>
 <summary><strong>Does it work offline?</strong></summary>
 <br />
-Yes. After the first run downloads the AI models (~500MB), PureFrame never makes a network request.
+Yes. After the first run downloads the AI models (~400-500MB), PureFrame never makes a network request.
 </details>
 
 <details>

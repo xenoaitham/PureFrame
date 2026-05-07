@@ -25,13 +25,13 @@ cd gui && npm install
 ## Pull Requests
 
 1. Run `pytest` locally before pushing.
-2. Run `flake8 pureframe tests` for linting.
+2. Run `ruff check pureframe tests` for linting.
 3. If your change touches the CLI interface or plan schema, update the docs.
 4. Keep PRs focused - one feature or fix per PR.
 
 ## Code Style
 
-- Python: follow PEP 8. We use `black` for formatting.
+- Python: follow PEP 8. We use `ruff` for linting and formatting.
 - Rust (GUI): standard `cargo fmt`.
 - TypeScript (GUI): Vite defaults.
 
