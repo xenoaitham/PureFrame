@@ -25,7 +25,9 @@ def test_plan_and_apply_commands(tmp_path: Path, synthetic_video: Path):
         ],
     )
 
-    assert result.exit_code == 0, f"STDOUT:\n{result.stdout}\nEXCEPTION:\n{result.exception}"
+    assert result.exit_code == 0, (
+        f"STDOUT:\n{result.stdout}\nEXCEPTION:\n{result.exception}"
+    )
     assert plan_json.exists()
 
     # 2. Check plan contents
@@ -49,7 +51,9 @@ def test_plan_and_apply_commands(tmp_path: Path, synthetic_video: Path):
         ["apply", str(synthetic_video), str(plan_json), "--output", str(output_video)],
     )
 
-    assert result_apply.exit_code == 0, f"STDOUT:\n{result_apply.stdout}\nEXCEPTION:\n{result_apply.exception}"
+    assert result_apply.exit_code == 0, (
+        f"STDOUT:\n{result_apply.stdout}\nEXCEPTION:\n{result_apply.exception}"
+    )
     assert output_video.exists()
     assert output_video.stat().st_size > 0
 
