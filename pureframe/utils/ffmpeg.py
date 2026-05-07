@@ -196,12 +196,9 @@ def write_video_with_overlay(
 
     logger.info(f"Writing temp video to {temp_video}")
 
-    # 1. decode frames with -vsync 0 (which is -fps_mode passthrough in newer ffmpeg)
-    # ffmpeg-python doesn't explicitly have -vsync 0 easily accessible on input, but we can pass it as kwargs
-    in_kwargs = {"vsync": 0}
-
+    # 1. decode frames to raw BGR24
     process_in = (
-        ffmpeg.input(str(input_path), **in_kwargs)
+        ffmpeg.input(str(input_path))
         .output("pipe:", format="rawvideo", pix_fmt="bgr24")
         .run_async(pipe_stdout=True, pipe_stderr=True)
     )
@@ -213,9 +210,8 @@ def write_video_with_overlay(
         "pix_fmt": "yuv420p",  # safe default
     }
 
-    # Copy color space if any
-    if meta.color_space != "unknown":
-        out_kwargs["colorspace"] = meta.color_space
+    # Colorspace is not passed through to avoid encoder compat issues;
+    # ffmpeg will autodetect from input.
 
     # Ensure even dimensions (ffmpeg encoders require this for yuv420p)
     enc_width = meta.width - (meta.width % 2)
@@ -259,9 +255,10 @@ def write_video_with_overlay(
                 process_out.stdin.write(frame.tobytes())
             except BrokenPipeError:
                 stderr_out = process_out.stderr.read().decode(errors="replace")
+                # Show the tail of stderr (after the version banner)
                 raise PureFrameError(
                     f"FFmpeg encoder crashed after {frame_idx} frames. "
-                    f"stderr: {stderr_out[:2000]}"
+                    f"stderr (tail): {stderr_out[-3000:]}"
                 )
             frame_idx += 1
             if frame_idx % 1000 == 0:
