@@ -1,0 +1,112 @@
+{
+  "pureframe_version": "0.1.0b4",
+  "plan_version": 1,
+  "input_metadata": {
+    "width": 1280,
+    "height": 720,
+    "fps": "24",
+    "duration_seconds": 15.0,
+    "total_frames": 360,
+    "has_audio": true,
+    "audio_streams": [
+      {
+        "index": 1,
+        "codec_name": "aac",
+        "codec_long_name": "AAC (Advanced Audio Coding)",
+        "profile": "LC",
+        "codec_type": "audio",
+        "codec_tag_string": "mp4a",
+        "codec_tag": "0x6134706d",
+        "sample_fmt": "fltp",
+        "sample_rate": "44100",
+        "channels": 1,
+        "channel_layout": "mono",
+        "bits_per_sample": 0,
+        "initial_padding": 0,
+        "id": "0x2",
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/44100",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 661500,
+        "duration": "15.000000",
+        "bit_rate": "69142",
+        "nb_frames": "647",
+        "extradata_size": 5,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "SoundHandler",
+          "vendor_id": "[0][0][0][0]"
+        }
+      }
+    ],
+    "subtitle_streams": [],
+    "container": "mov,mp4,m4a,3gp,3g2,mj2",
+    "video_codec": "h264",
+    "pixel_format": "yuv420p",
+    "color_space": "unknown",
+    "is_hdr": false
+  },
+  "config_snapshot": {
+    "input_path": "tests/fixtures/synthetic_explicit.mp4",
+    "output_path": "tests/fixtures/synthetic_explicit.pureframe.mp4",
+    "profile": "MEDIUM",
+    "nudity_threshold": 0.55,
+    "box_padding_pct": 0.12,
+    "box_color": [
+      0,
+      0,
+      0
+    ],
+    "output_codec": "h264",
+    "output_crf": 20,
+    "log_level": "INFO",
+    "strict": false,
+    "no_clip": false,
+    "no_audio": false
+  },
+  "shots": [
+    {
+      "index": 0,
+      "start_frame": 0,
+      "end_frame": 360,
+      "start_time": 0.0,
+      "end_time": 15.0,
+      "frames": {}
+    }
+  ],
+  "verdicts": [
+    {
+      "shot_index": 0,
+      "category": "SAFE",
+      "action": "NONE",
+      "confidence": 0.37890625,
+      "boxes": null,
+      "reasoning": "Safe scene (score: 0.38)"
+    }
+  ],
+  "total_censored_frames": 0,
+  "total_blur_frames": 0,
+  "generated_at": "2026-05-07T11:51:05.142554Z"
+}
