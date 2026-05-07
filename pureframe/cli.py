@@ -437,7 +437,14 @@ def apply_cmd(
 
     console.print("[bold blue]PureFrame Apply[/bold blue]")
     console.print(f"Applying plan: {plan_path.name}")
-    execute_render(plan, config)
+    try:
+        execute_render(plan, config)
+    except Exception as e:
+        import traceback
+
+        console.print(f"[red]APPLY ERROR:[/red] {e}")
+        console.print(traceback.format_exc())
+        raise
 
 
 @app.command("plan-edit")
