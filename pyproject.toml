@@ -58,3 +58,4 @@ Source = "https://github.com/xenoaitham/PureFrame"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pureframe"]
+

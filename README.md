@@ -166,3 +166,4 @@ See [CONTRIBUTING.md](docs/CONTRIBUTING.md). PRs welcome.
 ## License
 
 [MIT](LICENSE)
+
