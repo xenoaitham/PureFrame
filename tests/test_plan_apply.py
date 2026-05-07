@@ -23,6 +23,7 @@ def test_plan_and_apply_commands(tmp_path: Path, synthetic_video: Path):
             "--no-clip",
             "--no-audio",
         ],
+        catch_exceptions=False,
     )
 
     assert result.exit_code == 0, (
@@ -49,6 +50,7 @@ def test_plan_and_apply_commands(tmp_path: Path, synthetic_video: Path):
     result_apply = runner.invoke(
         app,
         ["apply", str(synthetic_video), str(plan_json), "--output", str(output_video)],
+        catch_exceptions=False,
     )
 
     assert result_apply.exit_code == 0, (
