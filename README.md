@@ -21,8 +21,8 @@ PureFrame is a local AI tool that finds explicit visuals in common local video f
 ## Install
 
 ```bash
-# From PyPI (once published)
-pip install git+https://github.com/xenoaitham/PureFrame.git
+# From PyPI
+pip install pureframe
 
 # From source (development)
 git clone https://github.com/xenoaitham/PureFrame.git
