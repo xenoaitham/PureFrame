@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::process::{Command, Child, Stdio};
 use std::sync::Mutex;
-use std::path::Path;
 use serde::{Deserialize, Serialize};
 use base64::{engine::general_purpose, Engine as _};
 use tauri::State;

@@ -1,0 +1,118 @@
+{
+  "pureframe_version": "0.1.0b4",
+  "plan_version": 1,
+  "input_metadata": {
+    "filename": "example_movie.mp4",
+    "duration_seconds": 120.0,
+    "fps": 24.0,
+    "width": 1920,
+    "height": 1080,
+    "total_frames": 2880,
+    "codec": "h264",
+    "audio_codec": "aac"
+  },
+  "config_snapshot": {
+    "input_path": "example_movie.mp4",
+    "output_path": "example_movie.pureframe.mp4",
+    "profile": "CPU",
+    "nudity_threshold": 0.55,
+    "box_padding_pct": 0.12,
+    "box_color": [0, 0, 0],
+    "output_codec": "h264",
+    "output_crf": 20,
+    "strict": false,
+    "no_clip": false,
+    "no_audio": false
+  },
+  "shots": [
+    {
+      "index": 0,
+      "start_frame": 0,
+      "end_frame": 480,
+      "start_time": 0.0,
+      "end_time": 20.0
+    },
+    {
+      "index": 1,
+      "start_frame": 480,
+      "end_frame": 960,
+      "start_time": 20.0,
+      "end_time": 40.0
+    },
+    {
+      "index": 2,
+      "start_frame": 960,
+      "end_frame": 1440,
+      "start_time": 40.0,
+      "end_time": 60.0
+    },
+    {
+      "index": 3,
+      "start_frame": 1440,
+      "end_frame": 1920,
+      "start_time": 60.0,
+      "end_time": 80.0
+    },
+    {
+      "index": 4,
+      "start_frame": 1920,
+      "end_frame": 2400,
+      "start_time": 80.0,
+      "end_time": 100.0
+    },
+    {
+      "index": 5,
+      "start_frame": 2400,
+      "end_frame": 2880,
+      "start_time": 100.0,
+      "end_time": 120.0
+    }
+  ],
+  "verdicts": [
+    {
+      "shot_index": 0,
+      "action": "NONE",
+      "category": "NONE",
+      "confidence": 0.0,
+      "reasoning": "No explicit content detected."
+    },
+    {
+      "shot_index": 1,
+      "action": "BLACK_BOX",
+      "category": "NUDITY",
+      "confidence": 0.87,
+      "reasoning": "FEMALE_BREAST_EXPOSED detected with score 0.87"
+    },
+    {
+      "shot_index": 2,
+      "action": "NONE",
+      "category": "NONE",
+      "confidence": 0.0,
+      "reasoning": "No explicit content detected."
+    },
+    {
+      "shot_index": 3,
+      "action": "FULL_FRAME_BLUR",
+      "category": "SEXUAL_ACTIVITY",
+      "confidence": 0.72,
+      "reasoning": "CLIP scene classification: sexual_activity (0.72)"
+    },
+    {
+      "shot_index": 4,
+      "action": "NONE",
+      "category": "AUDIO_MOAN",
+      "confidence": 0.45,
+      "reasoning": "Audio moaning detected but below threshold (0.45 < 0.55)"
+    },
+    {
+      "shot_index": 5,
+      "action": "NONE",
+      "category": "NONE",
+      "confidence": 0.0,
+      "reasoning": "No explicit content detected."
+    }
+  ],
+  "total_censored_frames": 480,
+  "total_blur_frames": 480,
+  "generated_at": "2026-05-07T12:00:00Z"
+}

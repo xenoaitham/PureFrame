@@ -5,6 +5,26 @@ from pureframe.pipeline.detect.scene_clip import ShotContext
 from pureframe.pipeline.detect.audio import AudioContext
 
 
+# Primary explicit nudity labels - always flagged
+NUDITY_EXPLICIT_LABELS = {
+    "FEMALE_GENITALIA_EXPOSED",
+    "MALE_GENITALIA_EXPOSED",
+    "FEMALE_BREAST_EXPOSED",
+    "BUTTOCKS_EXPOSED",
+    "ANUS_EXPOSED",
+}
+
+# Partial nudity labels - flagged at higher strictness
+NUDITY_PARTIAL_LABELS = {
+    "FEMALE_BREAST_COVERED",
+    "BELLY_EXPOSED",
+    "ARMPITS_EXPOSED",
+}
+
+# All nudity-related labels
+ALL_NUDITY_LABELS = NUDITY_EXPLICIT_LABELS | NUDITY_PARTIAL_LABELS
+
+
 def fuse(
     shot: Shot,
     nudity_detections: list[list[Detection]],
@@ -13,28 +33,28 @@ def fuse(
     config: Config,
     strict_mode: bool = False,
 ) -> ShotVerdict:
+    # Use effective thresholds from config (includes content-type and strictness adjustments)
+    eff_nudity, eff_clip, eff_audio = config.get_effective_thresholds()
+
+    # Legacy strict_mode applies an additional 0.85 multiplier for backward compat
     t_mod = 0.85 if strict_mode else 1.0
 
-    # 1. Nudity
+    nudity_thresh = eff_nudity * t_mod
+
+    # 1. Explicit Nudity
     max_nudity_score = 0.0
     has_any_nudity = False
-
-    NUDITY_LABELS = {
-        "FEMALE_GENITALIA_EXPOSED",
-        "MALE_GENITALIA_EXPOSED",
-        "FEMALE_BREAST_EXPOSED",
-        "BUTTOCKS_EXPOSED",
-        "ANUS_EXPOSED",
-    }
+    max_partial_score = 0.0
 
     for dets in nudity_detections:
         for d in dets:
-            if d.label in NUDITY_LABELS:
+            if d.label in NUDITY_EXPLICIT_LABELS:
                 has_any_nudity = True
                 if d.score > max_nudity_score:
                     max_nudity_score = d.score
-
-    nudity_thresh = config.nudity_threshold * t_mod
+            elif d.label in NUDITY_PARTIAL_LABELS:
+                if d.score > max_partial_score:
+                    max_partial_score = d.score
 
     if max_nudity_score >= nudity_thresh:
         return ShotVerdict(
@@ -43,13 +63,14 @@ def fuse(
             action=Action.BLACK_BOX,
             confidence=max_nudity_score,
             boxes=None,
-            reasoning=f"Explicit nudity detected (score: {max_nudity_score:.2f})",
+            reasoning=f"Explicit nudity detected (score: {max_nudity_score:.2f}, threshold: {nudity_thresh:.2f})",
         )
 
-    # 2. SEXUAL_ACT_VISIBLE
-    if scene_ctx.explicit_act_score >= (
-        0.40 * t_mod
-    ) and audio_ctx.sexual_audio_score >= (0.30 * t_mod):
+    # 2. SEXUAL_ACT_VISIBLE - requires both visual and audio signals
+    explicit_act_thresh = 0.40 * t_mod * (eff_clip / 0.50)  # Scale by effective clip threshold
+    sexual_audio_thresh = 0.30 * t_mod * (eff_audio / 0.60)
+
+    if scene_ctx.explicit_act_score >= explicit_act_thresh and audio_ctx.sexual_audio_score >= sexual_audio_thresh:
         action = Action.BLACK_BOX if has_any_nudity else Action.FULL_FRAME_BLUR
         return ShotVerdict(
             shot_index=shot.index,
@@ -60,10 +81,13 @@ def fuse(
             reasoning=f"Explicit sexual act: scene={scene_ctx.explicit_act_score:.2f} + audio={audio_ctx.sexual_audio_score:.2f}",
         )
 
-    # 3. SEXUAL_CONTEXT_NO_NUDITY
-    if scene_ctx.implied_sex_score >= (0.45 * t_mod) and (
-        audio_ctx.moaning_score >= (0.35 * t_mod)
-        or audio_ctx.sexual_audio_score >= (0.30 * t_mod)
+    # 3. SEXUAL_CONTEXT_NO_NUDITY - implied sex with audio cues
+    implied_sex_thresh = 0.45 * t_mod * (eff_clip / 0.50)
+    moaning_thresh = 0.35 * t_mod * (eff_audio / 0.60)
+
+    if scene_ctx.implied_sex_score >= implied_sex_thresh and (
+        audio_ctx.moaning_score >= moaning_thresh
+        or audio_ctx.sexual_audio_score >= sexual_audio_thresh
     ):
         return ShotVerdict(
             shot_index=shot.index,
@@ -75,7 +99,8 @@ def fuse(
         )
 
     # 4. KISS_INTENSE / KISS_LIGHT
-    if scene_ctx.kissing_score >= (0.50 * t_mod):
+    kissing_thresh = 0.50 * t_mod * (eff_clip / 0.50)
+    if scene_ctx.kissing_score >= kissing_thresh:
         duration_seconds = shot.end_time - shot.start_time
         if duration_seconds >= 2.5:
             return ShotVerdict(

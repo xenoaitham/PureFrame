@@ -18,7 +18,7 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from pureframe.config import Config
+from pureframe.config import Config, ContentType, Strictness
 from pureframe.hardware import HardwareProfile, detect_profile, get_settings
 from pureframe.utils.logging import setup_logging
 from pureframe.pipeline.probe import probe_video
@@ -377,6 +377,12 @@ def plan_cmd(
     no_audio: bool = typer.Option(
         False, "--no-audio", help="Disables audio classifier"
     ),
+    content_type: ContentType = typer.Option(
+        ContentType.LIVE_ACTION, "--content-type", help="Content type preset"
+    ),
+    strictness: Strictness = typer.Option(
+        Strictness.MEDIUM, "--strictness", help="Strictness level: low, medium, high, custom"
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose logging"
     ),
@@ -399,6 +405,8 @@ def plan_cmd(
         strict=strict,
         no_clip=no_clip,
         no_audio=no_audio,
+        content_type=content_type,
+        strictness=strictness,
         log_level="DEBUG" if verbose else "INFO",
     )
 
@@ -529,6 +537,15 @@ def process_cmd(
     no_audio: bool = typer.Option(
         False, "--no-audio", help="Disables audio classifier"
     ),
+    content_type: ContentType = typer.Option(
+        ContentType.LIVE_ACTION, "--content-type", help="Content type preset"
+    ),
+    strictness: Strictness = typer.Option(
+        Strictness.MEDIUM, "--strictness", help="Strictness level"
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Force reprocess even if job already done"
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose logging"
     ),
@@ -553,6 +570,9 @@ def process_cmd(
                 strict=strict,
                 no_clip=no_clip,
                 no_audio=no_audio,
+                content_type=content_type,
+                strictness=strictness,
+                force=force,
                 log_level="DEBUG" if verbose else "INFO",
             )
         process_folder(input, recursive, parallel, base_config)
@@ -565,6 +585,9 @@ def process_cmd(
             strict=strict,
             no_clip=no_clip,
             no_audio=no_audio,
+            content_type=content_type,
+            strictness=strictness,
+            force=force,
             log_level="DEBUG" if verbose else "INFO",
         )
         process_file(config)
@@ -621,19 +644,104 @@ def jobs_resume(job_id: int = typer.Argument(..., help="Job ID to resume")):
 
 
 @jobs_app.command("cleanup")
-def jobs_cleanup():
-    """Delete jobs marked DONE more than 30 days ago."""
+def jobs_cleanup(
+    all_jobs: bool = typer.Option(
+        False, "--all", help="Remove all jobs including pending"
+    ),
+    failed: bool = typer.Option(
+        False, "--failed", help="Remove only failed jobs"
+    ),
+):
+    """Delete completed or failed job records."""
     store = get_store()
     with store.conn:
         cursor = store.conn.cursor()
-        cursor.execute(
-            "DELETE FROM shot_verdicts WHERE job_id IN (SELECT id FROM jobs WHERE status = 'DONE' AND finished_at < datetime('now', '-30 days'))"
-        )
-        cursor.execute(
-            "DELETE FROM jobs WHERE status = 'DONE' AND finished_at < datetime('now', '-30 days')"
-        )
+        if all_jobs:
+            cursor.execute("DELETE FROM shot_verdicts")
+            cursor.execute("DELETE FROM jobs")
+        elif failed:
+            cursor.execute(
+                "DELETE FROM shot_verdicts WHERE job_id IN (SELECT id FROM jobs WHERE status = 'FAILED')"
+            )
+            cursor.execute("DELETE FROM jobs WHERE status = 'FAILED'")
+        else:
+            cursor.execute(
+                "DELETE FROM shot_verdicts WHERE job_id IN (SELECT id FROM jobs WHERE status = 'DONE' AND finished_at < datetime('now', '-30 days'))"
+            )
+            cursor.execute(
+                "DELETE FROM jobs WHERE status = 'DONE' AND finished_at < datetime('now', '-30 days')"
+            )
         deleted = cursor.rowcount
-    console.print(f"Cleaned up {deleted} old jobs.")
+    console.print(f"Cleaned up {deleted} job records.")
+
+
+@app.command("preview")
+def preview_cmd(
+    plan_path: Path = typer.Argument(
+        ..., exists=True, help="Path to censorplan JSON"
+    ),
+    output: Path = typer.Option(
+        None, "--output", "-o", help="Output HTML report path"
+    ),
+    blur: bool = typer.Option(
+        True, "--blur/--no-blur", help="Apply blur to flagged regions in thumbnails"
+    ),
+):
+    """Export flagged frame thumbnails as an HTML contact sheet for safe review."""
+    plan = CensorPlan.load(plan_path)
+
+    if output is None:
+        output = plan_path.with_suffix(".preview.html")
+
+    flagged = [v for v in plan.verdicts if v.action != Action.NONE]
+
+    if not flagged:
+        console.print("[green]No flagged shots in this plan. Nothing to preview.[/green]")
+        return
+
+    # Infer video path from plan
+    video_path_str = plan.config_snapshot.get("input_path", "")
+    video_path = Path(video_path_str)
+    video_name = video_path.name if video_path_str else "unknown"
+
+    html_parts = [
+        "<!DOCTYPE html>",
+        "<html><head><meta charset='utf-8'>",
+        "<title>PureFrame Preview Report</title>",
+        "<style>",
+        "body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f0f;color:#e0e0e0;padding:2rem;}",
+        "h1{color:#60a5fa;} h2{color:#f59e0b;border-bottom:1px solid #333;padding-bottom:0.5rem;}",
+        ".shot{background:#1a1a2e;border-radius:8px;padding:1rem;margin:1rem 0;}",
+        ".meta{color:#888;font-size:0.85rem;}",
+        ".action-box{display:inline-block;padding:4px 12px;border-radius:4px;font-weight:bold;}",
+        ".BLACK_BOX{background:#dc2626;color:#fff;}",
+        ".FULL_FRAME_BLUR{background:#f59e0b;color:#000;}",
+        "</style></head><body>",
+        "<h1>PureFrame Preview Report</h1>",
+        f"<p class='meta'>Plan: {plan_path.name} | Video: {video_name} | "
+        f"Flagged: {len(flagged)}/{len(plan.verdicts)} shots | "
+        f"Generated: {plan.generated_at}</p>",
+    ]
+
+    for v in flagged:
+        shot = next((s for s in plan.shots if s.index == v.shot_index), None)
+        if not shot:
+            continue
+
+        time_str = f"{shot.start_time:.1f}s - {shot.end_time:.1f}s"
+        html_parts.append("<div class='shot'>")
+        html_parts.append(f"<h2>Shot #{v.shot_index}</h2>")
+        html_parts.append(f"<p>Time: {time_str} | Frames: {shot.start_frame}-{shot.end_frame}</p>")
+        html_parts.append(f"<p>Category: <strong>{v.category}</strong> | Confidence: {v.confidence:.1%}</p>")
+        html_parts.append(f"<p>Action: <span class='action-box {v.action}'>{v.action}</span></p>")
+        html_parts.append(f"<p class='meta'>Reasoning: {v.reasoning}</p>")
+        html_parts.append("</div>")
+
+    html_parts.append("</body></html>")
+
+    output.write_text("\n".join(html_parts), encoding="utf-8")
+    console.print(f"[green]Preview report saved to {output}[/green]")
+    console.print(f"Flagged {len(flagged)} shots across {plan.input_metadata.duration_seconds:.0f}s of video.")
 
 
 if __name__ == "__main__":

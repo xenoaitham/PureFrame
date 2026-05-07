@@ -1,6 +1,37 @@
 from pathlib import Path
+from enum import Enum
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from .hardware import HardwareProfile
+
+
+class ContentType(str, Enum):
+    LIVE_ACTION = "live-action"
+    ANIMATION = "animation"
+    ANIME = "anime"
+    LOW_LIGHT = "low-light"
+
+
+class Strictness(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CUSTOM = "custom"
+
+
+# Threshold multipliers per content type
+CONTENT_TYPE_MULTIPLIERS = {
+    ContentType.LIVE_ACTION: 1.0,
+    ContentType.ANIMATION: 1.3,
+    ContentType.ANIME: 1.4,
+    ContentType.LOW_LIGHT: 0.85,
+}
+
+# Strictness presets: (nudity_threshold, clip_threshold, audio_threshold)
+STRICTNESS_PRESETS = {
+    Strictness.LOW: (0.75, 0.70, 0.80),
+    Strictness.MEDIUM: (0.55, 0.50, 0.60),
+    Strictness.HIGH: (0.35, 0.35, 0.40),
+}
 
 
 class Config(BaseSettings):
@@ -8,6 +39,8 @@ class Config(BaseSettings):
     output_path: Path | None = None
     profile: HardwareProfile | None = None
     nudity_threshold: float = 0.55
+    clip_threshold: float = 0.50
+    audio_threshold: float = 0.60
     box_padding_pct: float = 0.12
     box_color: tuple[int, int, int] = (0, 0, 0)
     output_codec: str = "h264"
@@ -18,6 +51,11 @@ class Config(BaseSettings):
     strict: bool = False
     no_clip: bool = False
     no_audio: bool = False
+
+    # Phase 3 additions
+    content_type: ContentType = ContentType.LIVE_ACTION
+    strictness: Strictness = Strictness.MEDIUM
+    force: bool = False
 
     model_config = SettingsConfigDict(env_prefix="PUREFRAME_")
 
@@ -34,12 +72,28 @@ class Config(BaseSettings):
             )
         return config
 
+    def get_effective_thresholds(self) -> tuple[float, float, float]:
+        """Return (nudity, clip, audio) thresholds adjusted for content type and strictness."""
+        if self.strictness == Strictness.CUSTOM:
+            base_nudity = self.nudity_threshold
+            base_clip = self.clip_threshold
+            base_audio = self.audio_threshold
+        else:
+            base_nudity, base_clip, base_audio = STRICTNESS_PRESETS[self.strictness]
+
+        # Apply content-type multiplier
+        mult = CONTENT_TYPE_MULTIPLIERS[self.content_type]
+        return (
+            min(base_nudity * mult, 0.99),
+            min(base_clip * mult, 0.99),
+            min(base_audio * mult, 0.99),
+        )
+
     @property
     def config_hash(self) -> str:
         import hashlib
         import json
 
-        # We hash the parameters that affect the output visually or detection wise
         data = {
             "profile": getattr(self.profile, "value", str(self.profile)),
             "nudity_threshold": self.nudity_threshold,
@@ -47,6 +101,8 @@ class Config(BaseSettings):
             "strict": self.strict,
             "no_clip": self.no_clip,
             "no_audio": self.no_audio,
+            "content_type": self.content_type.value,
+            "strictness": self.strictness.value,
         }
         data_str = json.dumps(data, sort_keys=True)
         return hashlib.sha256(data_str.encode("utf-8")).hexdigest()

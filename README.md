@@ -7,8 +7,9 @@
   <a href="#install"><img src="https://img.shields.io/pypi/v/pureframe?color=%2334D058&label=PyPI" alt="PyPI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
   <a href="https://github.com/xenoaitham/PureFrame/actions"><img src="https://img.shields.io/github/actions/workflow/status/xenoaitham/PureFrame/ci.yml?label=CI" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/status-v0.1.0b4-orange" alt="Status: v0.1.0b4" />
-
+  <img src="https://img.shields.io/badge/status-v0.1.0b5-orange" alt="Status: v0.1.0b5" />
+  <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue" alt="Python 3.11 | 3.12 | 3.13" />
+  <img src="https://img.shields.io/badge/telemetry-none-brightgreen" alt="Telemetry: None" />
 
   <br /><br />
   <img src="assets/demo.gif" alt="PureFrame in action" width="640" />
@@ -16,7 +17,7 @@
 
 ---
 
-PureFrame is a local AI tool that finds explicit visuals in common local video files - nudity, sexual activity, intense kissing - and applies a localized, smoothly-tracked blur over the flagged regions. No scene skipping. No audio cuts. No streaming, no cloud, no subscription. The full movie plays normally; you just don't see the parts you'd rather not.
+PureFrame is a local AI tool that finds explicit visuals in common video files - nudity, sexual activity, intense kissing - and applies a localized, smoothly-tracked blur over the flagged regions. No scene skipping. No audio cuts. No streaming, no cloud, no subscription. The full movie plays normally; you just don't see the parts you'd rather not.
 
 ## Install
 
@@ -31,6 +32,7 @@ pip install -e ".[dev]"
 ```
 
 > **Requirements:** Python 3.11+, FFmpeg installed and on PATH. GPU recommended but not required.
+> See [Installation Guide](docs/installation.md) for platform-specific instructions, GPU setup, and troubleshooting.
 
 ## Quick Start
 
@@ -39,26 +41,59 @@ pip install -e ".[dev]"
 pureframe process movie.mp4 --output movie_clean.mp4
 
 # Or split it: generate a plan, review it, then apply
-pureframe plan movie.mp4                                           # → movie.censorplan.json
-pureframe apply movie.mp4 movie.censorplan.json --output movie_clean.mp4
+pureframe plan movie.mp4                              # → movie.censorplan.json
+pureframe plan-edit movie.censorplan.json              # Review in your editor
+pureframe plan-whitelist movie.censorplan.json 3       # Whitelist false positive
+pureframe apply movie.mp4 movie.censorplan.json        # Render final output
 
-# Whitelist a false positive by shot index before applying
-pureframe plan-whitelist movie.censorplan.json 3 7
+# Preview flagged shots without watching the whole video
+pureframe preview movie.censorplan.json                # → HTML contact sheet
 ```
 
 The plan file is plain JSON - open it, review every flagged shot, whitelist anything you disagree with, then apply. Nothing renders until you say so.
+
+## Content-Type Profiles
+
+Different content needs different detection settings:
+
+```bash
+# Live-action movies and TV (default)
+pureframe process movie.mp4 --content-type live-action
+
+# Animated content (higher thresholds to reduce false positives)
+pureframe process cartoon.mp4 --content-type animation
+
+# Anime (tuned for anime art styles)
+pureframe process anime.mkv --content-type anime
+
+# Dark/low-light scenes (increased sensitivity)
+pureframe process horror.mp4 --content-type low-light
+```
+
+## Strictness Levels
+
+Control how aggressively PureFrame flags content:
+
+```bash
+pureframe process movie.mp4 --strictness low     # Minimal censoring
+pureframe process movie.mp4 --strictness medium   # Balanced (default)
+pureframe process movie.mp4 --strictness high     # Aggressive
+pureframe process movie.mp4 --threshold 0.35      # Custom threshold
+```
+
+See [Evaluation Report](docs/evaluation.md) for threshold calibration guide.
 
 ## Why PureFrame?
 
 **No scene skipping.** Most "family-friendly" tools just fast-forward through flagged scenes. You lose dialog, plot, pacing. PureFrame applies a localized Gaussian blur tracked to bounding boxes - the scene plays normally, you just can't see what's behind the blur.
 
-**No cloud, no subscription.** Everything runs on your machine. Your videos never leave your disk. Once the AI models download on first run (~400-500MB), PureFrame works fully offline.
+**No cloud, no subscription.** Everything runs on your machine. Your videos never leave your disk. Once the AI models download on first run (~400-500MB), PureFrame works fully offline. Zero telemetry.
 
-**Works on common local video files.** VidAngel and ClearPlay only support a curated list of popular titles. PureFrame uses computer vision - it works on any MP4, MKV, AVI, or WebM you throw at it. Foreign films, indie movies, decades-old DVDs, whatever.
+**Works on any local video file.** VidAngel and ClearPlay only support a curated list of popular titles. PureFrame uses computer vision - it works on any MP4, MKV, AVI, or WebM you throw at it. Foreign films, indie movies, decades-old DVDs.
 
-**Audio-aware detection.** An audio classifier runs alongside the visual pipeline to disambiguate scenes that look ambiguous on camera but are clear from context - keeping false positives low without sacrificing coverage.
+**Audio-aware detection.** An audio classifier runs alongside the visual pipeline to disambiguate ambiguous scenes - reducing false positives without sacrificing coverage.
 
-**Review before rendering.** The `plan` command generates a JSON file with every detection, bounding box, confidence score, and reasoning. You can inspect it, whitelist false positives, or adjust thresholds before committing to the render.
+**Review before rendering.** The `plan` command generates a JSON file with every detection, bounding box, confidence score, and reasoning. Inspect it, whitelist false positives, or adjust thresholds before committing to the render.
 
 ## How It Works
 
@@ -66,22 +101,25 @@ The plan file is plain JSON - open it, review every flagged shot, whitelist anyt
 graph LR
     A[Input Video] --> B[Scene Detection]
     A --> C[Audio Extraction]
-    B --> D[YOLOv8 Frame Analysis]
-    C --> E[Audio Context Classifier]
+    B --> D[NudeNet Frame Analysis]
+    B --> D2[CLIP Scene Classification]
+    C --> E[PANNs Audio Classifier]
     D --> F[Confidence Fusion]
+    D2 --> F
     E --> F
-    F --> G[Filter Plan JSON]
-    G --> H[Optional: Review & Edit]
-    H --> I[Frame Renderer + FFmpeg]
+    F --> G[Censor Plan JSON]
+    G --> H[Review & Edit]
+    H --> I[FFmpeg Renderer]
     I --> J[Clean Output Video]
 ```
 
-1. **Scene detection** splits the video into shots using adaptive threshold detection.
-2. **YOLOv8** analyzes sampled frames for nudity, sexual content, and face proximity (kissing detection).
-3. **Audio classification** provides ambient context to reduce false positives.
-4. A **confidence fusion engine** combines visual + audio signals with configurable thresholds.
-5. Results are written to a **filter plan** (`.censorplan.json`) - fully editable before rendering.
-6. The **renderer** reads the plan, applies tracked bounding-box blurs frame-by-frame, and re-encodes with FFmpeg.
+1. **Scene detection** splits the video into shots using adaptive threshold detection (PySceneDetect).
+2. **NudeNet** analyzes sampled frames for nudity with localized bounding boxes.
+3. **CLIP** provides scene-level semantic classification for sexual activity detection.
+4. **PANNs** classifies audio events (moaning detection) for context disambiguation.
+5. A **confidence fusion engine** combines all signals with configurable per-category thresholds.
+6. Results are written to a **censor plan** (`.censorplan.json`) - fully editable before rendering.
+7. The **renderer** applies tracked bounding-box blurs frame-by-frame and re-encodes with FFmpeg.
 
 ## Comparison
 
@@ -92,6 +130,9 @@ graph LR
 | Requires internet? | No | Yes | No |
 | Works on local files? | Yes | No - curated list only | Yes |
 | Reviewable before apply? | Yes - JSON plan | No | N/A |
+| Content-type profiles? | Yes | Limited | No |
+| Audio-aware detection? | Yes | Varies | No |
+| 100% offline? | Yes (after model download) | No | Yes |
 
 ## Performance
 
@@ -104,18 +145,26 @@ Measured on author's machine: RTX 3060 12GB, i5-10400F, Pop!_OS.
 | LOW | 27.83s | ~83 min |
 | CPU | 21.37s* | ~64 min* |
 
-These are synthetic zero-detection numbers. Real movies with detections can be slower.
+*Synthetic zero-detection numbers. Real movies with detections will be slower.*
 
-Set your profile with `--profile`:
 ```bash
-pureframe process movie.mp4 --output out.mp4 --profile MEDIUM
+pureframe process movie.mp4 --profile MEDIUM
 ```
 
 See [BENCHMARKS.md](BENCHMARKS.md) for full metrics and how to run benchmarks.
 
 ## Desktop App (Experimental)
 
-PureFrame includes an experimental Tauri desktop GUI. Current status: **work-in-progress**. The GUI shell is functional but features like timeline scrubbing and visual whitelisting are still being built.
+PureFrame includes an experimental [Tauri](https://tauri.app/) desktop GUI with:
+
+- ✅ File drag-and-drop queue
+- ✅ Plan editor with color-coded timeline
+- ✅ Shot-level thumbnail preview
+- ✅ One-click whitelist/blacklist
+- ✅ Hardware profile settings
+- ✅ Detection sensitivity slider
+- 🔜 Timeline scrubbing
+- 🔜 Before/after preview
 
 ```bash
 cd gui && npm install && npm run tauri dev
@@ -123,48 +172,86 @@ cd gui && npm install && npm run tauri dev
 
 ## Known Limitations
 
-PureFrame is open-source AI software in early stages. Real-world performance depends on the content:
+PureFrame is early-stage AI software. Accuracy depends on the content:
 
-- **First run downloads ~400-500MB of AI model weights.** Subsequent runs are fully offline.
-- **False positives are real.** Especially on swimwear, intimate-but-non-sexual content, and stylized animation. Always run `pureframe plan` first and review the JSON before committing to a render. Use `pureframe plan-whitelist` to remove false positives.
-- **Animation needs different thresholds** than live action. A `--content-type` flag is planned for v0.2.
-- **Detection is not perfect.** Some explicit content will slip through. PureFrame is a tool to make most content family-safe - it is not a replacement for parental judgment.
-- **Hardware encoding** (NVENC, QSV, VideoToolbox) is planned but not yet active. All rendering goes through software FFmpeg encoding.
-- **DRM-protected and streaming content is not supported** and will not be supported. PureFrame only operates on files you legally own and can read.
+- **False positives** happen on swimwear, skin-tone backgrounds, and stylized animation. Use the plan/apply workflow to review and whitelist.
+- **Animation/anime** needs higher thresholds. Use `--content-type animation` or `--content-type anime`.
+- **Dark scenes** reduce detection confidence. Use `--content-type low-light`.
+- **Not perfect.** Some explicit content may slip through. PureFrame is a tool - not a replacement for parental judgment.
+- **DRM/streaming not supported.** PureFrame only operates on files you legally own and can read.
+
+See [Evaluation Report](docs/evaluation.md) for detailed accuracy analysis and known failure cases.
 
 ## FAQ
 
-### Is this legal?
+<details>
+<summary><strong>Is this legal?</strong></summary>
 
-PureFrame is intended for private, local use on media files you legally possess. It does not bypass DRM, download media, upload media, or distribute altered copies. Laws vary by jurisdiction, and because PureFrame can create an output file, the legal status may depend on your use case. This is not legal advice.
+PureFrame is intended for private, local use on media files you legally possess. It does not bypass DRM, download media, upload media, or distribute altered copies. Laws vary by jurisdiction. This is not legal advice. See [Legal](docs/legal.md).
+</details>
 
-### Does it work offline?
+<details>
+<summary><strong>Does it work offline?</strong></summary>
 
-Yes. After the first run downloads the AI models (~400-500MB), PureFrame never makes a network request.
+Yes. After the first run downloads AI models (~400-500MB), PureFrame never makes a network request. Zero telemetry. See [Privacy Policy](docs/privacy.md).
+</details>
 
-### Will it ruin the movie?
+<details>
+<summary><strong>Will it ruin the movie?</strong></summary>
 
-No. PureFrame never cuts audio, skips frames, or alters the timeline. It applies a localized blur that tracks the content smoothly across frames using temporal interpolation. The pacing and narrative remain exactly as intended.
+No. PureFrame never cuts audio, skips frames, or alters the timeline. It applies a localized blur tracked smoothly across frames. Pacing and narrative remain exactly as intended.
+</details>
 
-### Can I review what gets filtered before applying?
+<details>
+<summary><strong>Can I review what gets filtered before applying?</strong></summary>
 
-Yes. Run `pureframe plan` to generate a `.censorplan.json` file. Open it in the desktop GUI or any text editor. Every flagged shot includes the category, confidence, reasoning, and frame-level bounding boxes. Whitelist anything you disagree with, then run `pureframe apply`.
+Yes. Run `pureframe plan` to generate a `.censorplan.json` file. Every flagged shot includes category, confidence, reasoning, and bounding boxes. Whitelist anything you disagree with, then run `pureframe apply`. See [Censor Plan Schema](docs/censor-plan-schema.md).
+</details>
 
-### Does it handle DRM or streaming?
+<details>
+<summary><strong>How do I choose the right threshold?</strong></summary>
+
+Start with `--strictness medium` (default). If you see false positives on swimwear/skin, use `--strictness low`. If explicit content slips through, use `--strictness high`. See [Evaluation Report](docs/evaluation.md#confidence-calibration-guide).
+</details>
+
+<details>
+<summary><strong>Does it handle DRM or streaming?</strong></summary>
 
 No. PureFrame only processes local, unencrypted video files. It will not attempt to bypass DRM or intercept streaming content.
+</details>
 
+<details>
+<summary><strong>Where are models stored?</strong></summary>
+
+Models are cached in your system's standard cache directory (`~/.cache/` on Linux, `~/Library/Caches/` on macOS, `%LOCALAPPDATA%\cache\` on Windows). See [Installation Guide](docs/installation.md#model-downloads) for details and deletion instructions.
+</details>
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Installation Guide](docs/installation.md) | Platform-specific install, GPU setup, troubleshooting |
+| [CLI Reference](docs/cli-reference.md) | All commands, options, and examples |
+| [Censor Plan Schema](docs/censor-plan-schema.md) | JSON schema reference |
+| [Evaluation Report](docs/evaluation.md) | Detection accuracy, calibration, known limitations |
+| [Architecture](docs/architecture.md) | Pipeline diagram and component details |
+| [Privacy Policy](docs/privacy.md) | Data handling and telemetry statement |
+| [Security Policy](SECURITY.md) | Threat model and vulnerability reporting |
+| [Legal](docs/legal.md) | Legal considerations and terms |
+| [Contributing](CONTRIBUTING.md) | How to contribute |
+| [Changelog](CHANGELOG.md) | Release history |
+| [Roadmap](ROADMAP.md) | Planned features |
+| [Benchmarks](BENCHMARKS.md) | Performance metrics |
+| [Examples](examples/) | Example commands and censor plans |
 
 ## Acknowledgments
 
-PureFrame builds on excellent open-source work: [NudeNet](https://github.com/notAI-tech/NudeNet) for nudity detection, [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) for shot boundary detection, [CLIP](https://github.com/openai/CLIP) for scene understanding, [PANNs](https://github.com/qiuqiangkong/audioset_tagging_cnn) for audio classification, [FFmpeg](https://ffmpeg.org/) for video I/O, and [Tauri](https://tauri.app/) for the desktop application. Thank you to those projects' maintainers.
+PureFrame builds on excellent open-source work: [NudeNet](https://github.com/notAI-tech/NudeNet) for nudity detection, [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) for shot boundary detection, [CLIP](https://github.com/openai/CLIP) for scene understanding, [PANNs](https://github.com/qiuqiangkong/audioset_tagging_cnn) for audio classification, [FFmpeg](https://ffmpeg.org/) for video I/O, and [Tauri](https://tauri.app/) for the desktop GUI.
 
 ## Contributing
 
-See [CONTRIBUTING.md](docs/CONTRIBUTING.md). PRs welcome.
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md). Look for issues labeled `good first issue`.
 
 ## License
 
 [MIT](LICENSE)
-
-

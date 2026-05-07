@@ -55,6 +55,13 @@ jobs:
           pureframe --version
           pureframe --help
 
-      - name: Run fast tests
-        run: pytest -q -m "not slow" --maxfail=3
+      - name: Run fast tests with coverage
+        run: pytest -q -m "not slow" --maxfail=3 --cov=pureframe --cov-report=term-missing --cov-report=xml:coverage.xml
         timeout-minutes: 10
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-py${{ matrix.python-version }}
+          path: coverage.xml
