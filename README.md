@@ -7,7 +7,7 @@
   <a href="#install"><img src="https://img.shields.io/pypi/v/pureframe?color=%2334D058&label=PyPI" alt="PyPI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
   <a href="https://github.com/xenoaitham/PureFrame/actions"><img src="https://img.shields.io/github/actions/workflow/status/xenoaitham/PureFrame/ci.yml?label=CI" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/status-v0.1.0b3-orange" alt="Status: v0.1.0b3" />
+  <img src="https://img.shields.io/badge/status-v0.1.0b4-orange" alt="Status: v0.1.0b4" />
 
 
   <br /><br />
