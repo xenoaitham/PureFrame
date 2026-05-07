@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0b6] - 2026-05-07
+
+### Added
+- **165 unit tests** (up from 54), achieving **83% code coverage** (up from 71%).
+- Full test coverage for: `checkpoint.py`, `config.py`, `face.py`, `probe.py`, `scene.py`, `logging.py` (all 100%).
+- End-to-end render tests for `apply_censoring` covering blur, black box, mixed actions, empty boxes, and custom colors.
+- Mocked hardware detection tests covering all VRAM thresholds (HIGH/MEDIUM/LOW/CPU) and exception handling.
+- Mocked FFmpeg encoder selection tests covering nvenc, videotoolbox, QSV, AMF fallback chains for h264/hevc.
+- Smooth detection tests: interpolation, padding, median filtering, multi-track independence, clipping.
+- Densify shot tests with mocked detector: threshold filtering, empty/populated detection output.
+- SceneDetector mocked tests: CLIP model init and frame analysis with mocked inference.
+- Extended CLI tests: version flags, auto-output, verbose mode, invalid JSON, plan-edit with `$EDITOR`, jobs cleanup flags.
+- `frames_iter` tests for FFmpeg frame iteration with and without downscaling.
+- HDR/HLG detection tests and multi-audio-stream metadata extraction tests.
+
+### Changed
+- `render/apply.py` coverage: 33% → 93%.
+- `densify.py` coverage: 23% → 96%.
+- `scene.py` coverage: 0% → 100%.
+- `smooth.py` coverage: 81% → 98%.
+- `hardware.py` coverage: 78% → 96%.
+- `ffmpeg.py` coverage: 71% → 92%.
+
 ## [0.1.0b5] - 2026-05-07
 
 ### Added
