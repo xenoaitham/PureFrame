@@ -217,13 +217,17 @@ def write_video_with_overlay(
     if meta.color_space != "unknown":
         out_kwargs["colorspace"] = meta.color_space
 
+    # Ensure even dimensions (ffmpeg encoders require this for yuv420p)
+    enc_width = meta.width - (meta.width % 2)
+    enc_height = meta.height - (meta.height % 2)
+
     process_out = (
         ffmpeg.input(
             "pipe:",
             format="rawvideo",
             pix_fmt="bgr24",
-            s=f"{meta.width}x{meta.height}",
-            r=float(meta.fps),
+            s=f"{enc_width}x{enc_height}",
+            r=float(meta.fps) if float(meta.fps) > 0 else 24.0,
         )
         .output(temp_video, **out_kwargs)
         .overwrite_output()
@@ -247,14 +251,26 @@ def write_video_with_overlay(
             # modify
             frame = overlay_callback(frame_idx, frame)
 
-            process_out.stdin.write(frame.tobytes())
+            # Crop to even dimensions if needed
+            if enc_width != meta.width or enc_height != meta.height:
+                frame = frame[:enc_height, :enc_width]
+
+            try:
+                process_out.stdin.write(frame.tobytes())
+            except BrokenPipeError:
+                stderr_out = process_out.stderr.read().decode(errors="replace")
+                raise PureFrameError(
+                    f"FFmpeg encoder crashed after {frame_idx} frames. "
+                    f"stderr: {stderr_out[:2000]}"
+                )
             frame_idx += 1
             if frame_idx % 1000 == 0:
                 logger.debug(f"Rendered {frame_idx} frames...")
     finally:
         process_in.stdout.close()
         process_in.wait()
-        process_out.stdin.close()
+        if process_out.stdin and not process_out.stdin.closed:
+            process_out.stdin.close()
         process_out.wait()
 
     # Mux back
