@@ -16,7 +16,7 @@ def apply_censoring(
     config: Config,
     profile_settings: ProfileSettings,
 ) -> None:
-    encoder = select_hw_encoder(profile_settings, config.output_codec)
+    encoder = select_hw_encoder(profile_settings.profile, config.output_codec)
 
     def overlay_callback(frame_idx: int, frame_bgr: np.ndarray) -> np.ndarray:
         frame_data = frame_actions.get(frame_idx)
