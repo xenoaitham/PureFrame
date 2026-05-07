@@ -63,7 +63,7 @@ def test_plan_serialization(tmp_path: Path):
     )
 
     plan = CensorPlan(
-        pureframe_version="0.1.0b2",
+        pureframe_version="0.1.0b3",
         plan_version=1,
         input_metadata=meta,
         config_snapshot=config_snapshot,
@@ -80,7 +80,7 @@ def test_plan_serialization(tmp_path: Path):
     # Reload
     loaded = CensorPlan.load(plan_file)
 
-    assert loaded.pureframe_version == "0.1.0b2"
+    assert loaded.pureframe_version == "0.1.0b3"
     assert loaded.plan_version == 1
     assert loaded.input_metadata.fps == 30.0
     assert loaded.total_censored_frames == 30
@@ -139,7 +139,7 @@ def test_build_frame_actions(tmp_path: Path):
     )
 
     plan = CensorPlan(
-        pureframe_version="0.1.0b2",
+        pureframe_version="0.1.0b3",
         plan_version=1,
         input_metadata=meta,
         config_snapshot={},
