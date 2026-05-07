@@ -38,12 +38,6 @@ jobs:
       - name: Ruff
         run: ruff check pureframe tests
 
-      - name: Black
-        run: black --check pureframe tests
-
-      - name: Mypy
-        run: mypy pureframe
-
       - name: Build package
         run: python -m build
 

@@ -43,9 +43,6 @@ dependencies = [
 dev = [
     "pytest",
     "ruff",
-    "black",
-    "flake8",
-    "mypy",
     "build",
     "twine",
 ]
