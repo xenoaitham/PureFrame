@@ -330,6 +330,7 @@ def execute_render(plan: CensorPlan, config: Config):
         raise
     except BaseException as e:
         import traceback
+
         traceback.print_exc()
         store.update_status(job.id, "FAILED", error=str(e))
         raise
