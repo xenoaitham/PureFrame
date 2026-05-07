@@ -85,13 +85,13 @@ graph LR
 
 ## Comparison
 
-| | PureFrame | VidAngel / ClearPlay | Manual Editing |
+| Feature | PureFrame | VidAngel / ClearPlay | Manual Editing |
 |---|---|---|---|
-| Cuts video length? | **No** - localized blur | Yes - skips scenes | Optional |
-| Cost | **Free & open source** | $9.99/mo subscription | Expensive software |
-| Requires internet? | **No** | Yes | No |
-| Works on local files? | **Yes** | No - curated list only | Yes |
-| Reviewable before apply? | **Yes** - JSON plan | No | N/A |
+| Cuts video length? | No - localized blur | Yes - skips scenes | Optional |
+| Cost | Free & open source | $9.99/mo subscription | Expensive software |
+| Requires internet? | No | Yes | No |
+| Works on local files? | Yes | No - curated list only | Yes |
+| Reviewable before apply? | Yes - JSON plan | No | N/A |
 
 ## Performance
 
@@ -134,35 +134,25 @@ PureFrame is open-source AI software in early stages. Real-world performance dep
 
 ## FAQ
 
-<details>
-<summary><strong>Is this legal?</strong></summary>
-<br />
+### Is this legal?
+
 PureFrame is intended for private, local use on media files you legally possess. It does not bypass DRM, download media, upload media, or distribute altered copies. Laws vary by jurisdiction, and because PureFrame can create an output file, the legal status may depend on your use case. This is not legal advice.
-</details>
 
-<details>
-<summary><strong>Does it work offline?</strong></summary>
-<br />
+### Does it work offline?
+
 Yes. After the first run downloads the AI models (~400-500MB), PureFrame never makes a network request.
-</details>
 
-<details>
-<summary><strong>Will it ruin the movie?</strong></summary>
-<br />
+### Will it ruin the movie?
+
 No. PureFrame never cuts audio, skips frames, or alters the timeline. It applies a localized blur that tracks the content smoothly across frames using temporal interpolation. The pacing and narrative remain exactly as intended.
-</details>
 
-<details>
-<summary><strong>Can I review what gets filtered before applying?</strong></summary>
-<br />
-Yes. Run <code>pureframe plan</code> to generate a <code>.censorplan.json</code> file. Open it in the desktop GUI or any text editor. Every flagged shot includes the category, confidence, reasoning, and frame-level bounding boxes. Whitelist anything you disagree with, then run <code>pureframe apply</code>.
-</details>
+### Can I review what gets filtered before applying?
 
-<details>
-<summary><strong>Does it handle DRM or streaming?</strong></summary>
-<br />
+Yes. Run `pureframe plan` to generate a `.censorplan.json` file. Open it in the desktop GUI or any text editor. Every flagged shot includes the category, confidence, reasoning, and frame-level bounding boxes. Whitelist anything you disagree with, then run `pureframe apply`.
+
+### Does it handle DRM or streaming?
+
 No. PureFrame only processes local, unencrypted video files. It will not attempt to bypass DRM or intercept streaming content.
-</details>
 
 
 ## Acknowledgments

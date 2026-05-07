@@ -47,6 +47,14 @@ jobs:
       - name: Check package
         run: python -m twine check dist/*
 
+      - name: Smoke test wheel install
+        run: |
+          python -m venv /tmp/pureframe-smoke
+          source /tmp/pureframe-smoke/bin/activate
+          pip install dist/*.whl
+          pureframe --version
+          pureframe --help
+
       - name: Run fast tests
         run: pytest -q -m "not slow" --maxfail=3
         timeout-minutes: 10
