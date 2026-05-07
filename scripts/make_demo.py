@@ -46,7 +46,7 @@ def create_plan():
     print("Generating synthetic censor plan...")
     metadata = probe_video(SYNTHETIC_MP4)
     plan = {
-        "pureframe_version": "0.1.0-beta",
+        "pureframe_version": "0.1.0b1",
         "plan_version": 1,
         "input_metadata": metadata.model_dump(),
         "config_snapshot": {"no_audio": True, "profile": "CPU"},

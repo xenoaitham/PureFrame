@@ -66,6 +66,13 @@ def main(
     pass
 
 
+def _get_version() -> str:
+    try:
+        return version("pureframe")
+    except PackageNotFoundError:
+        return "unknown"
+
+
 def get_store() -> CheckpointStore:
     db_path = Path(platformdirs.user_data_dir("PureFrame")) / "jobs.db"
     return CheckpointStore(db_path)
@@ -77,7 +84,7 @@ def generate_plan(config: Config) -> CensorPlan:
 
     settings = get_settings(config.profile)
 
-    console.print("[bold blue]PureFrame[/bold blue] v0.1.0b1")
+    console.print(f"[bold blue]PureFrame[/bold blue] v{_get_version()}")
     console.print(f"Job ID: {job.id}")
     console.print(f"Profile: [bold]{settings.profile.value}[/bold]")
     console.print(f"Input: {config.input_path}")
@@ -280,7 +287,7 @@ def generate_plan(config: Config) -> CensorPlan:
                 total_blur += frames
 
     plan = CensorPlan(
-        pureframe_version="0.1.0-beta",
+        pureframe_version=_get_version(),
         plan_version=1,
         input_metadata=meta,
         config_snapshot=config.model_dump(),
