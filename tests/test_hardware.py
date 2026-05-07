@@ -1,6 +1,11 @@
 """Tests for hardware profile detection and settings."""
 
-from pureframe.hardware import HardwareProfile, ProfileSettings, get_settings, detect_profile
+from pureframe.hardware import (
+    HardwareProfile,
+    ProfileSettings,
+    get_settings,
+    detect_profile,
+)
 
 
 class TestHardwareProfiles:

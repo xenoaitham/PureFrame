@@ -1,6 +1,5 @@
 """Tests for apply_censoring - end-to-end render with overlay callback."""
 
-
 from pureframe.config import Config
 from pureframe.hardware import get_settings, HardwareProfile
 from pureframe.pipeline.render.apply import apply_censoring
@@ -32,8 +31,7 @@ class TestApplyCensoring:
 
         # Blur first 30 frames
         frame_actions = {
-            i: {"action": Action.FULL_FRAME_BLUR, "boxes": []}
-            for i in range(30)
+            i: {"action": Action.FULL_FRAME_BLUR, "boxes": []} for i in range(30)
         }
 
         apply_censoring(
@@ -102,7 +100,10 @@ class TestApplyCensoring:
             frame_actions[i] = {"action": Action.FULL_FRAME_BLUR, "boxes": []}
         # Next 5 frames: black box
         for i in range(5, 10):
-            frame_actions[i] = {"action": Action.BLACK_BOX, "boxes": [(20, 20, 100, 100)]}
+            frame_actions[i] = {
+                "action": Action.BLACK_BOX,
+                "boxes": [(20, 20, 100, 100)],
+            }
 
         apply_censoring(
             input_path=synthetic_video,

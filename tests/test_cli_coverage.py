@@ -22,6 +22,7 @@ class TestPlanDefaults:
     def test_plan_auto_output(self, tmp_path, synthetic_video):
         """Plan with no --output should auto-generate filename."""
         import shutil
+
         test_video = tmp_path / "test_video.mp4"
         shutil.copy(synthetic_video, test_video)
 

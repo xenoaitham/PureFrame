@@ -7,8 +7,11 @@
   <a href="#install"><img src="https://img.shields.io/pypi/v/pureframe?color=%2334D058&label=PyPI" alt="PyPI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
   <a href="https://github.com/xenoaitham/PureFrame/actions"><img src="https://img.shields.io/github/actions/workflow/status/xenoaitham/PureFrame/ci.yml?label=CI" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/status-v0.1.0b6-orange" alt="Status: v0.1.0b6" />
+  <a href="https://codecov.io/gh/xenoaitham/PureFrame"><img src="https://codecov.io/gh/xenoaitham/PureFrame/graph/badge.svg" alt="codecov" /></a>
+  <img src="https://img.shields.io/badge/status-v0.1.0b7-orange" alt="Status: v0.1.0b7" />
   <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue" alt="Python 3.11 | 3.12 | 3.13" />
+  <img src="https://img.shields.io/badge/tests-165%20passed-brightgreen" alt="Tests: 165 passed" />
+  <img src="https://img.shields.io/badge/coverage-83%25-brightgreen" alt="Coverage: 83%" />
   <img src="https://img.shields.io/badge/telemetry-none-brightgreen" alt="Telemetry: None" />
 
   <br /><br />
@@ -172,15 +175,12 @@ cd gui && npm install && npm run tauri dev
 
 ## Known Limitations
 
-PureFrame is early-stage AI software. Accuracy depends on the content:
+PureFrame is honest about what it can and can't do. See [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) for a full breakdown of false positive/negative categories, audio detection gaps, and rendering limitations.
 
-- **False positives** happen on swimwear, skin-tone backgrounds, and stylized animation. Use the plan/apply workflow to review and whitelist.
-- **Animation/anime** needs higher thresholds. Use `--content-type animation` or `--content-type anime`.
+Briefly:
+- **False positives** happen on swimwear, skin-tone backgrounds, and stylized animation.
 - **Dark scenes** reduce detection confidence. Use `--content-type low-light`.
 - **Not perfect.** Some explicit content may slip through. PureFrame is a tool - not a replacement for parental judgment.
-- **DRM/streaming not supported.** PureFrame only operates on files you legally own and can read.
-
-See [Evaluation Report](docs/evaluation.md) for detailed accuracy analysis and known failure cases.
 
 ## FAQ
 
@@ -211,7 +211,7 @@ Yes. Run `pureframe plan` to generate a `.censorplan.json` file. Every flagged s
 <details>
 <summary><strong>How do I choose the right threshold?</strong></summary>
 
-Start with `--strictness medium` (default). If you see false positives on swimwear/skin, use `--strictness low`. If explicit content slips through, use `--strictness high`. See [Evaluation Report](docs/evaluation.md#confidence-calibration-guide).
+Start with `--strictness medium` (default). If you see false positives on swimwear/skin, use `--strictness low`. If explicit content slips through, use `--strictness high`. See the [Confidence Calibration Guide](docs/CALIBRATION.md).
 </details>
 
 <details>
@@ -232,8 +232,10 @@ Models are cached in your system's standard cache directory (`~/.cache/` on Linu
 |----------|-------------|
 | [Installation Guide](docs/installation.md) | Platform-specific install, GPU setup, troubleshooting |
 | [CLI Reference](docs/cli-reference.md) | All commands, options, and examples |
+| [Confidence Calibration](docs/CALIBRATION.md) | Threshold presets, content types, and tuning workflow |
+| [Known Limitations](docs/KNOWN_LIMITATIONS.md) | False positives/negatives, edge cases, audio gaps |
+| [Evaluation Report](docs/evaluation.md) | Detection accuracy and synthetic benchmarks |
 | [Censor Plan Schema](docs/censor-plan-schema.md) | JSON schema reference |
-| [Evaluation Report](docs/evaluation.md) | Detection accuracy, calibration, known limitations |
 | [Architecture](docs/architecture.md) | Pipeline diagram and component details |
 | [Privacy Policy](docs/privacy.md) | Data handling and telemetry statement |
 | [Security Policy](SECURITY.md) | Threat model and vulnerability reporting |

@@ -151,7 +151,9 @@ class TestConfigFromCli:
 
     def test_auto_output_path(self, dummy_file):
         c = Config.from_cli(input_path=dummy_file)
-        expected = dummy_file.with_name(f"{dummy_file.stem}.pureframe{dummy_file.suffix}")
+        expected = dummy_file.with_name(
+            f"{dummy_file.stem}.pureframe{dummy_file.suffix}"
+        )
         assert c.output_path == expected
 
     def test_explicit_output_path(self, dummy_file, tmp_path):

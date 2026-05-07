@@ -302,7 +302,7 @@ def generate_plan(config: Config) -> CensorPlan:
     return plan
 
 
-def execute_render(plan: CensorPlan, config: Config):
+def execute_render(plan: CensorPlan, config: Config, smart: bool = True):
     store = get_store()
     job = store.find_or_create_job(config.input_path, config.output_path, config)
 
@@ -312,13 +312,26 @@ def execute_render(plan: CensorPlan, config: Config):
         with console.status(
             "[bold green]Rendering final video... (this may take a while)"
         ):
-            apply_censoring(
-                config.input_path,
-                config.output_path,
-                frame_actions,
-                config,
-                get_settings(config.profile),
-            )
+            if smart:
+                from pureframe.pipeline.render.smart import apply_censoring_smart
+
+                apply_censoring_smart(
+                    config.input_path,
+                    config.output_path,
+                    frame_actions,
+                    config,
+                    get_settings(config.profile),
+                    plan.input_metadata.total_frames,
+                    plan.input_metadata.fps,
+                )
+            else:
+                apply_censoring(
+                    config.input_path,
+                    config.output_path,
+                    frame_actions,
+                    config,
+                    get_settings(config.profile),
+                )
 
         store.update_status(job.id, "DONE")
         console.print(
@@ -381,7 +394,9 @@ def plan_cmd(
         ContentType.LIVE_ACTION, "--content-type", help="Content type preset"
     ),
     strictness: Strictness = typer.Option(
-        Strictness.MEDIUM, "--strictness", help="Strictness level: low, medium, high, custom"
+        Strictness.MEDIUM,
+        "--strictness",
+        help="Strictness level: low, medium, high, custom",
     ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose logging"
@@ -648,9 +663,7 @@ def jobs_cleanup(
     all_jobs: bool = typer.Option(
         False, "--all", help="Remove all jobs including pending"
     ),
-    failed: bool = typer.Option(
-        False, "--failed", help="Remove only failed jobs"
-    ),
+    failed: bool = typer.Option(False, "--failed", help="Remove only failed jobs"),
 ):
     """Delete completed or failed job records."""
     store = get_store()
@@ -677,12 +690,8 @@ def jobs_cleanup(
 
 @app.command("preview")
 def preview_cmd(
-    plan_path: Path = typer.Argument(
-        ..., exists=True, help="Path to censorplan JSON"
-    ),
-    output: Path = typer.Option(
-        None, "--output", "-o", help="Output HTML report path"
-    ),
+    plan_path: Path = typer.Argument(..., exists=True, help="Path to censorplan JSON"),
+    output: Path = typer.Option(None, "--output", "-o", help="Output HTML report path"),
     blur: bool = typer.Option(
         True, "--blur/--no-blur", help="Apply blur to flagged regions in thumbnails"
     ),
@@ -696,7 +705,9 @@ def preview_cmd(
     flagged = [v for v in plan.verdicts if v.action != Action.NONE]
 
     if not flagged:
-        console.print("[green]No flagged shots in this plan. Nothing to preview.[/green]")
+        console.print(
+            "[green]No flagged shots in this plan. Nothing to preview.[/green]"
+        )
         return
 
     # Infer video path from plan
@@ -731,9 +742,15 @@ def preview_cmd(
         time_str = f"{shot.start_time:.1f}s - {shot.end_time:.1f}s"
         html_parts.append("<div class='shot'>")
         html_parts.append(f"<h2>Shot #{v.shot_index}</h2>")
-        html_parts.append(f"<p>Time: {time_str} | Frames: {shot.start_frame}-{shot.end_frame}</p>")
-        html_parts.append(f"<p>Category: <strong>{v.category}</strong> | Confidence: {v.confidence:.1%}</p>")
-        html_parts.append(f"<p>Action: <span class='action-box {v.action}'>{v.action}</span></p>")
+        html_parts.append(
+            f"<p>Time: {time_str} | Frames: {shot.start_frame}-{shot.end_frame}</p>"
+        )
+        html_parts.append(
+            f"<p>Category: <strong>{v.category}</strong> | Confidence: {v.confidence:.1%}</p>"
+        )
+        html_parts.append(
+            f"<p>Action: <span class='action-box {v.action}'>{v.action}</span></p>"
+        )
         html_parts.append(f"<p class='meta'>Reasoning: {v.reasoning}</p>")
         html_parts.append("</div>")
 
@@ -741,7 +758,97 @@ def preview_cmd(
 
     output.write_text("\n".join(html_parts), encoding="utf-8")
     console.print(f"[green]Preview report saved to {output}[/green]")
-    console.print(f"Flagged {len(flagged)} shots across {plan.input_metadata.duration_seconds:.0f}s of video.")
+    console.print(
+        f"Flagged {len(flagged)} shots across {plan.input_metadata.duration_seconds:.0f}s of video."
+    )
+
+
+@app.command()
+def evaluate(
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="Path to save evaluation report JSON"
+    ),
+    threshold: float = typer.Option(
+        0.5, "--threshold", help="Detection confidence threshold"
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+):
+    """Run the PureFrame evaluation benchmark.
+
+    Tests detection accuracy against 50 synthetic scenarios across 8 content genres.
+    Computes precision, recall, F1, and false positive rate with per-genre breakdown.
+    """
+    setup_logging(log_level="DEBUG" if verbose else "INFO")
+
+    from pureframe.eval import run_synthetic_benchmark
+
+    console.print("[bold]PureFrame Evaluation Benchmark[/bold]")
+    console.print(f"Running 50 synthetic scenarios at threshold={threshold}...")
+    console.print()
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True,
+    ) as progress:
+        progress.add_task("Running benchmark...", total=None)
+        report = run_synthetic_benchmark(threshold=threshold)
+
+    # Display results
+    table = Table(title="Aggregate Metrics")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="green")
+    table.add_row("Precision", f"{report.precision:.1%}")
+    table.add_row("Recall", f"{report.recall:.1%}")
+    table.add_row("F1 Score", f"{report.f1_score:.1%}")
+    table.add_row("False Positive Rate", f"{report.false_positive_rate:.1%}")
+    table.add_row("Accuracy", f"{report.accuracy:.1%}")
+    table.add_row("Total Scenes", str(report.total_scenes))
+    console.print(table)
+    console.print()
+
+    # Per-genre table
+    genre_table = Table(title="Per-Genre Breakdown")
+    genre_table.add_column("Genre", style="cyan")
+    genre_table.add_column("Total", style="white")
+    genre_table.add_column("Precision", style="green")
+    genre_table.add_column("Recall", style="green")
+    genre_table.add_column("F1", style="green")
+    for genre, metrics in sorted(report.genre_metrics.items()):
+        genre_table.add_row(
+            genre,
+            str(metrics["total"]),
+            f"{metrics['precision']:.1%}",
+            f"{metrics['recall']:.1%}",
+            f"{metrics['f1']:.1%}",
+        )
+    console.print(genre_table)
+    console.print()
+
+    # Threshold sweep
+    thresh_table = Table(title="Threshold Sensitivity Analysis")
+    thresh_table.add_column("Threshold", style="cyan")
+    thresh_table.add_column("Precision", style="green")
+    thresh_table.add_column("Recall", style="green")
+    thresh_table.add_column("F1", style="green")
+    thresh_table.add_column("FPR", style="red")
+    for t in report.threshold_analysis:
+        thresh_table.add_row(
+            str(t["threshold"]),
+            f"{t['precision']:.1%}",
+            f"{t['recall']:.1%}",
+            f"{t['f1']:.1%}",
+            f"{t['fpr']:.1%}",
+        )
+    console.print(thresh_table)
+
+    if output:
+        report.save(output)
+        console.print(f"\n[green]Report saved to {output}[/green]")
+    else:
+        default_path = Path("evaluation_report.json")
+        report.save(default_path)
+        console.print(f"\n[green]Report saved to {default_path}[/green]")
 
 
 if __name__ == "__main__":

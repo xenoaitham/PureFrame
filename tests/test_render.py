@@ -36,7 +36,9 @@ class TestCensorPlanFrameActions:
         )
 
     def test_safe_shots_produce_empty_actions(self):
-        shots = [Shot(index=0, start_frame=0, end_frame=100, start_time=0.0, end_time=4.0)]
+        shots = [
+            Shot(index=0, start_frame=0, end_frame=100, start_time=0.0, end_time=4.0)
+        ]
         verdicts = [
             ShotVerdict(
                 shot_index=0,
@@ -52,7 +54,9 @@ class TestCensorPlanFrameActions:
         assert len(actions) == 0
 
     def test_black_box_covers_full_shot(self):
-        shots = [Shot(index=0, start_frame=10, end_frame=50, start_time=0.4, end_time=2.0)]
+        shots = [
+            Shot(index=0, start_frame=10, end_frame=50, start_time=0.4, end_time=2.0)
+        ]
         verdicts = [
             ShotVerdict(
                 shot_index=0,
@@ -72,7 +76,9 @@ class TestCensorPlanFrameActions:
             assert actions[f]["action"] == Action.BLACK_BOX
 
     def test_full_frame_blur_covers_shot(self):
-        shots = [Shot(index=0, start_frame=0, end_frame=30, start_time=0.0, end_time=1.25)]
+        shots = [
+            Shot(index=0, start_frame=0, end_frame=30, start_time=0.0, end_time=1.25)
+        ]
         verdicts = [
             ShotVerdict(
                 shot_index=0,
@@ -189,7 +195,9 @@ class TestCensorPlanFrameActions:
 
 class TestPlanSerialization:
     def test_roundtrip(self, tmp_path):
-        shots = [Shot(index=0, start_frame=0, end_frame=100, start_time=0.0, end_time=4.0)]
+        shots = [
+            Shot(index=0, start_frame=0, end_frame=100, start_time=0.0, end_time=4.0)
+        ]
         verdicts = [
             ShotVerdict(
                 shot_index=0,

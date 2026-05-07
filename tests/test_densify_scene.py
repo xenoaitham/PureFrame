@@ -117,7 +117,10 @@ class TestSceneDetectorMocked:
         mock_outputs.logits_per_image = logits
         mock_model.__call__ = MagicMock(return_value=mock_outputs)
 
-        mock_processor.return_value = {"input_ids": torch.zeros(1), "pixel_values": torch.zeros(1)}
+        mock_processor.return_value = {
+            "input_ids": torch.zeros(1),
+            "pixel_values": torch.zeros(1),
+        }
 
         with patch("pureframe.pipeline.detect.scene.CLIPModel") as MockCLIP:
             with patch("pureframe.pipeline.detect.scene.CLIPProcessor") as MockProc:

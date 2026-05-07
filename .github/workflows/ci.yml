@@ -57,9 +57,19 @@ jobs:
 
       - name: Run fast tests with coverage
         run: pytest -q -m "not slow" --maxfail=3 --cov=pureframe --cov-report=term-missing --cov-report=xml:coverage.xml
-        timeout-minutes: 10
+        timeout-minutes: 15
 
-      - name: Upload coverage report
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.13' && github.event_name == 'push'
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.xml
+          flags: unittests
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:

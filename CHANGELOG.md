@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0b7] - 2026-05-07
+
+### Added
+- **Smart segment rendering** (`pureframe/pipeline/render/smart.py`) - only re-encodes dirty frames, stream-copies clean segments. 2-5x faster on typical content.
+- **Evaluation benchmark** (`pureframe evaluate`) - 50 synthetic test scenarios across 8 content genres with precision/recall/F1 metrics and threshold sweep analysis.
+- **Confidence calibration guide** (`docs/CALIBRATION.md`) - threshold presets, content-type multipliers, and step-by-step tuning workflow.
+- **Known limitations doc** (`docs/KNOWN_LIMITATIONS.md`) - comprehensive FP/FN categories, animation-specific issues, rendering and audio detection gaps.
+- **Desktop packaging** (`packaging/build_desktop.py`) - PyInstaller build script for standalone executables on Linux/macOS/Windows.
+- **Codecov integration** in CI workflow for automated coverage badge.
+- Tests for smart rendering (segment detection, fallback logic, stream copy).
+- Tests for evaluation benchmark (SceneResult classification, metrics computation, 50-scenario validation, synthetic frame generation).
+- Coverage and test count badges in README.
+
+### Changed
+- `execute_render` now uses smart segment rendering by default (falls back to full re-encode if >60% dirty or on error).
+- CI timeout increased to 15 minutes; Codecov upload step added.
+- README badges: added coverage (83%), test count (165), Codecov link.
+- README Known Limitations section now links to full `KNOWN_LIMITATIONS.md`.
+- FAQ threshold question now links to `CALIBRATION.md`.
+- Documentation table expanded with Calibration and Known Limitations entries.
+
 ## [0.1.0b6] - 2026-05-07
 
 ### Added

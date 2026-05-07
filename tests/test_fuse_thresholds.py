@@ -46,60 +46,102 @@ def safe_audio_ctx():
 
 
 class TestFuseWithContentTypes:
-    def test_live_action_detects_nudity(self, dummy_file, basic_shot, safe_scene_ctx, safe_audio_ctx):
-        config = Config(input_path=dummy_file, content_type=ContentType.LIVE_ACTION, strictness=Strictness.MEDIUM)
-        dets = [[Detection(label="FEMALE_BREAST_EXPOSED", score=0.70, box=(0, 0, 100, 100))]]
+    def test_live_action_detects_nudity(
+        self, dummy_file, basic_shot, safe_scene_ctx, safe_audio_ctx
+    ):
+        config = Config(
+            input_path=dummy_file,
+            content_type=ContentType.LIVE_ACTION,
+            strictness=Strictness.MEDIUM,
+        )
+        dets = [
+            [Detection(label="FEMALE_BREAST_EXPOSED", score=0.70, box=(0, 0, 100, 100))]
+        ]
 
         verdict = fuse(basic_shot, dets, safe_scene_ctx, safe_audio_ctx, config)
         assert verdict.action == Action.BLACK_BOX
         assert verdict.category == Category.NUDITY_EXPLICIT
 
-    def test_anime_misses_moderate_nudity(self, dummy_file, basic_shot, safe_scene_ctx, safe_audio_ctx):
+    def test_anime_misses_moderate_nudity(
+        self, dummy_file, basic_shot, safe_scene_ctx, safe_audio_ctx
+    ):
         """Anime content type has 1.4x multiplier, so 0.55 * 1.4 = 0.77 threshold.
         A 0.70 score should NOT trigger detection."""
-        config = Config(input_path=dummy_file, content_type=ContentType.ANIME, strictness=Strictness.MEDIUM)
-        dets = [[Detection(label="FEMALE_BREAST_EXPOSED", score=0.70, box=(0, 0, 100, 100))]]
+        config = Config(
+            input_path=dummy_file,
+            content_type=ContentType.ANIME,
+            strictness=Strictness.MEDIUM,
+        )
+        dets = [
+            [Detection(label="FEMALE_BREAST_EXPOSED", score=0.70, box=(0, 0, 100, 100))]
+        ]
 
         verdict = fuse(basic_shot, dets, safe_scene_ctx, safe_audio_ctx, config)
         assert verdict.action == Action.NONE
         assert verdict.category == Category.SAFE
 
-    def test_anime_catches_high_confidence(self, dummy_file, basic_shot, safe_scene_ctx, safe_audio_ctx):
+    def test_anime_catches_high_confidence(
+        self, dummy_file, basic_shot, safe_scene_ctx, safe_audio_ctx
+    ):
         """Even with anime's high threshold, 0.90 should trigger."""
-        config = Config(input_path=dummy_file, content_type=ContentType.ANIME, strictness=Strictness.MEDIUM)
-        dets = [[Detection(label="FEMALE_BREAST_EXPOSED", score=0.90, box=(0, 0, 100, 100))]]
+        config = Config(
+            input_path=dummy_file,
+            content_type=ContentType.ANIME,
+            strictness=Strictness.MEDIUM,
+        )
+        dets = [
+            [Detection(label="FEMALE_BREAST_EXPOSED", score=0.90, box=(0, 0, 100, 100))]
+        ]
 
         verdict = fuse(basic_shot, dets, safe_scene_ctx, safe_audio_ctx, config)
         assert verdict.action == Action.BLACK_BOX
 
-    def test_low_light_catches_lower_confidence(self, dummy_file, basic_shot, safe_scene_ctx, safe_audio_ctx):
+    def test_low_light_catches_lower_confidence(
+        self, dummy_file, basic_shot, safe_scene_ctx, safe_audio_ctx
+    ):
         """Low-light has 0.85x multiplier, so 0.55 * 0.85 = 0.4675 threshold.
         A 0.50 score should trigger."""
-        config = Config(input_path=dummy_file, content_type=ContentType.LOW_LIGHT, strictness=Strictness.MEDIUM)
-        dets = [[Detection(label="FEMALE_BREAST_EXPOSED", score=0.50, box=(0, 0, 100, 100))]]
+        config = Config(
+            input_path=dummy_file,
+            content_type=ContentType.LOW_LIGHT,
+            strictness=Strictness.MEDIUM,
+        )
+        dets = [
+            [Detection(label="FEMALE_BREAST_EXPOSED", score=0.50, box=(0, 0, 100, 100))]
+        ]
 
         verdict = fuse(basic_shot, dets, safe_scene_ctx, safe_audio_ctx, config)
         assert verdict.action == Action.BLACK_BOX
 
 
 class TestFuseWithStrictness:
-    def test_high_strictness_catches_moderate_score(self, dummy_file, basic_shot, safe_scene_ctx, safe_audio_ctx):
+    def test_high_strictness_catches_moderate_score(
+        self, dummy_file, basic_shot, safe_scene_ctx, safe_audio_ctx
+    ):
         """High strictness preset: nudity threshold = 0.35. Score 0.40 should trigger."""
         config = Config(input_path=dummy_file, strictness=Strictness.HIGH)
-        dets = [[Detection(label="FEMALE_BREAST_EXPOSED", score=0.40, box=(0, 0, 100, 100))]]
+        dets = [
+            [Detection(label="FEMALE_BREAST_EXPOSED", score=0.40, box=(0, 0, 100, 100))]
+        ]
 
         verdict = fuse(basic_shot, dets, safe_scene_ctx, safe_audio_ctx, config)
         assert verdict.action == Action.BLACK_BOX
 
-    def test_low_strictness_misses_moderate_score(self, dummy_file, basic_shot, safe_scene_ctx, safe_audio_ctx):
+    def test_low_strictness_misses_moderate_score(
+        self, dummy_file, basic_shot, safe_scene_ctx, safe_audio_ctx
+    ):
         """Low strictness preset: nudity threshold = 0.75. Score 0.60 should NOT trigger."""
         config = Config(input_path=dummy_file, strictness=Strictness.LOW)
-        dets = [[Detection(label="FEMALE_BREAST_EXPOSED", score=0.60, box=(0, 0, 100, 100))]]
+        dets = [
+            [Detection(label="FEMALE_BREAST_EXPOSED", score=0.60, box=(0, 0, 100, 100))]
+        ]
 
         verdict = fuse(basic_shot, dets, safe_scene_ctx, safe_audio_ctx, config)
         assert verdict.action == Action.NONE
 
-    def test_safe_scene_always_safe(self, dummy_file, basic_shot, safe_scene_ctx, safe_audio_ctx):
+    def test_safe_scene_always_safe(
+        self, dummy_file, basic_shot, safe_scene_ctx, safe_audio_ctx
+    ):
         """No detections should always return SAFE regardless of strictness."""
         for s in Strictness:
             config = Config(input_path=dummy_file, strictness=s)

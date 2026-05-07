@@ -80,11 +80,13 @@ class TestSmoothDetections:
         """Boxes across consecutive frames should be tracked and smoothed."""
         dets = {}
         for f in range(10):
-            dets[f] = [Detection(
-                label="EXPOSED_BREAST_F",
-                score=0.9,
-                box=(100 + f, 100 + f, 200 + f, 200 + f),
-            )]
+            dets[f] = [
+                Detection(
+                    label="EXPOSED_BREAST_F",
+                    score=0.9,
+                    box=(100 + f, 100 + f, 200 + f, 200 + f),
+                )
+            ]
 
         shot = self._make_shot(0, 20)
         result = smooth_detections(dets, shot, padding_pct=0.0)
@@ -97,11 +99,13 @@ class TestSmoothDetections:
         dets = {}
         for f in range(20):
             noise = (f % 3) * 5
-            dets[f] = [Detection(
-                label="EXPOSED_BREAST_F",
-                score=0.9,
-                box=(100 + noise, 100, 200 + noise, 200),
-            )]
+            dets[f] = [
+                Detection(
+                    label="EXPOSED_BREAST_F",
+                    score=0.9,
+                    box=(100 + noise, 100, 200 + noise, 200),
+                )
+            ]
 
         shot = self._make_shot(0, 30)
         result = smooth_detections(dets, shot, padding_pct=0.0)

@@ -209,7 +209,11 @@ class TestCLIPreview:
         )
         assert result.exit_code == 0
         # Output message should indicate preview was generated or no flagged shots
-        assert "preview" in result.stdout.lower() or "no flagged" in result.stdout.lower() or html_out.exists()
+        assert (
+            "preview" in result.stdout.lower()
+            or "no flagged" in result.stdout.lower()
+            or html_out.exists()
+        )
 
 
 class TestCLIInvalidInputs:

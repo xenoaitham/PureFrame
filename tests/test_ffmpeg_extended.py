@@ -12,7 +12,9 @@ class TestEncoderSelectionMocked:
         for e in encoder_list:
             lines.append(f" V..... {e}           Description")
         mock_result = MagicMock()
-        mock_result.decode.return_value = "\n".join(lines) if hasattr(mock_result, 'decode') else None
+        mock_result.decode.return_value = (
+            "\n".join(lines) if hasattr(mock_result, "decode") else None
+        )
         return "\n".join(lines)
 
     def test_nvenc_h264_selected(self):

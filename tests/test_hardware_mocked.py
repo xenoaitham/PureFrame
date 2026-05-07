@@ -8,13 +8,17 @@ class TestDetectProfileMocked:
     def test_high_vram_returns_high(self):
         mock_torch = MagicMock()
         mock_torch.cuda.is_available.return_value = True
-        mock_torch.cuda.mem_get_info.return_value = (12 * 1024**3, 16 * 1024**3)  # 12GB free
+        mock_torch.cuda.mem_get_info.return_value = (
+            12 * 1024**3,
+            16 * 1024**3,
+        )  # 12GB free
 
         with patch.dict("sys.modules", {"torch": mock_torch}):
             with patch("pureframe.hardware.torch", mock_torch, create=True):
                 # Reimport to use patched module
                 import importlib
                 import pureframe.hardware
+
                 importlib.reload(pureframe.hardware)
 
                 profile = pureframe.hardware.detect_profile()
@@ -31,6 +35,7 @@ class TestDetectProfileMocked:
             with patch("pureframe.hardware.torch", mock_torch, create=True):
                 import importlib
                 import pureframe.hardware
+
                 importlib.reload(pureframe.hardware)
 
                 profile = pureframe.hardware.detect_profile()
@@ -47,6 +52,7 @@ class TestDetectProfileMocked:
             with patch("pureframe.hardware.torch", mock_torch, create=True):
                 import importlib
                 import pureframe.hardware
+
                 importlib.reload(pureframe.hardware)
 
                 profile = pureframe.hardware.detect_profile()
@@ -63,6 +69,7 @@ class TestDetectProfileMocked:
             with patch("pureframe.hardware.torch", mock_torch, create=True):
                 import importlib
                 import pureframe.hardware
+
                 importlib.reload(pureframe.hardware)
 
                 profile = pureframe.hardware.detect_profile()
@@ -78,6 +85,7 @@ class TestDetectProfileMocked:
             with patch("pureframe.hardware.torch", mock_torch, create=True):
                 import importlib
                 import pureframe.hardware
+
                 importlib.reload(pureframe.hardware)
 
                 profile = pureframe.hardware.detect_profile()
@@ -93,6 +101,7 @@ class TestDetectProfileMocked:
             with patch("pureframe.hardware.torch", mock_torch, create=True):
                 import importlib
                 import pureframe.hardware
+
                 importlib.reload(pureframe.hardware)
 
                 profile = pureframe.hardware.detect_profile()

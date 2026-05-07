@@ -67,10 +67,15 @@ def fuse(
         )
 
     # 2. SEXUAL_ACT_VISIBLE - requires both visual and audio signals
-    explicit_act_thresh = 0.40 * t_mod * (eff_clip / 0.50)  # Scale by effective clip threshold
+    explicit_act_thresh = (
+        0.40 * t_mod * (eff_clip / 0.50)
+    )  # Scale by effective clip threshold
     sexual_audio_thresh = 0.30 * t_mod * (eff_audio / 0.60)
 
-    if scene_ctx.explicit_act_score >= explicit_act_thresh and audio_ctx.sexual_audio_score >= sexual_audio_thresh:
+    if (
+        scene_ctx.explicit_act_score >= explicit_act_thresh
+        and audio_ctx.sexual_audio_score >= sexual_audio_thresh
+    ):
         action = Action.BLACK_BOX if has_any_nudity else Action.FULL_FRAME_BLUR
         return ShotVerdict(
             shot_index=shot.index,
