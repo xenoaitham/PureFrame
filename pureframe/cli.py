@@ -35,6 +35,15 @@ from pureframe.pipeline.fuse import fuse
 from pureframe.checkpoint import CheckpointStore
 from pureframe.pipeline.render.plan import CensorPlan
 
+# When running as a PyInstaller-frozen executable, prepend the executable's
+# directory to PATH so a co-bundled ffmpeg/ffprobe is discovered without the
+# user installing it system-wide. Safe no-op for normal pip installs.
+import sys as _sys
+
+if getattr(_sys, "frozen", False):
+    _exe_dir = os.path.dirname(_sys.executable)
+    os.environ["PATH"] = _exe_dir + os.pathsep + os.environ.get("PATH", "")
+
 app = typer.Typer(help="PureFrame CLI")
 jobs_app = typer.Typer(help="Manage jobs and checkpoints")
 app.add_typer(jobs_app, name="jobs")

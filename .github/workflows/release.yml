@@ -136,6 +136,20 @@ jobs:
       shell: pwsh
       run: .\dist\pureframe\pureframe.exe --version
 
+    - name: Bundle ffmpeg into Windows zip
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $url = "https://github.com/GyanD/codexffmpeg/releases/download/2024-12-19-git-494c961379/ffmpeg-2024-12-19-git-494c961379-essentials_build.zip"
+        $tmp = "$env:RUNNER_TEMP\ffmpeg.zip"
+        Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
+        Expand-Archive -Path $tmp -DestinationPath "$env:RUNNER_TEMP\ffmpeg_extracted" -Force
+        $bin = Get-ChildItem -Path "$env:RUNNER_TEMP\ffmpeg_extracted" -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
+        Copy-Item $bin.FullName -Destination "dist\pureframe\ffmpeg.exe"
+        $probe = Get-ChildItem -Path "$env:RUNNER_TEMP\ffmpeg_extracted" -Recurse -Filter "ffprobe.exe" | Select-Object -First 1
+        Copy-Item $probe.FullName -Destination "dist\pureframe\ffprobe.exe"
+        Write-Host "Bundled ffmpeg.exe and ffprobe.exe into dist\pureframe\"
+
     - name: Archive build
       shell: bash
       run: ${{ matrix.archive-cmd }}

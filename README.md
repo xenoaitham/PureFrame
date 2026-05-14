@@ -30,7 +30,10 @@ Pre-built standalone binaries (no Python needed). Grab the latest release:
 - **macOS** (universal) - [pureframe-macos-universal.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-macos-universal.tar.gz)
 - **Linux** (x86_64) - [pureframe-linux-x86_64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-linux-x86_64.tar.gz)
 
-Extract anywhere, then run `pureframe --help` (Windows: `pureframe.exe --help`). FFmpeg must be on PATH.
+Extract anywhere, then run `pureframe --help` (Windows: `pureframe.exe --help`).
+
+- **Windows zip is fully self-contained** - bundled `ffmpeg.exe` + `ffprobe.exe` ride alongside the executable, no install required.
+- macOS / Linux tarballs require ffmpeg on PATH (`brew install ffmpeg` / `apt install ffmpeg`).
 
 ## Install
 
