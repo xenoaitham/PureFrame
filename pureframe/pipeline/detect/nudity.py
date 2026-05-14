@@ -56,28 +56,18 @@ class NudityDetector:
                     score = p["score"]
                     box = p["box"]  # usually [x, y, w, h] or [x1, y1, x2, y2]
 
-                    # NudeNet box format is usually [x, y, w, h]. Let's convert to x1, y1, x2, y2.
-                    if len(box) == 4:
-                        if box[2] < box[0] or box[3] < box[1]:  # maybe x,y,w,h
-                            x1, y1, w, h = box
-                            x2, y2 = x1 + w, y1 + h
-                        else:
-                            # It could be x1, y1, w, h but where x1+w and y1+h
-                            # Or it could be x1, y1, x2, y2 natively
-                            pass
-
-                        # Ensure it's x1, y1, x2, y2. NudeNet 3.x is [x, y, w, h]
-                        x1, y1, w, h = box
-                        x2, y2 = x1 + w, y1 + h
-
-                        if label in EXPLICIT_LABELS:
-                            detections.append(
-                                Detection(
-                                    label=label,
-                                    score=score,
-                                    box=(int(x1), int(y1), int(x2), int(y2)),
-                                )
-                            )
+                    # NudeNet 3.x returns boxes as [x, y, w, h] in pixel space.
+                    if len(box) != 4 or label not in EXPLICIT_LABELS:
+                        continue
+                    x1, y1, w, h = box
+                    x2, y2 = x1 + w, y1 + h
+                    detections.append(
+                        Detection(
+                            label=label,
+                            score=score,
+                            box=(int(x1), int(y1), int(x2), int(y2)),
+                        )
+                    )
                 batch_results.append(detections)
             except Exception:
                 batch_results.append([])

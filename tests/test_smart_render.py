@@ -262,9 +262,12 @@ class TestRenderSegments:
 
 
 class TestExtractAndRenderSegment:
+    @patch("pureframe.pipeline.render.smart._get_fps", return_value=30.0)
     @patch("pureframe.pipeline.render.smart.write_video_with_overlay")
     @patch("pureframe.pipeline.render.smart.select_hw_encoder", return_value="libx264")
-    def test_render_segment(self, mock_enc, mock_write, config, profile_settings):
+    def test_render_segment(
+        self, mock_enc, mock_write, mock_fps, config, profile_settings
+    ):
         _extract_and_render_segment(
             config.input_path,
             Path("/out.mkv"),

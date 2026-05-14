@@ -69,8 +69,19 @@ Community contributions welcome. Run `scripts/run_benchmarks.sh` and open a PR t
 ## How to Contribute Benchmarks
 
 1. Clone the repo and install: `pip install -e .`
-2. Generate the benchmark clip:
+2. Generate the benchmark clip and run timings:
    ```bash
    bash scripts/run_benchmarks.sh
    ```
-3. Open a PR adding your row to the "Estimated" table above. Mark it "measured" and include your hardware spec.
+3. Capture the following per profile (HIGH / MEDIUM / LOW / CPU):
+   - Wall-clock seconds on the 30s 1080p synthetic clip
+   - Detection FPS reported by `pureframe process --profile <P>`
+   - OS, CPU model, GPU model + VRAM, Python, PyTorch, CUDA versions
+4. Open a PR replacing the matching row in the "Estimated" table with a "measured" row, formatted like the **Measured** section at the top.
+
+### Methodology notes
+
+- The synthetic clip is intentionally detection-light. **Do not** interpret the extrapolated 90-min movie figure as a guarantee - real content typically lands 2-10× slower due to per-frame inference on dense scenes plus localized blur encode cost.
+- HIGH profile runs FP16 on CUDA; CPU profile runs FP32 on a single thread per model.
+- Smart segment renderer is enabled by default - figures already reflect stream-copy of clean segments.
+- Audio classifier runs on GPU when available; PANNs adds ~3-5% to wall-clock on 90-min content.

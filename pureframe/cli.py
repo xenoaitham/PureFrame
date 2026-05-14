@@ -107,9 +107,11 @@ def generate_plan(config: Config) -> CensorPlan:
         if config.no_clip:
             scene_classifier.enabled = False
 
-        audio_classifier = AudioClassifier(settings)
-        if config.no_audio or len(meta.audio_streams) == 0:
-            audio_classifier.enabled = False
+        # Defer constructing the audio model when audio is disabled or the
+        # input has no audio streams. The PANNs ctor downloads a ~300MB
+        # checkpoint via wget on first use which can hang in CI.
+        audio_enabled = not (config.no_audio or len(meta.audio_streams) == 0)
+        audio_classifier = AudioClassifier(settings, enabled=audio_enabled)
 
         face_detector = FaceDetector()
 
@@ -341,7 +343,10 @@ def execute_render(plan: CensorPlan, config: Config, smart: bool = True):
     except KeyboardInterrupt:
         store.update_status(job.id, "FAILED", error="Interrupted during rendering")
         raise
-    except BaseException as e:
+    except Exception as e:
+        # Catching ``Exception`` (not ``BaseException``) so that SystemExit
+        # and KeyboardInterrupt propagate cleanly without being logged as
+        # render failures.
         import traceback
 
         traceback.print_exc()
@@ -481,7 +486,10 @@ def plan_edit_cmd(
     import shlex
 
     while True:
-        editor_cmd = shlex.split(editor)
+        # On Windows we must keep backslashes literal - shlex POSIX mode would
+        # treat them as escape characters and mangle paths like
+        # ``C:\Python311\python.exe``.
+        editor_cmd = shlex.split(editor, posix=(os.name != "nt"))
         editor_cmd.append(str(plan_path))
         subprocess.call(editor_cmd)
 

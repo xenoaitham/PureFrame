@@ -15,19 +15,23 @@
 - [x] Strictness levels (low, medium, high, custom)
 - [x] Safe preview mode (HTML contact sheet)
 - [x] Jobs cleanup --all/--failed
-- [ ] Coverage report badge (target 80%+)
-- [ ] Cross-platform CI (macOS, Windows)
+- [x] Coverage report badge (target 80%+) - 83% via Codecov
+- [x] Cross-platform CI (macOS, Windows)
+- [x] Real localized Gaussian blur / pixelate (no more solid boxes)
+- [x] Hardened Tauri backend (path canonicalization, CSP lockdown, plan size cap)
 
 ## v0.2.0 - Stability & Polish
 
+- [x] Smart render (re-encode only affected segments)
 - [ ] Tauri desktop GUI with timeline scrubbing
 - [ ] Before/after preview in GUI
-- [ ] Smart render (re-encode only affected segments)
 - [ ] Cached model inference per video hash
 - [ ] Per-category threshold controls in CLI
 - [ ] Temporal tracking improvements (reduce box jitter)
 - [ ] Expected time estimator
 - [ ] More container formats (MKV, WebM, AVI)
+- [ ] macOS code-signed + notarized release artifacts
+- [ ] Tauri auto-updater with signed manifests
 
 ## v0.3.0 - Desktop Packaging
 

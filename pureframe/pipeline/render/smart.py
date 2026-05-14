@@ -17,8 +17,8 @@ import logging
 
 from pureframe.config import Config
 from pureframe.hardware import ProfileSettings
+from pureframe.pipeline.render.overlay import build_overlay_callback
 from pureframe.utils.ffmpeg import select_hw_encoder, write_video_with_overlay, probe
-from pureframe.pipeline.shots import Action
 
 logger = logging.getLogger(__name__)
 
@@ -238,55 +238,20 @@ def _extract_and_render_segment(
     config: Config,
     profile_settings: ProfileSettings,
 ) -> None:
-    """Extract a segment and re-encode it with the overlay callback."""
-    # We need to pass adjusted frame_actions relative to the segment
-    # The overlay callback in write_video_with_overlay uses absolute frame indices
-    # so we pass the original frame_actions and let the callback handle it
+    """Extract a segment and re-encode it with the shared overlay callback.
+
+    ``frame_actions`` is keyed by absolute frame index, but the underlying
+    callback receives segment-local indices. We compute the segment's frame
+    offset once and pass it via ``frame_offset`` so the shared overlay knows
+    how to translate.
+    """
     encoder = select_hw_encoder(profile_settings.profile, config.output_codec)
+    fps = _get_fps(input_path)
+    frame_offset = int(round(start * fps))
 
-    import cv2
-    import numpy as np
-
-    def overlay_callback(frame_idx: int, frame_bgr: np.ndarray) -> np.ndarray:
-        # Convert segment-relative frame index to absolute
-        abs_frame = frame_idx + int(start * _get_fps(input_path))
-        frame_data = frame_actions.get(abs_frame)
-        if not frame_data:
-            return frame_bgr
-
-        action = frame_data.get("action", Action.NONE)
-
-        if action == Action.FULL_FRAME_BLUR:
-            return cv2.GaussianBlur(frame_bgr, (99, 99), 30)
-        elif action == Action.BLACK_BOX:
-            boxes = frame_data.get("boxes", [])
-            if not boxes:
-                return frame_bgr
-
-            h, w = frame_bgr.shape[:2]
-            det_res = profile_settings.detection_resolution
-            dw, dh = w, h
-            if dw > dh and dw > det_res:
-                dh = int(dh * (det_res / dw))
-                dw = det_res
-            elif dh > dw and dh > det_res:
-                dw = int(dw * (det_res / dh))
-                dh = det_res
-            dw = dw - (dw % 2)
-            dh = dh - (dh % 2)
-
-            scale_w = w / dw if dw > 0 else 1.0
-            scale_h = h / dh if dh > 0 else 1.0
-
-            for box in boxes:
-                x1, y1, x2, y2 = box
-                nx1 = int(x1 * scale_w)
-                ny1 = int(y1 * scale_h)
-                nx2 = int(x2 * scale_w)
-                ny2 = int(y2 * scale_h)
-                cv2.rectangle(frame_bgr, (nx1, ny1), (nx2, ny2), config.box_color, -1)
-
-        return frame_bgr
+    overlay_callback = build_overlay_callback(
+        frame_actions, config, profile_settings, frame_offset=frame_offset
+    )
 
     write_video_with_overlay(
         input_path=input_path,

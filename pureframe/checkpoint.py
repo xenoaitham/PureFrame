@@ -89,6 +89,14 @@ class CheckpointStore:
             return Job(**dict(cursor.fetchone()))
 
     def save_verdict(self, job_id: int, verdict: ShotVerdict) -> None:
+        """Persist a verdict and keep ``completed_shots`` in sync.
+
+        Previously this method incremented ``completed_shots`` unconditionally,
+        which inflated the counter every time a duplicate verdict was written
+        on resume. We now derive the count from the verdicts table so the
+        counter always matches reality, regardless of how many times the
+        same shot is written.
+        """
         with self.conn:
             self.conn.execute(
                 """
@@ -100,10 +108,13 @@ class CheckpointStore:
 
             self.conn.execute(
                 """
-                UPDATE jobs SET completed_shots = completed_shots + 1
-                WHERE id = ?
+                UPDATE jobs
+                   SET completed_shots = (
+                       SELECT COUNT(*) FROM shot_verdicts WHERE job_id = ?
+                   )
+                 WHERE id = ?
             """,
-                (job_id,),
+                (job_id, job_id),
             )
 
     def load_verdicts(self, job_id: int) -> list[ShotVerdict]:

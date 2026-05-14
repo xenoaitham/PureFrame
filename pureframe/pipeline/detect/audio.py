@@ -18,24 +18,106 @@ class AudioContext(BaseModel):
 
 
 class AudioClassifier:
-    def __init__(self, settings: ProfileSettings):
-        self.enabled = True
+    # Fallback AudioSet-527 indices used when name resolution fails. These
+    # are approximate and should be verified against the active panns_inference
+    # label map at runtime.
+    _DEFAULT_LABEL_IDX = {
+        "speech": 0,
+        "music": 137,
+        "moan": 25,
+        "sigh": 26,
+        "pant": 45,
+        "smack": 467,
+    }
+
+    # Substring patterns used to discover indices in the panns_inference
+    # label list at startup. First match wins.
+    _LABEL_PATTERNS = {
+        "speech": ("Speech",),
+        "music": ("Music",),
+        "moan": ("Moan", "Groan", "Female speech"),
+        "sigh": ("Sigh",),
+        "pant": ("Pant", "Breath"),
+        "smack": ("Smack", "Kiss"),
+    }
+
+    def __init__(self, settings: ProfileSettings, enabled: bool = True):
+        self.enabled = enabled
+
+        # When disabled we skip the heavyweight PANNs checkpoint download
+        # entirely. panns_inference.SoundEventDetection.__init__ shells out to
+        # `wget` on first use, which can hang in CI when there is no network
+        # or DNS resolution is slow. classify_segment short-circuits via
+        # self.enabled so the model is never needed.
+        if not enabled:
+            self.device = "cpu"
+            self.sed = None
+            self.label_idx = {}
+            return
 
         from panns_inference import SoundEventDetection
 
-        self.device = "cpu"
+        # Respect GPU availability instead of pinning to CPU. The previous
+        # implementation hardcoded ``cpu`` even on CUDA-capable machines,
+        # making PANNs inference dramatically slower than needed.
+        try:
+            import torch
+
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        except Exception:
+            self.device = "cpu"
         logger.info(f"Loading PANNs SoundEventDetection model on {self.device}")
 
         self.sed = SoundEventDetection(checkpoint_path=None, device=self.device)
 
-        self.label_idx = {
-            "speech": 0,
-            "music": 137,
-            "moan": 25,
-            "sigh": 26,
-            "pant": 45,
-            "smack": 467,
-        }
+        self.label_idx = self._resolve_label_indices()
+
+    def _resolve_label_indices(self) -> dict[str, int]:
+        """Resolve PANNs label indices by name with safe fallback.
+
+        The previous implementation used hardcoded integer indices for the
+        AudioSet 527-class label set. Those indices are fragile - they were
+        likely copied without verification and ``smack: 467`` in particular
+        does not correspond to a kiss/smack sound in the canonical AudioSet
+        label order. We now look the labels up by name at startup, logging
+        which patterns failed so users can override via subclass.
+        """
+        labels: list[str] = []
+        try:
+            from panns_inference import labels as panns_labels  # type: ignore
+
+            labels = list(panns_labels)
+        except Exception:
+            try:
+                from panns_inference.config import labels as panns_labels  # type: ignore
+
+                labels = list(panns_labels)
+            except Exception:
+                labels = []
+
+        if not labels:
+            logger.warning(
+                "Could not resolve PANNs label list; using legacy hardcoded indices."
+            )
+            return dict(self._DEFAULT_LABEL_IDX)
+
+        resolved: dict[str, int] = {}
+        for key, patterns in self._LABEL_PATTERNS.items():
+            idx: int | None = None
+            for pat in patterns:
+                for i, lbl in enumerate(labels):
+                    if pat.lower() in lbl.lower():
+                        idx = i
+                        break
+                if idx is not None:
+                    break
+            if idx is None:
+                idx = self._DEFAULT_LABEL_IDX[key]
+                logger.warning(
+                    f"PANNs label for '{key}' not found, falling back to index {idx}"
+                )
+            resolved[key] = idx
+        return resolved
 
     def classify_segment(
         self, audio_path: Path, start_sec: float, end_sec: float

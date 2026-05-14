@@ -69,10 +69,13 @@ def synthetic_video(fixtures_dir):
         out.write(frame)
     out.release()
 
-    # Add audio and re-encode to proper format
+    # Add audio and re-encode to proper format.
+    # -nostdin prevents ffmpeg from waiting on stdin (Windows CI hangs without it).
+    # capture_output + 120s timeout keeps a misbehaving ffmpeg from hanging the suite.
     subprocess.run(
         [
             "ffmpeg",
+            "-nostdin",
             "-y",
             "-f",
             "lavfi",
@@ -90,7 +93,8 @@ def synthetic_video(fixtures_dir):
             str(out_path),
         ],
         check=True,
-        stderr=subprocess.DEVNULL,
+        capture_output=True,
+        timeout=120,
     )
 
     os.remove(temp_vid)

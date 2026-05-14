@@ -110,9 +110,14 @@ def select_hw_encoder(profile: HardwareProfile, codec: str) -> str:
     except Exception:
         return base
 
-    encoders = [
-        line.split()[1] for line in output.splitlines() if line.strip().startswith("V")
-    ]
+    encoders: list[str] = []
+    for line in output.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("V"):
+            continue
+        parts = stripped.split()
+        if len(parts) >= 2:
+            encoders.append(parts[1])
 
     if codec == "h264":
         if "h264_nvenc" in encoders:
@@ -164,6 +169,20 @@ def frames_iter(
         pipe_stdout=True, pipe_stderr=True
     )
 
+    # Drain stderr in background - Windows pipe buffers are ~4KB and ffmpeg
+    # blocks writing stderr if we never read it, deadlocking process.wait().
+    import threading
+
+    def _drain(pipe):
+        try:
+            while pipe.read(65536):
+                pass
+        except Exception:
+            pass
+
+    drain_t = threading.Thread(target=_drain, args=(process.stderr,), daemon=True)
+    drain_t.start()
+
     frame_size = out_w * out_h * 3
     try:
         while True:
@@ -175,6 +194,7 @@ def frames_iter(
     finally:
         process.stdout.close()
         process.wait()
+        drain_t.join(timeout=2.0)
 
 
 def write_video_with_overlay(
@@ -184,7 +204,14 @@ def write_video_with_overlay(
     settings: ProfileSettings,
     encoder: str,
     crf: int,
+    ss: float | None = None,
+    to: float | None = None,
 ) -> None:
+    """Re-encode *input_path* to *output_path*, applying *overlay_callback* per frame.
+
+    Optional ``ss``/``to`` (seconds) restrict decoding to a sub-range, used by
+    the smart segment renderer to re-encode only dirty segments.
+    """
     import tempfile
     import os
 
@@ -196,12 +223,38 @@ def write_video_with_overlay(
 
     logger.info(f"Writing temp video to {temp_video}")
 
-    # 1. decode frames to raw BGR24
+    # 1. decode frames to raw BGR24 (optionally restricted to [ss, to])
+    in_kwargs: dict = {}
+    if ss is not None:
+        in_kwargs["ss"] = f"{ss:.3f}"
+    if to is not None:
+        in_kwargs["to"] = f"{to:.3f}"
     process_in = (
-        ffmpeg.input(str(input_path))
+        ffmpeg.input(str(input_path), **in_kwargs)
         .output("pipe:", format="rawvideo", pix_fmt="bgr24")
         .run_async(pipe_stdout=True, pipe_stderr=True)
     )
+
+    # Drain stderr in a background thread. On Windows the OS pipe buffer is
+    # ~4KB; if we never read it, ffmpeg blocks writing stderr and process.wait()
+    # deadlocks. We keep the bytes so encoder failures can still be reported.
+    import threading
+
+    def _drain_pipe(pipe, sink):
+        try:
+            while True:
+                chunk = pipe.read(65536)
+                if not chunk:
+                    break
+                sink.append(chunk)
+        except Exception:
+            pass
+
+    stderr_in_buf: list[bytes] = []
+    t_in = threading.Thread(
+        target=_drain_pipe, args=(process_in.stderr, stderr_in_buf), daemon=True
+    )
+    t_in.start()
 
     # We don't know exact count from the pipe, we just read
     out_kwargs = {
@@ -230,6 +283,12 @@ def write_video_with_overlay(
         .run_async(pipe_stdin=True, pipe_stderr=True)
     )
 
+    stderr_out_buf: list[bytes] = []
+    t_out = threading.Thread(
+        target=_drain_pipe, args=(process_out.stderr, stderr_out_buf), daemon=True
+    )
+    t_out.start()
+
     frame_size = meta.width * meta.height * 3
     frame_idx = 0
 
@@ -254,7 +313,9 @@ def write_video_with_overlay(
             try:
                 process_out.stdin.write(frame.tobytes())
             except BrokenPipeError:
-                stderr_out = process_out.stderr.read().decode(errors="replace")
+                # Wait briefly for drain thread to flush remaining stderr.
+                t_out.join(timeout=2.0)
+                stderr_out = b"".join(stderr_out_buf).decode(errors="replace")
                 # Show the tail of stderr (after the version banner)
                 raise PureFrameError(
                     f"FFmpeg encoder crashed after {frame_idx} frames. "
@@ -269,31 +330,32 @@ def write_video_with_overlay(
         if process_out.stdin and not process_out.stdin.closed:
             process_out.stdin.close()
         process_out.wait()
+        # Allow drain threads to finish reading any trailing stderr.
+        t_in.join(timeout=2.0)
+        t_out.join(timeout=2.0)
 
-    # Mux back
+    # Mux back. If a sub-range was decoded, slice audio/subs to match.
     logger.info("Muxing audio and subtitles...")
+    mux_cmd: list[str] = ["ffmpeg", "-y", "-i", temp_video]
+    if ss is not None:
+        mux_cmd += ["-ss", f"{ss:.3f}"]
+    if to is not None:
+        mux_cmd += ["-to", f"{to:.3f}"]
+    mux_cmd += [
+        "-i",
+        str(input_path),
+        "-map",
+        "0:v:0",
+        "-map",
+        "1:a?",
+        "-map",
+        "1:s?",
+        "-c",
+        "copy",
+        str(output_path),
+    ]
     try:
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-y",
-                "-i",
-                temp_video,
-                "-i",
-                str(input_path),
-                "-map",
-                "0:v:0",
-                "-map",
-                "1:a?",
-                "-map",
-                "1:s?",
-                "-c",
-                "copy",
-                str(output_path),
-            ],
-            check=True,
-            stderr=subprocess.DEVNULL,
-        )
+        subprocess.run(mux_cmd, check=True, stderr=subprocess.DEVNULL)
     except subprocess.CalledProcessError as sub_e:
         raise PureFrameError(f"Muxing failed: {sub_e}")
     finally:

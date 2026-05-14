@@ -8,12 +8,19 @@ on:
 
 jobs:
   test:
-    name: test (ubuntu, py${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    name: test (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.11", "3.12", "3.13"]
+        exclude:
+          # Reduce CI minutes: only test min + max Python on non-Linux runners.
+          - os: macos-latest
+            python-version: "3.12"
+          - os: windows-latest
+            python-version: "3.12"
 
     steps:
       - uses: actions/checkout@v4
@@ -24,8 +31,17 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
-      - name: Install ffmpeg
+      - name: Install ffmpeg (Linux)
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+
+      - name: Install ffmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg -y --no-progress
 
       - name: Install CPU-only PyTorch first
         run: |
@@ -47,7 +63,9 @@ jobs:
       - name: Check package
         run: python -m twine check dist/*
 
-      - name: Smoke test wheel install
+      - name: Smoke test wheel install (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           python -m venv /tmp/pureframe-smoke
           source /tmp/pureframe-smoke/bin/activate
@@ -55,9 +73,20 @@ jobs:
           pureframe --version
           pureframe --help
 
+      - name: Smoke test wheel install (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python -m venv $env:RUNNER_TEMP\pureframe-smoke
+          & "$env:RUNNER_TEMP\pureframe-smoke\Scripts\Activate.ps1"
+          $wheel = Get-ChildItem -Path dist -Filter *.whl | Select-Object -First 1
+          pip install $wheel.FullName
+          pureframe --version
+          pureframe --help
+
       - name: Run fast tests with coverage
-        run: pytest -q -m "not slow" --maxfail=3 --cov=pureframe --cov-report=term-missing --cov-report=xml:coverage.xml
-        timeout-minutes: 15
+        run: pytest -q -m "not slow" --maxfail=3 --timeout=180 --timeout-method=thread --cov=pureframe --cov-report=term-missing --cov-report=xml:coverage.xml
+        timeout-minutes: 30
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.13' && github.event_name == 'push'

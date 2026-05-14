@@ -10,7 +10,7 @@
   <a href="https://codecov.io/gh/xenoaitham/PureFrame"><img src="https://codecov.io/gh/xenoaitham/PureFrame/graph/badge.svg" alt="codecov" /></a>
   <img src="https://img.shields.io/badge/status-v0.1.0b7-orange" alt="Status: v0.1.0b7" />
   <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue" alt="Python 3.11 | 3.12 | 3.13" />
-  <img src="https://img.shields.io/badge/tests-165%20passed-brightgreen" alt="Tests: 165 passed" />
+  <img src="https://img.shields.io/badge/tests-227%20passed-brightgreen" alt="Tests: 227 passed" />
   <img src="https://img.shields.io/badge/coverage-83%25-brightgreen" alt="Coverage: 83%" />
   <img src="https://img.shields.io/badge/telemetry-none-brightgreen" alt="Telemetry: None" />
 

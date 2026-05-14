@@ -18,6 +18,14 @@ class Strictness(str, Enum):
     CUSTOM = "custom"
 
 
+class BlurMode(str, Enum):
+    """Render style for localized censoring boxes."""
+
+    BLUR = "blur"
+    BOX = "box"
+    PIXELATE = "pixelate"
+
+
 # Threshold multipliers per content type
 CONTENT_TYPE_MULTIPLIERS = {
     ContentType.LIVE_ACTION: 1.0,
@@ -43,6 +51,10 @@ class Config(BaseSettings):
     audio_threshold: float = 0.60
     box_padding_pct: float = 0.12
     box_color: tuple[int, int, int] = (0, 0, 0)
+    blur_mode: BlurMode = BlurMode.BLUR
+    blur_kernel: int = 51  # odd; bigger = more blur
+    blur_sigma: float = 25.0
+    pixelate_blocks: int = 16  # number of mosaic blocks across the box's long edge
     output_codec: str = "h264"
     output_crf: int = 20
     log_level: str = "INFO"
@@ -97,7 +109,16 @@ class Config(BaseSettings):
         data = {
             "profile": getattr(self.profile, "value", str(self.profile)),
             "nudity_threshold": self.nudity_threshold,
+            "clip_threshold": self.clip_threshold,
+            "audio_threshold": self.audio_threshold,
             "box_padding_pct": self.box_padding_pct,
+            "box_color": list(self.box_color),
+            "blur_mode": self.blur_mode.value,
+            "blur_kernel": self.blur_kernel,
+            "blur_sigma": self.blur_sigma,
+            "pixelate_blocks": self.pixelate_blocks,
+            "output_codec": self.output_codec,
+            "output_crf": self.output_crf,
             "strict": self.strict,
             "no_clip": self.no_clip,
             "no_audio": self.no_audio,

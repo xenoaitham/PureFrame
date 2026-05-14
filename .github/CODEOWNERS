@@ -1,0 +1,23 @@
+# CODEOWNERS - auto-request reviews from these owners when PRs touch matching paths.
+# Syntax: <pattern> <owner1> <owner2> ...
+# Reference: https://docs.github.com/en/repositories/managing-your-repositories-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything not matched below.
+*                          @xenoaitham
+
+# Python pipeline core.
+/pureframe/                @xenoaitham
+/tests/                    @xenoaitham
+
+# Desktop GUI (Tauri + React).
+/gui/                      @xenoaitham
+/gui/src-tauri/            @xenoaitham
+
+# CI / release automation - restrict to maintainers.
+/.github/                  @xenoaitham
+/.github/workflows/        @xenoaitham
+
+# Security-sensitive surfaces.
+SECURITY.md                @xenoaitham
+/pureframe/utils/ffmpeg.py @xenoaitham
+/gui/src-tauri/src/lib.rs  @xenoaitham

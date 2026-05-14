@@ -31,6 +31,9 @@ Thumbs.db
 
 # Logs
 *.log
+tmp_*.txt
+tmp_*.log
+*.tmp
 
 # Debug scripts (dev-only)
 debug_test*.py

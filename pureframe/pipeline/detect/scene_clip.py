@@ -103,15 +103,21 @@ class SceneClassifier:
             image_embeds = self.model.visual_projection(image_outputs[1])
             image_embeds = image_embeds / image_embeds.norm(p=2, dim=-1, keepdim=True)
 
-            logits_per_image = (
-                torch.matmul(image_embeds, self.text_embeds.t())
-                * self.model.logit_scale.exp()
-            )
-            probs = logits_per_image.softmax(dim=1).cpu().numpy()[0]
+            # Cosine similarity per prompt (both sides L2-normalized).
+            # The previous implementation softmax'd over ALL prompts together
+            # and summed per category, which made categories with more prompts
+            # mechanically score higher. We now compute INDEPENDENT per-category
+            # scores by taking the maximum cosine similarity over each
+            # category's prompt set and mapping it to [0, 1].
+            cosine = torch.matmul(image_embeds, self.text_embeds.t()).cpu().numpy()[0]
 
-        scores = {cat: 0.0 for cat in PROMPT_SETS.keys()}
-        for prob, cat in zip(probs, self.category_names):
-            scores[cat] += prob
+        scores: dict[str, float] = {cat: 0.0 for cat in PROMPT_SETS.keys()}
+        for sim, cat in zip(cosine, self.category_names):
+            # Map cosine similarity from [-1, 1] to [0, 1]; keep the max
+            # match per category so a single strong prompt drives the score.
+            mapped = float(max(0.0, min(1.0, (sim + 1.0) * 0.5)))
+            if mapped > scores[cat]:
+                scores[cat] = mapped
 
         return ShotContext(
             explicit_act_score=scores["explicit_act"],

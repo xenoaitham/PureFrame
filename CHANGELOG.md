@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `BlurMode` enum in `config.py` (BLUR / BOX / PIXELATE) with shared overlay callback in `pipeline/render/overlay.py` - render path now applies real localized Gaussian blur or pixelation instead of solid boxes.
+- `select_hw_encoder` now resilient to non-standard `ffmpeg -encoders` output (no longer raises `IndexError`).
+- GPU-aware PANNs audio classifier with label-name lookup (falls back to known indices when `panns_inference.labels` unavailable).
+- Per-category max-cosine CLIP scene scoring (categories no longer compete based on prompt count).
+- Cross-platform CI matrix (`ubuntu-latest`, `macos-latest`, `windows-latest`).
+- `.github/CODEOWNERS` and `.github/PULL_REQUEST_TEMPLATE.md`.
+- macOS code-signing / notarization env vars wired into the release workflow (configure secrets to enable).
+- Tauri updater signing env vars in release workflow.
+
+### Changed
+- `config_hash` now incorporates render settings (`blur_mode`, `blur_kernel`, `blur_sigma`, `pixelate_blocks`, `output_codec`, `output_crf`, `clip_threshold`, `audio_threshold`, `box_color`) so checkpoints invalidate correctly on render-related config changes.
+- Checkpoint store derives `completed_shots` via `COUNT(*) FROM shot_verdicts` (eliminates inflation on resume).
+- `batch.py` clones the base config via `model_copy(update=..., deep=True)` so all CLI flags (content type, strictness, blur mode) propagate to per-file runs.
+- `cli.execute_render` catches `Exception` (not `BaseException`) - no more accidental `KeyboardInterrupt` swallowing.
+- `pipeline/detect/nudity.py` simplified - dead code path removed.
+
+### Security
+- Tauri desktop CSP locked down: explicit `default-src 'self'`, `script-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`.
+- Tauri Rust commands now canonicalize every user-supplied path through `validated_path` with an extension allow-list (blocks path traversal and arbitrary read/write).
+- Plan size cap (16 MiB) and JSON validation before `save_plan` writes to disk.
+- `cancel_job` now calls `child.wait()` after `kill()` to reap zombies.
+- GUI replaces browser `prompt()` with the native Tauri dialog plugin (real file picker, no spoof-able input).
+- Mode string in `start_job` validated against `{"plan","apply","process"}` allow-list before being passed to the subprocess.
+
+### Documentation
+- `ROADMAP.md` synced to reality: marked coverage badge, cross-platform CI, smart render, real blur, and Tauri hardening as shipped; added macOS signing/notarization and Tauri updater as v0.2 items.
+- `BENCHMARKS.md` expanded with methodology notes (detection-light caveat, FP16/FP32 split, smart-renderer impact, PANNs overhead) and a clearer contributor capture checklist.
+
+### Fixed
+- `gui/package.json`: corrected `lucide-react ^1.14.0` → `^0.460.0` (the `1.x` version does not exist); removed bogus `radix-ui ^1.4.3` and `shadcn ^4.7.0` runtime dependencies.
+- Smart render: `_extract_and_render_segment` now passes `ss`/`to` to `write_video_with_overlay`; frame indices translated via the segment's `frame_offset` so overlay key lookups remain correct after the FFmpeg slice.
+- `tmp_log.txt` removed from the repository; `.gitignore` updated to exclude `tmp_*` artefacts.
+
 ## [0.1.0b7] - 2026-05-07
 
 ### Added

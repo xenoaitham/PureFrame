@@ -60,20 +60,18 @@ def process_folder(
     for v in videos:
         out_path = v.with_name(f"{v.stem}.pureframe{v.suffix}")
 
-        # Clone config for this file
-        cfg = Config(
-            input_path=v,
-            output_path=out_path,
-            profile=resolved_profile,
-            nudity_threshold=base_config.nudity_threshold,
-            box_padding_pct=base_config.box_padding_pct,
-            box_color=base_config.box_color,
-            output_codec=base_config.output_codec,
-            output_crf=base_config.output_crf,
-            log_level=base_config.log_level,
-            strict=base_config.strict,
-            no_clip=base_config.no_clip,
-            no_audio=base_config.no_audio,
+        # Clone config for this file via ``model_copy`` so we inherit every
+        # field (including content_type, strictness, blur_mode, etc.). The
+        # previous implementation listed fields by hand and silently dropped
+        # ``content_type`` and ``strictness``, causing batch runs to ignore
+        # those settings entirely.
+        cfg = base_config.model_copy(
+            update={
+                "input_path": v,
+                "output_path": out_path,
+                "profile": resolved_profile,
+            },
+            deep=True,
         )
 
         job = store.find_or_create_job(v, out_path, cfg)

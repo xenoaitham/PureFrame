@@ -29,6 +29,7 @@ def create_dummy_video(path: Path):
     subprocess.run(
         [
             "ffmpeg",
+            "-nostdin",
             "-y",
             "-f",
             "lavfi",
@@ -44,7 +45,8 @@ def create_dummy_video(path: Path):
             str(path),
         ],
         check=True,
-        stderr=subprocess.DEVNULL,
+        capture_output=True,
+        timeout=60,
     )
     os.remove(temp_vid)
 

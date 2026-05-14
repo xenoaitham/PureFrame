@@ -45,6 +45,18 @@ jobs:
       uses: tauri-apps/tauri-action@v0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # macOS code signing + notarization (configure repo secrets to enable):
+        #   APPLE_CERTIFICATE (base64 .p12), APPLE_CERTIFICATE_PASSWORD,
+        #   APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID.
+        APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+        APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        # Tauri updater signing (generate with: pnpm tauri signer generate).
+        TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       with:
         projectPath: gui
         tagName: ${{ github.ref_name }}
@@ -53,3 +65,82 @@ jobs:
         releaseDraft: false
         prerelease: false
         args: ${{ matrix.os == 'macos-latest' && format('--target {0}', matrix.target) || '' }}
+
+  pyinstaller-build:
+    name: PyInstaller (${{ matrix.os }})
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact-name: pureframe-windows-x86_64.zip
+            archive-cmd: powershell Compress-Archive -Path dist/pureframe/* -DestinationPath pureframe-windows-x86_64.zip
+            asset-path: pureframe-windows-x86_64.zip
+          - os: macos-latest
+            artifact-name: pureframe-macos-universal.tar.gz
+            archive-cmd: tar -czf pureframe-macos-universal.tar.gz -C dist pureframe
+            asset-path: pureframe-macos-universal.tar.gz
+          - os: ubuntu-latest
+            artifact-name: pureframe-linux-x86_64.tar.gz
+            archive-cmd: tar -czf pureframe-linux-x86_64.tar.gz -C dist pureframe
+            asset-path: pureframe-linux-x86_64.tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: "pip"
+
+    - name: Install ffmpeg (Linux)
+      if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+    - name: Install ffmpeg (macOS)
+      if: runner.os == 'macOS'
+      run: brew install ffmpeg
+
+    - name: Install ffmpeg (Windows)
+      if: runner.os == 'Windows'
+      run: choco install ffmpeg -y --no-progress
+
+    - name: Install CPU-only PyTorch
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+    - name: Install PureFrame + PyInstaller
+      shell: bash
+      run: |
+        pip install -e .
+        pip install pyinstaller
+
+    - name: Build standalone executable
+      shell: bash
+      run: python packaging/build_desktop.py
+
+    - name: Smoke test executable (Unix)
+      if: runner.os != 'Windows'
+      run: ./dist/pureframe/pureframe --version
+
+    - name: Smoke test executable (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: .\dist\pureframe\pureframe.exe --version
+
+    - name: Archive build
+      shell: bash
+      run: ${{ matrix.archive-cmd }}
+
+    - name: Upload artifact to release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.ref_name }}
+        files: ${{ matrix.asset-path }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
