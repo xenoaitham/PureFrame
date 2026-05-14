@@ -76,7 +76,7 @@ jobs:
         include:
           - os: windows-latest
             artifact-name: pureframe-windows-x86_64.zip
-            archive-cmd: powershell Compress-Archive -Path dist/pureframe/* -DestinationPath pureframe-windows-x86_64.zip
+            archive-cmd: powershell -Command "Compress-Archive -Path dist/pureframe -DestinationPath pureframe-windows-x86_64.zip"
             asset-path: pureframe-windows-x86_64.zip
           - os: macos-latest
             artifact-name: pureframe-macos-universal.tar.gz
