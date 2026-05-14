@@ -45,18 +45,12 @@ jobs:
       uses: tauri-apps/tauri-action@v0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # macOS code signing + notarization (configure repo secrets to enable):
-        #   APPLE_CERTIFICATE (base64 .p12), APPLE_CERTIFICATE_PASSWORD,
-        #   APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID.
-        APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-        APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        APPLE_ID: ${{ secrets.APPLE_ID }}
-        APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        # Tauri updater signing (generate with: pnpm tauri signer generate).
-        TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        # macOS code signing + notarization + Tauri updater signing - all
+        # optional. tauri-action silently skips signing/notarization when the
+        # corresponding env vars are absent, so we deliberately do not export
+        # empty strings here (empty APPLE_CERTIFICATE makes `security import`
+        # fail the build). To enable: add the secrets to the repo, then
+        # re-export them here.
       with:
         projectPath: gui
         tagName: ${{ github.ref_name }}
