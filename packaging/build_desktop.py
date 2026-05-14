@@ -115,7 +115,7 @@ def build(target_platform: str = "auto"):
     if dist_dir.exists():
         total_size = sum(f.stat().st_size for f in dist_dir.rglob("*") if f.is_file())
         print()
-        print("✅ Build complete!")
+        print("[OK] Build complete!")
         print(f"   Output: {dist_dir}")
         print(f"   Size: {total_size / 1024 / 1024:.1f} MB")
         print()
@@ -125,7 +125,7 @@ def build(target_platform: str = "auto"):
         else:
             print("   ./dist/pureframe/pureframe --version")
     else:
-        print("❌ Build may have failed - check PyInstaller output above.")
+        print("[FAIL] Build may have failed - check PyInstaller output above.")
 
 
 if __name__ == "__main__":

@@ -22,6 +22,16 @@
 
 PureFrame is a local AI tool that finds explicit visuals in common video files - nudity, sexual activity, intense kissing - and applies a localized, smoothly-tracked blur over the flagged regions. No scene skipping. No audio cuts. No streaming, no cloud, no subscription. The full movie plays normally; you just don't see the parts you'd rather not.
 
+## Downloads
+
+Pre-built standalone binaries (no Python needed). Grab the latest release:
+
+- **Windows** - [pureframe-windows-x86_64.zip](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-windows-x86_64.zip)
+- **macOS** (universal) - [pureframe-macos-universal.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-macos-universal.tar.gz)
+- **Linux** (x86_64) - [pureframe-linux-x86_64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-linux-x86_64.tar.gz)
+
+Extract anywhere, then run `pureframe --help` (Windows: `pureframe.exe --help`). FFmpeg must be on PATH.
+
 ## Install
 
 ```bash
