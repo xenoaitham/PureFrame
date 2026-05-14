@@ -24,16 +24,40 @@ PureFrame is a local AI tool that finds explicit visuals in common video files -
 
 ## Downloads
 
-Pre-built standalone binaries (no Python needed). Grab the latest release:
+Pre-built binaries. Grab the latest release.
+
+### Desktop GUI (Tauri)
+
+Native installer with the graphical UI:
+
+- **Windows** - [PureFrame_x64-setup.exe](https://github.com/xenoaitham/PureFrame/releases/latest) or `.msi`
+- **macOS (Apple Silicon)** - `PureFrame_aarch64.dmg`
+- **macOS (Intel)** - `PureFrame_x64.dmg`
+- **Linux** - `.AppImage`, `.deb`, or `.rpm`
+
+### CLI / standalone (PyInstaller)
+
+No Python needed:
 
 - **Windows** - [pureframe-windows-x86_64.zip](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-windows-x86_64.zip)
-- **macOS** (universal) - [pureframe-macos-universal.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-macos-universal.tar.gz)
-- **Linux** (x86_64) - [pureframe-linux-x86_64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-linux-x86_64.tar.gz)
+- **macOS (Apple Silicon)** - [pureframe-macos-arm64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-macos-arm64.tar.gz)
+- **macOS (Intel)** - [pureframe-macos-x86_64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-macos-x86_64.tar.gz)
+- **Linux (x86_64)** - [pureframe-linux-x86_64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-linux-x86_64.tar.gz)
 
 Extract anywhere, then run `pureframe --help` (Windows: `pureframe.exe --help`).
 
-- **Windows zip is fully self-contained** - bundled `ffmpeg.exe` + `ffprobe.exe` ride alongside the executable, no install required.
+- **Windows zip is fully self-contained** - bundled `ffmpeg.exe` + `ffprobe.exe`, no install required.
 - macOS / Linux tarballs require ffmpeg on PATH (`brew install ffmpeg` / `apt install ffmpeg`).
+
+### Code signing
+
+Binaries are **not code-signed** (no paid Apple/Microsoft certs yet).
+
+- **Windows:** SmartScreen warns "Windows protected your PC" → click *More info* → *Run anyway*.
+- **macOS:** Gatekeeper blocks "from an unidentified developer" → right-click the `.app` / binary → *Open* → confirm. Or run `xattr -dr com.apple.quarantine /path/to/PureFrame.app`.
+- **Linux:** no signing required.
+
+Verify downloads against the SHA-256 sums attached to each release.
 
 ## Install
 

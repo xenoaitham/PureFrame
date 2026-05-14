@@ -73,9 +73,13 @@ jobs:
             archive-cmd: powershell -Command "Compress-Archive -Path dist/pureframe -DestinationPath pureframe-windows-x86_64.zip"
             asset-path: pureframe-windows-x86_64.zip
           - os: macos-latest
-            artifact-name: pureframe-macos-universal.tar.gz
-            archive-cmd: tar -czf pureframe-macos-universal.tar.gz -C dist pureframe
-            asset-path: pureframe-macos-universal.tar.gz
+            artifact-name: pureframe-macos-arm64.tar.gz
+            archive-cmd: tar -czf pureframe-macos-arm64.tar.gz -C dist pureframe
+            asset-path: pureframe-macos-arm64.tar.gz
+          - os: macos-13
+            artifact-name: pureframe-macos-x86_64.tar.gz
+            archive-cmd: tar -czf pureframe-macos-x86_64.tar.gz -C dist pureframe
+            asset-path: pureframe-macos-x86_64.tar.gz
           - os: ubuntu-latest
             artifact-name: pureframe-linux-x86_64.tar.gz
             archive-cmd: tar -czf pureframe-linux-x86_64.tar.gz -C dist pureframe
