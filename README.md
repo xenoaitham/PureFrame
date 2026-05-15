@@ -41,8 +41,9 @@ No Python needed:
 
 - **Windows** - [pureframe-windows-x86_64.zip](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-windows-x86_64.zip)
 - **macOS (Apple Silicon)** - [pureframe-macos-arm64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-macos-arm64.tar.gz)
-- **macOS (Intel)** - [pureframe-macos-x86_64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-macos-x86_64.tar.gz)
 - **Linux (x86_64)** - [pureframe-linux-x86_64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-linux-x86_64.tar.gz)
+
+> **Intel mac users:** no standalone PyInstaller build (GitHub-hosted `macos-13` runners are EOL'd and perpetually backlogged). Use `pip install pureframe` or the Tauri `PureFrame_0.1.4_x64.dmg` installer.
 
 Extract anywhere, then run `pureframe --help` (Windows: `pureframe.exe --help`).
 
