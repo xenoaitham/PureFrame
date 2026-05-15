@@ -58,7 +58,18 @@ Binaries are **not code-signed** (no paid Apple/Microsoft certs yet).
 - **macOS:** Gatekeeper blocks "from an unidentified developer" → right-click the `.app` / binary → *Open* → confirm. Or run `xattr -dr com.apple.quarantine /path/to/PureFrame.app`.
 - **Linux:** no signing required.
 
-Verify downloads against the SHA-256 sums attached to each release.
+Verify downloads against the `SHA256SUMS.txt` asset attached to each release:
+
+```bash
+# Linux / macOS
+curl -LO https://github.com/xenoaitham/PureFrame/releases/download/v0.1.0b15/SHA256SUMS.txt
+sha256sum -c --ignore-missing SHA256SUMS.txt
+
+# Windows PowerShell
+$expected = (Select-String -Path SHA256SUMS.txt -Pattern 'pureframe-windows-x86_64\.zip').Line.Split(' ')[0]
+$actual   = (Get-FileHash pureframe-windows-x86_64.zip -Algorithm SHA256).Hash.ToLower()
+if ($expected -eq $actual) { 'OK' } else { 'MISMATCH' }
+```
 
 ## Install
 
