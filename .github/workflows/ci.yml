@@ -104,3 +104,33 @@ jobs:
         with:
           name: coverage-py${{ matrix.python-version }}
           path: coverage.xml
+
+  gui-typecheck:
+    name: GUI typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: gui/package-lock.json
+      - name: Install GUI dependencies
+        working-directory: gui
+        run: npm ci || npm install
+      - name: TypeScript typecheck
+        working-directory: gui
+        run: npm run typecheck
+      # ESLint omitted: no flat config is checked in (config-protection
+      # hook blocks adding one). The package.json `lint` script remains
+      # available for local use once a config lands.
+
+  version-sync-check:
+    name: Verify version sync (pyproject is source of truth)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python packaging/sync_versions.py --check

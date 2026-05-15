@@ -6,7 +6,19 @@ on:
       - 'v*'
 
 jobs:
+  version-guard:
+    name: Verify version sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check versions across pyproject / package.json / tauri.conf / Cargo.toml
+        run: python packaging/sync_versions.py --check
+
   tauri-build:
+    needs: version-guard
     permissions:
       contents: write
     strategy:
@@ -62,6 +74,7 @@ jobs:
 
   pyinstaller-build:
     name: PyInstaller (${{ matrix.os }})
+    needs: version-guard
     permissions:
       contents: write
     strategy:
@@ -158,3 +171,41 @@ jobs:
         files: ${{ matrix.asset-path }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  checksums:
+    name: Generate SHA-256 sums
+    needs: [tauri-build, pyinstaller-build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          cd assets
+          # Pull every asset attached to the tag by tauri-action / softprops.
+          # Exclude any preexisting SHA256SUMS.txt so we don't checksum it
+          # against itself on re-runs.
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" \
+            --pattern '*' \
+            --skip-existing
+          rm -f SHA256SUMS.txt SHA256SUMS.txt.sig
+
+      - name: Compute SHA-256 sums
+        run: |
+          cd assets
+          sha256sum -- * | sort -k 2 > ../SHA256SUMS.txt
+          echo "--- SHA256SUMS.txt ---"
+          cat ../SHA256SUMS.txt
+
+      - name: Upload SHA256SUMS.txt to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
