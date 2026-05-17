@@ -51,3 +51,4 @@ gui/dist/
 assets/demo_input.mp4
 assets/demo_output.mp4
 assets/demo_plan.json
+.claude/
