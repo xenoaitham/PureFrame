@@ -63,11 +63,20 @@ once signing exists.
 
 ### E2E test for the Tauri ↔ backend wiring
 
-`gui/src/App.tsx` invokes `start_job`, `load_plan`, `save_plan`,
-`extract_thumbnail`, and `cancel_job`. None of these are exercised in CI
-end-to-end. A `tauri-driver` or Playwright smoke test that boots the app
-and confirms `start_job` actually spawns the backend would catch silent
-regressions.
+**Partially landed (#21).** A Playwright smoke harness now lives in
+`gui/e2e/` and runs in CI on every push/PR. It uses a browser-side
+`window.__TAURI_INTERNALS__` shim (`gui/e2e/tauri-shim.ts`) so the React
+tree boots without the Rust runtime, and asserts:
+
+- onboarding heading renders
+- optional accept-button flow
+- no uncaught console errors on first paint
+
+**Still open:** a real Tauri ↔ backend E2E that proves `start_job`
+actually spawns the `pureframe` process. That requires either
+`tauri-driver` (WebDriver against the packaged app) or running the
+bundled binary as a sidecar (see "Tauri sidecar" below). The current
+shim covers UI regressions only - it does **not** validate IPC wiring.
 
 ### ESLint configuration
 

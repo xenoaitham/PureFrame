@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Playwright E2E smoke harness for the desktop GUI (`gui/e2e/`) with a `window.__TAURI_INTERNALS__` shim so the React tree boots outside the Tauri runtime. CI runs the suite on every push/PR via the new `gui-e2e` job; failure uploads `playwright-report` as an artifact. Real Tauri ↔ backend IPC wiring still uncovered (tracked in `docs/RELEASE_TODO.md`).
 - `BlurMode` enum in `config.py` (BLUR / BOX / PIXELATE) with shared overlay callback in `pipeline/render/overlay.py` - render path now applies real localized Gaussian blur or pixelation instead of solid boxes.
 - `select_hw_encoder` now resilient to non-standard `ffmpeg -encoders` output (no longer raises `IndexError`).
 - GPU-aware PANNs audio classifier with label-name lookup (falls back to known indices when `panns_inference.labels` unavailable).
