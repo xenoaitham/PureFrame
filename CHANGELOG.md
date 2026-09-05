@@ -7,40 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0b16] - 2026-09-06
+
+The revival release. The code was sound, but the ecosystem moved underneath it
+while the repo was dormant: transformers 5, OpenCV 5, ffmpeg 7, and a ruff
+release all broke something. Every failure mode now ships with a regression
+guard. Full suite (251 tests + GUI e2e) green on Ubuntu/macOS/Windows ×
+Python 3.11-3.13. Also ships the unreleased work from the previous cycle
+(smart blur render path, GUI security hardening, Playwright e2e harness).
+
 ### Added
-- Playwright E2E smoke harness for the desktop GUI (`gui/e2e/`) with a `window.__TAURI_INTERNALS__` shim so the React tree boots outside the Tauri runtime. CI runs the suite on every push/PR via the new `gui-e2e` job; failure uploads `playwright-report` as an artifact. Real Tauri ↔ backend IPC wiring still uncovered (tracked in `docs/RELEASE_TODO.md`).
+- Live job status for the desktop GUI: the Tauri backend drains job stdout/stderr into a bounded log ring (previously the pipes were never read, which could block long renders mid-run) and exposes a `job_status` command reporting state, exit code, output path, and a 24-line log tail. Plan jobs report the derived `<input>.censorplan.json` path so the UI can open them directly.
+- GUI: hardware profile, content type, and detection threshold are now sent with every job (the Settings page previously stored preferences it never used), validated server-side.
+- GUI: dark theme, per-job progress bars parsed from CLI output, completion/failure toasts, and a "Review plan" action on finished plan jobs.
+- Explicit ruff lint contract in `pyproject.toml` (E4/E7/E9/F/I/UP at target py311) so a ruff release can no longer silently redefine "passing" in CI.
+- Regression tests: checkpoint trust semantics, NudeNet `xywh→xyxy` box contract, BLUR-mode e2e with Laplacian-variance assertions.
+- Dynamic release badge and demo caption in README; demo GIF regenerated web-optimized (~1 MB).
+- Playwright E2E smoke harness for the desktop GUI (`gui/e2e/`) with a `window.__TAURI_INTERNALS__` shim so the React tree boots outside the Tauri runtime; CI runs the suite on every push/PR via the `gui-e2e` job.
 - `BlurMode` enum in `config.py` (BLUR / BOX / PIXELATE) with shared overlay callback in `pipeline/render/overlay.py` - render path now applies real localized Gaussian blur or pixelation instead of solid boxes.
-- `select_hw_encoder` now resilient to non-standard `ffmpeg -encoders` output (no longer raises `IndexError`).
 - GPU-aware PANNs audio classifier with label-name lookup (falls back to known indices when `panns_inference.labels` unavailable).
 - Per-category max-cosine CLIP scene scoring (categories no longer compete based on prompt count).
 - Cross-platform CI matrix (`ubuntu-latest`, `macos-latest`, `windows-latest`).
-- `.github/CODEOWNERS` and `.github/PULL_REQUEST_TEMPLATE.md`.
-- macOS code-signing / notarization env vars wired into the release workflow (configure secrets to enable).
-- Tauri updater signing env vars in release workflow.
+
+### Fixed
+- transformers 5.x compatibility: `CLIPModel.get_text_features/get_image_features` return a `BaseModelOutputWithPooling` (projected features in `pooler_output`) instead of a bare tensor. Both 4.x (>=4.30) and 5.x supported - un-breaks `SceneClassifier` init.
+- OpenCV 5 compatibility: both `opencv-python` flavors pinned `<5` (the unpinned GUI-flavor dragged in by scenedetect clobbers the pinned headless one via the shared `cv2` namespace, and 5.x removed the Caffe DNN importer). `FaceDetector` degrades with a logged warning instead of crashing when the importer is absent.
+- ffmpeg 7+ compatibility: `-vsync` was removed; frame selection now uses `-fps_mode passthrough` with a legacy fallback. Failed decodes raise with the real ffmpeg stderr instead of silently returning no frames.
+- Checkpoint trust: DONE jobs no longer skip processing when the output file is missing/empty or keyed to a different output path; renders that produce nothing are never recorded DONE.
+- Frame-extraction deadlock: ffmpeg stderr is drained in a background thread (long `select` expressions filled the OS pipe buffer and blocked stdout reads).
+- Mux failures surface the ffmpeg stderr tail; concat demuxer files escape single quotes and refuse paths outside the render tmpdir.
+- `select_hw_encoder` resilient to non-standard `ffmpeg -encoders` output (no longer raises `IndexError`).
+- Smart render: `_extract_and_render_segment` passes `ss`/`to` to `write_video_with_overlay`; frame indices translated via the segment's `frame_offset` so overlay key lookups remain correct after the FFmpeg slice.
+- `gui/package.json`: corrected `lucide-react ^1.14.0` → `^0.460.0`; removed bogus `radix-ui ^1.4.3` and `shadcn ^4.7.0` runtime dependencies.
 
 ### Changed
-- `config_hash` now incorporates render settings (`blur_mode`, `blur_kernel`, `blur_sigma`, `pixelate_blocks`, `output_codec`, `output_crf`, `clip_threshold`, `audio_threshold`, `box_color`) so checkpoints invalidate correctly on render-related config changes.
+- 111 mechanical lint fixes (import ordering, PEP 604/585 annotations, `datetime.timezone.utc` → `UTC`).
+- Scripts: inline argv lists with `shell=False`, `Path.write_text`, import placement.
+- `config_hash` incorporates render settings (`blur_mode`, `blur_kernel`, `blur_sigma`, `pixelate_blocks`, `output_codec`, `output_crf`, `clip_threshold`, `audio_threshold`, `box_color`) so checkpoints invalidate correctly on render-related config changes.
 - Checkpoint store derives `completed_shots` via `COUNT(*) FROM shot_verdicts` (eliminates inflation on resume).
-- `batch.py` clones the base config via `model_copy(update=..., deep=True)` so all CLI flags (content type, strictness, blur mode) propagate to per-file runs.
+- `batch.py` clones the base config via `model_copy(update=..., deep=True)` so all CLI flags propagate to per-file runs.
 - `cli.execute_render` catches `Exception` (not `BaseException`) - no more accidental `KeyboardInterrupt` swallowing.
-- `pipeline/detect/nudity.py` simplified - dead code path removed.
 
 ### Security
 - Tauri desktop CSP locked down: explicit `default-src 'self'`, `script-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`.
-- Tauri Rust commands now canonicalize every user-supplied path through `validated_path` with an extension allow-list (blocks path traversal and arbitrary read/write).
+- Tauri Rust commands canonicalize every user-supplied path through `validated_path` with an extension allow-list (blocks path traversal and arbitrary read/write).
 - Plan size cap (16 MiB) and JSON validation before `save_plan` writes to disk.
-- `cancel_job` now calls `child.wait()` after `kill()` to reap zombies.
+- `cancel_job` calls `child.wait()` after `kill()` to reap zombies.
 - GUI replaces browser `prompt()` with the native Tauri dialog plugin (real file picker, no spoof-able input).
 - Mode string in `start_job` validated against `{"plan","apply","process"}` allow-list before being passed to the subprocess.
+- ffmpeg concat files escape single quotes and refuse paths outside the render tmpdir.
 
 ### Documentation
-- `ROADMAP.md` synced to reality: marked coverage badge, cross-platform CI, smart render, real blur, and Tauri hardening as shipped; added macOS signing/notarization and Tauri updater as v0.2 items.
-- `BENCHMARKS.md` expanded with methodology notes (detection-light caveat, FP16/FP32 split, smart-renderer impact, PANNs overhead) and a clearer contributor capture checklist.
-
-### Fixed
-- `gui/package.json`: corrected `lucide-react ^1.14.0` → `^0.460.0` (the `1.x` version does not exist); removed bogus `radix-ui ^1.4.3` and `shadcn ^4.7.0` runtime dependencies.
-- Smart render: `_extract_and_render_segment` now passes `ss`/`to` to `write_video_with_overlay`; frame indices translated via the segment's `frame_offset` so overlay key lookups remain correct after the FFmpeg slice.
-- `tmp_log.txt` removed from the repository; `.gitignore` updated to exclude `tmp_*` artefacts.
+- `ROADMAP.md` synced to reality; `BENCHMARKS.md` expanded with methodology notes and a contributor capture checklist.
 
 ## [0.1.0b7] - 2026-05-07
 
