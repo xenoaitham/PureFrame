@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-import subprocess
 import json
-from pathlib import Path
+import subprocess
 from datetime import datetime
+from pathlib import Path
 
 from pureframe.pipeline.probe import probe_video
 
@@ -117,21 +117,27 @@ def run_apply():
 
 def create_side_by_side_gif():
     print("Encoding side-by-side GIF...")
-    # hstack the two videos and output to gif
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        str(SYNTHETIC_MP4),
-        "-i",
-        str(OUTPUT_MP4),
-        "-filter_complex",
-        "[0:v][1:v]hstack=inputs=2[v];"
-        "[v]split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse",
-        str(FINAL_GIF),
-    ]
+    # hstack the two videos and output to gif. Kept web-friendly: 12 fps and
+    # a ~1200px total width keeps the README embed around 2 MB while the
+    # blurred/unblurred halves stay readable.
     subprocess.run(
-        cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(SYNTHETIC_MP4),
+            "-i",
+            str(OUTPUT_MP4),
+            "-filter_complex",
+            "[0:v][1:v]hstack=inputs=2[v];"
+            "[v]fps=12,scale=1200:-1:flags=lanczos[vs];"
+            "[vs]split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse",
+            str(FINAL_GIF),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        shell=False,
     )
     print(f"Done! GIF saved to {FINAL_GIF}")
 
