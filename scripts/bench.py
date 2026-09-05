@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import platform
+from pathlib import Path
 
 
 def generate_benchmarks():
@@ -57,8 +58,7 @@ def generate_benchmarks():
 - Batch size: 1
 - Target usage: Integrated graphics or pure CPU execution
 """
-    with open("BENCHMARKS.md", "w") as f:
-        f.write(content)
+    Path("BENCHMARKS.md").write_text(content, encoding="utf-8")
 
     print("Generated BENCHMARKS.md")
 

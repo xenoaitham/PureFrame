@@ -1,12 +1,13 @@
 """Tests for the evaluation benchmark module."""
 
 import json
+
 import pytest
 
 from pureframe.eval import (
-    SceneResult,
-    EvaluationReport,
     SYNTHETIC_SCENARIOS,
+    EvaluationReport,
+    SceneResult,
     _generate_synthetic_frame,
 )
 
@@ -191,6 +192,7 @@ class TestRunSyntheticBenchmark:
 
     def test_benchmark_with_mock_detector(self):
         from unittest.mock import MagicMock
+
         from pureframe.eval import run_synthetic_benchmark
 
         # Create a fake detection result
@@ -215,6 +217,7 @@ class TestRunSyntheticBenchmark:
 
     def test_benchmark_with_no_detections(self):
         from unittest.mock import MagicMock
+
         from pureframe.eval import run_synthetic_benchmark
 
         detector = MagicMock()
@@ -230,6 +233,7 @@ class TestRunSyntheticBenchmark:
 
     def test_threshold_sweep_values(self):
         from unittest.mock import MagicMock
+
         from pureframe.eval import run_synthetic_benchmark
 
         fake_det = MagicMock()
@@ -252,6 +256,7 @@ class TestRunSyntheticBenchmark:
 
     def test_report_serialization(self, tmp_path):
         from unittest.mock import MagicMock
+
         from pureframe.eval import run_synthetic_benchmark
 
         detector = MagicMock()

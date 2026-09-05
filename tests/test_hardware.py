@@ -3,8 +3,8 @@
 from pureframe.hardware import (
     HardwareProfile,
     ProfileSettings,
-    get_settings,
     detect_profile,
+    get_settings,
 )
 
 

@@ -1,9 +1,9 @@
-from pureframe.pipeline.fuse import fuse
 from pureframe.config import Config
-from pureframe.pipeline.shots import Shot, Category, Action
+from pureframe.pipeline.detect.audio import AudioContext
 from pureframe.pipeline.detect.nudity import Detection
 from pureframe.pipeline.detect.scene_clip import ShotContext
-from pureframe.pipeline.detect.audio import AudioContext
+from pureframe.pipeline.fuse import fuse
+from pureframe.pipeline.shots import Action, Category, Shot
 
 
 def get_shot():

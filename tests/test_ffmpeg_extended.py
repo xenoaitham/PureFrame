@@ -1,8 +1,9 @@
 """Tests for ffmpeg encoder selection with mocked subprocess for full branch coverage."""
 
-from unittest.mock import patch, MagicMock
-from pureframe.utils.ffmpeg import select_hw_encoder, extract_metadata, frames_iter
+from unittest.mock import MagicMock, patch
+
 from pureframe.hardware import HardwareProfile
+from pureframe.utils.ffmpeg import extract_metadata, frames_iter, select_hw_encoder
 
 
 class TestEncoderSelectionMocked:

@@ -1,17 +1,17 @@
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
 
-from pureframe.pipeline.render.plan import CensorPlan
+from pureframe.pipeline.detect.nudity import Detection
 from pureframe.pipeline.probe import VideoMetadata
+from pureframe.pipeline.render.plan import CensorPlan
 from pureframe.pipeline.shots import (
+    Action,
+    Box,
+    Category,
+    FrameResult,
     Shot,
     ShotVerdict,
-    Action,
-    Category,
-    Box,
-    FrameResult,
 )
-from pureframe.pipeline.detect.nudity import Detection
 
 
 def test_plan_serialization(tmp_path: Path):
@@ -71,7 +71,7 @@ def test_plan_serialization(tmp_path: Path):
         verdicts=[verdict1],
         total_censored_frames=30,
         total_blur_frames=0,
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
     )
 
     plan_file = tmp_path / "plan.json"
@@ -147,7 +147,7 @@ def test_build_frame_actions(tmp_path: Path):
         verdicts=[verdict1, verdict2],
         total_censored_frames=10,
         total_blur_frames=5,
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
     )
 
     actions = plan.build_frame_actions()

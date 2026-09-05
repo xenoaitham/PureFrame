@@ -1,11 +1,13 @@
 import io
-import subprocess
-import numpy as np
-import librosa
-from pathlib import Path
-from pydantic import BaseModel
-from pureframe.hardware import ProfileSettings
 import logging
+import subprocess
+from pathlib import Path
+
+import librosa
+import numpy as np
+from pydantic import BaseModel
+
+from pureframe.hardware import ProfileSettings
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +91,9 @@ class AudioClassifier:
             labels = list(panns_labels)
         except Exception:
             try:
-                from panns_inference.config import labels as panns_labels  # type: ignore
+                from panns_inference.config import (
+                    labels as panns_labels,  # type: ignore
+                )
 
                 labels = list(panns_labels)
             except Exception:
@@ -197,6 +201,7 @@ class AudioClassifier:
         if hasattr(self, "sed"):
             del self.sed
         import gc
+
         import torch
 
         gc.collect()

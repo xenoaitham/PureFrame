@@ -52,3 +52,8 @@ assets/demo_input.mp4
 assets/demo_output.mp4
 assets/demo_plan.json
 .claude/
+
+# AI tool dirs
+.gemini/
+.mimosa/
+.v2c/

@@ -1,6 +1,7 @@
 """Extended CLI integration tests for coverage improvement."""
 
 import json
+
 from typer.testing import CliRunner
 
 from pureframe.cli import app

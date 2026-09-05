@@ -1,8 +1,8 @@
 """Tests for smooth detections - interpolation, padding, median filtering."""
 
-from pureframe.pipeline.smooth import smooth_detections
 from pureframe.pipeline.detect.nudity import Detection
 from pureframe.pipeline.shots import Shot
+from pureframe.pipeline.smooth import smooth_detections
 
 
 class TestSmoothDetections:

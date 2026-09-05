@@ -15,6 +15,14 @@ export const tauriShimScript = `
       // start_job -> returns a fake job id
       start_job: () => "00000000-0000-0000-0000-000000000000",
       cancel_job: () => null,
+      // job_status -> deterministic running state with one progress line
+      job_status: () => ({
+        state: "running",
+        exit_code: null,
+        mode: "process",
+        output: null,
+        log_tail: ["Densifying shot 3 - 42%|██████ | 1337/3180"],
+      }),
       // load_plan -> empty plan JSON
       load_plan: () => JSON.stringify({
         pureframe_version: "0.0.0-e2e",

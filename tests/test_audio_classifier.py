@@ -1,8 +1,9 @@
-import pytest
 import numpy as np
+import pytest
 import soundfile as sf
+
+from pureframe.hardware import HardwareProfile, get_settings
 from pureframe.pipeline.detect.audio import AudioClassifier
-from pureframe.hardware import get_settings, HardwareProfile
 
 pytestmark = pytest.mark.slow
 

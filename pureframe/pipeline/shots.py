@@ -1,15 +1,15 @@
-from pydantic import BaseModel
-from pathlib import Path
-from scenedetect import open_video, SceneManager, ContentDetector
 from enum import Enum
+from pathlib import Path
 
-from typing import Dict, List, Optional
+from pydantic import BaseModel
+from scenedetect import ContentDetector, SceneManager, open_video
+
 from pureframe.pipeline.detect.nudity import Detection
 
 
 class FrameResult(BaseModel):
     frame_idx: int
-    detections: List[Detection]
+    detections: list[Detection]
 
 
 class Shot(BaseModel):
@@ -18,7 +18,7 @@ class Shot(BaseModel):
     end_frame: int
     start_time: float
     end_time: float
-    frames: Dict[int, FrameResult] = {}
+    frames: dict[int, FrameResult] = {}
 
 
 class Category(str, Enum):
@@ -42,7 +42,7 @@ class Box(BaseModel):
     y1: int
     x2: int
     y2: int
-    frame_idx: Optional[int] = None
+    frame_idx: int | None = None
 
 
 class ShotVerdict(BaseModel):
@@ -50,7 +50,7 @@ class ShotVerdict(BaseModel):
     category: Category
     action: Action
     confidence: float
-    boxes: Optional[List[Box]] = None
+    boxes: list[Box] | None = None
     reasoning: str
 
 

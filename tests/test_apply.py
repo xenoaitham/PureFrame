@@ -1,7 +1,7 @@
 """Tests for apply_censoring - end-to-end render with overlay callback."""
 
 from pureframe.config import Config
-from pureframe.hardware import get_settings, HardwareProfile
+from pureframe.hardware import HardwareProfile, get_settings
 from pureframe.pipeline.render.apply import apply_censoring
 from pureframe.pipeline.shots import Action
 

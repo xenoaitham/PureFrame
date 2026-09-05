@@ -1,5 +1,6 @@
 from pathlib import Path
-from pureframe.utils.ffmpeg import probe, extract_metadata, VideoMetadata
+
+from pureframe.utils.ffmpeg import VideoMetadata, extract_metadata, probe
 
 
 def probe_video(path: Path) -> VideoMetadata:

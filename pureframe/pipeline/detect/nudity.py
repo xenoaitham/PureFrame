@@ -1,6 +1,7 @@
-from pydantic import BaseModel
 import numpy as np
 from nudenet import NudeDetector
+from pydantic import BaseModel
+
 from pureframe.hardware import ProfileSettings
 
 EXPLICIT_LABELS = {

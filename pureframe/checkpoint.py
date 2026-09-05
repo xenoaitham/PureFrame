@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
+
 from pydantic import BaseModel
-from typing import Optional
 
 from pureframe.config import Config
 from pureframe.pipeline.shots import ShotVerdict
@@ -13,12 +13,12 @@ class Job(BaseModel):
     output_path: str
     config_hash: str
     status: str
-    total_shots: Optional[int] = None
+    total_shots: int | None = None
     completed_shots: int = 0
-    started_at: Optional[str] = None
-    finished_at: Optional[str] = None
-    error: Optional[str] = None
-    config_json: Optional[str] = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    error: str | None = None
+    config_json: str | None = None
 
 
 class CheckpointStore:

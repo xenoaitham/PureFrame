@@ -1,9 +1,10 @@
-from pydantic import BaseModel
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+from pydantic import BaseModel
 
 from pureframe.pipeline.probe import VideoMetadata
-from pureframe.pipeline.shots import Shot, ShotVerdict, Action
+from pureframe.pipeline.shots import Action, Shot, ShotVerdict
 
 
 class CensorPlan(BaseModel):

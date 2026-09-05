@@ -1,7 +1,8 @@
-from pureframe.pipeline.shots import detect_shots
 import cv2
 import numpy as np
 import pytest
+
+from pureframe.pipeline.shots import detect_shots
 
 
 @pytest.fixture

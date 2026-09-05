@@ -1,10 +1,11 @@
 """Tests for Config model, content-type profiles, strictness, and threshold calculation."""
 
-import tempfile
 import os
+import tempfile
 from pathlib import Path
 
 import pytest
+
 from pureframe.config import (
     Config,
     ContentType,

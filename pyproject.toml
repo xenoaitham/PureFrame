@@ -22,7 +22,11 @@ classifiers = [
 requires-python = ">=3.11"
 dependencies = [
     "ffmpeg-python>=0.2.0",
-    "opencv-python-headless>=4.8.0",
+    # Both opencv flavors ship the `cv2` namespace: if either resolves to
+    # 5.x it clobbers the other at import time, and 5.x dropped the Caffe
+    # dnn importer the face detector relies on. Constrain them together.
+    "opencv-python-headless>=4.8.0,<5.0.0",
+    "opencv-python>=4.8.0,<5.0.0",
     "scenedetect>=0.6.4",
     "nudenet>=3.4.2",
     "onnxruntime>=1.15.0",
@@ -33,6 +37,7 @@ dependencies = [
     "rich",
     "tqdm",
     "numpy>=1.24.0",
+    "scipy>=1.11.0",
     "transformers>=4.30.0",
     "panns-inference>=0.1.1",
     "librosa>=0.10.0",
@@ -60,5 +65,31 @@ Source = "https://github.com/xenoaitham/PureFrame"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pureframe"]
+
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+# Explicit selection so a ruff release changing its default rule set can
+# never silently redefine "passing" in CI (this repo went red exactly that
+# way in July 2026). Extend deliberately, not by upgrade accident.
+select = [
+    "E4",  # pycodestyle errors
+    "E7",  # pycodestyle (statement-level)
+    "E9",  # pycodestyle (runtime-level)
+    "F",   # pyflakes
+    "I",   # import sorting
+    "UP",  # pyupgrade (3.11+ idioms)
+]
+ignore = [
+    # (str, Enum) -> StrEnum changes str() semantics of members (repr-style
+    # output becomes raw values). The enums here are serialized into censor
+    # plans and logs; keep the classic mixin form deliberately.
+    "UP042",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pureframe"]
 
 

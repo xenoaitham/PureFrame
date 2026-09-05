@@ -1,15 +1,17 @@
 """Tests for the fusion engine with effective thresholds."""
 
+import os
+import tempfile
+from pathlib import Path
+
 import pytest
+
 from pureframe.config import Config, ContentType, Strictness
-from pureframe.pipeline.fuse import fuse, NUDITY_EXPLICIT_LABELS, NUDITY_PARTIAL_LABELS
-from pureframe.pipeline.shots import Shot, Category, Action
+from pureframe.pipeline.detect.audio import AudioContext
 from pureframe.pipeline.detect.nudity import Detection
 from pureframe.pipeline.detect.scene_clip import ShotContext
-from pureframe.pipeline.detect.audio import AudioContext
-import tempfile
-import os
-from pathlib import Path
+from pureframe.pipeline.fuse import NUDITY_EXPLICIT_LABELS, NUDITY_PARTIAL_LABELS, fuse
+from pureframe.pipeline.shots import Action, Category, Shot
 
 
 @pytest.fixture

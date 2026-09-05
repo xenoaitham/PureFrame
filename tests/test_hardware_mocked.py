@@ -1,6 +1,7 @@
 """Tests for hardware profile detection with mocked torch for full coverage."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from pureframe.hardware import HardwareProfile, get_settings
 
 
@@ -17,6 +18,7 @@ class TestDetectProfileMocked:
             with patch("pureframe.hardware.torch", mock_torch, create=True):
                 # Reimport to use patched module
                 import importlib
+
                 import pureframe.hardware
 
                 importlib.reload(pureframe.hardware)
@@ -34,6 +36,7 @@ class TestDetectProfileMocked:
         with patch.dict("sys.modules", {"torch": mock_torch}):
             with patch("pureframe.hardware.torch", mock_torch, create=True):
                 import importlib
+
                 import pureframe.hardware
 
                 importlib.reload(pureframe.hardware)
@@ -51,6 +54,7 @@ class TestDetectProfileMocked:
         with patch.dict("sys.modules", {"torch": mock_torch}):
             with patch("pureframe.hardware.torch", mock_torch, create=True):
                 import importlib
+
                 import pureframe.hardware
 
                 importlib.reload(pureframe.hardware)
@@ -68,6 +72,7 @@ class TestDetectProfileMocked:
         with patch.dict("sys.modules", {"torch": mock_torch}):
             with patch("pureframe.hardware.torch", mock_torch, create=True):
                 import importlib
+
                 import pureframe.hardware
 
                 importlib.reload(pureframe.hardware)
@@ -84,6 +89,7 @@ class TestDetectProfileMocked:
         with patch.dict("sys.modules", {"torch": mock_torch}):
             with patch("pureframe.hardware.torch", mock_torch, create=True):
                 import importlib
+
                 import pureframe.hardware
 
                 importlib.reload(pureframe.hardware)
@@ -100,6 +106,7 @@ class TestDetectProfileMocked:
         with patch.dict("sys.modules", {"torch": mock_torch}):
             with patch("pureframe.hardware.torch", mock_torch, create=True):
                 import importlib
+
                 import pureframe.hardware
 
                 importlib.reload(pureframe.hardware)

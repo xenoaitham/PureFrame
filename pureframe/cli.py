@@ -1,44 +1,45 @@
-import typer
-from importlib.metadata import PackageNotFoundError, version
-from typing import Optional
-import platformdirs
 import os
 import subprocess
-import tempfile
-from datetime import datetime, timezone
-from pathlib import Path
-from rich.console import Console
-from rich.progress import (
-    Progress,
-    SpinnerColumn,
-    TextColumn,
-    BarColumn,
-    TaskProgressColumn,
-    TimeRemainingColumn,
-)
-from rich.table import Table
-
-from pureframe.config import Config, ContentType, Strictness
-from pureframe.hardware import HardwareProfile, detect_profile, get_settings
-from pureframe.utils.logging import setup_logging
-from pureframe.pipeline.probe import probe_video
-from pureframe.pipeline.shots import detect_shots, Action, Category, ShotVerdict
-from pureframe.pipeline.sample import sample_keyframes, extract_frames
-from pureframe.pipeline.detect.nudity import NudityDetector
-from pureframe.pipeline.densify import densify_shot
-from pureframe.pipeline.smooth import smooth_detections
-from pureframe.pipeline.render.apply import apply_censoring
-from pureframe.pipeline.detect.scene_clip import SceneClassifier
-from pureframe.pipeline.detect.audio import AudioClassifier
-from pureframe.pipeline.detect.face import FaceDetector
-from pureframe.pipeline.fuse import fuse
-from pureframe.checkpoint import CheckpointStore
-from pureframe.pipeline.render.plan import CensorPlan
 
 # When running as a PyInstaller-frozen executable, prepend the executable's
 # directory to PATH so a co-bundled ffmpeg/ffprobe is discovered without the
 # user installing it system-wide. Safe no-op for normal pip installs.
 import sys as _sys
+import tempfile
+from datetime import UTC, datetime
+from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
+
+import platformdirs
+import typer
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+)
+from rich.table import Table
+
+from pureframe.checkpoint import CheckpointStore
+from pureframe.config import Config, ContentType, Strictness
+from pureframe.hardware import HardwareProfile, detect_profile, get_settings
+from pureframe.pipeline.densify import densify_shot
+from pureframe.pipeline.detect.audio import AudioClassifier
+from pureframe.pipeline.detect.face import FaceDetector
+from pureframe.pipeline.detect.nudity import NudityDetector
+from pureframe.pipeline.detect.scene_clip import SceneClassifier
+from pureframe.pipeline.fuse import fuse
+from pureframe.pipeline.probe import probe_video
+from pureframe.pipeline.render.apply import apply_censoring
+from pureframe.pipeline.render.plan import CensorPlan
+from pureframe.pipeline.sample import extract_frames, sample_keyframes
+from pureframe.pipeline.shots import Action, Category, ShotVerdict, detect_shots
+from pureframe.pipeline.smooth import smooth_detections
+from pureframe.utils.ffmpeg import PureFrameError
+from pureframe.utils.logging import setup_logging
 
 if getattr(_sys, "frozen", False):
     _exe_dir = os.path.dirname(_sys.executable)
@@ -63,7 +64,7 @@ def version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
-    version_option: Optional[bool] = typer.Option(
+    version_option: bool | None = typer.Option(
         None,
         "--version",
         "-V",
@@ -308,7 +309,7 @@ def generate_plan(config: Config) -> CensorPlan:
         verdicts=verdicts,
         total_censored_frames=total_censored,
         total_blur_frames=total_blur,
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
     )
     return plan
 
@@ -344,6 +345,15 @@ def execute_render(plan: CensorPlan, config: Config, smart: bool = True):
                     get_settings(config.profile),
                 )
 
+        # A render that silently produced nothing must never be recorded as
+        # DONE - that is exactly how stale checkpoints went on to skip every
+        # future attempt ("already DONE. Skipping.") while no output existed.
+        out_file = Path(config.output_path) if config.output_path else None
+        if out_file is None or not out_file.exists() or out_file.stat().st_size == 0:
+            raise PureFrameError(
+                f"Render finished but the output file is missing or empty: {out_file}"
+            )
+
         store.update_status(job.id, "DONE")
         console.print(
             f"\n[bold green]Success![/bold green] Output saved to {config.output_path}"
@@ -366,7 +376,21 @@ def execute_render(plan: CensorPlan, config: Config, smart: bool = True):
 def process_file(config: Config):
     store = get_store()
     job = store.find_or_create_job(config.input_path, config.output_path, config)
-    if job.status == "DONE":
+
+    skip = job.status == "DONE" and not config.force
+    if skip and config.output_path is not None:
+        out_abs = Path(config.output_path).absolute()
+        # A DONE checkpoint only proves the job recorded back then. It does
+        # not apply when the caller now targets a different output path (the
+        # store is keyed on input + config hash), or when the previously
+        # rendered file has since been deleted or truncated. In those cases
+        # we must redo the work instead of silently producing nothing.
+        if job.output_path != str(out_abs):
+            skip = False
+        elif not out_abs.exists() or out_abs.stat().st_size == 0:
+            skip = False
+
+    if skip:
         console.print(
             f"[green]Job {job.id} for {config.input_path.name} is already DONE. Skipping.[/green]"
         )
@@ -782,7 +806,7 @@ def preview_cmd(
 
 @app.command()
 def evaluate(
-    output: Optional[Path] = typer.Option(
+    output: Path | None = typer.Option(
         None, "--output", "-o", help="Path to save evaluation report JSON"
     ),
     threshold: float = typer.Option(

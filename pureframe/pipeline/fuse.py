@@ -1,9 +1,8 @@
 from pureframe.config import Config
-from pureframe.pipeline.shots import Shot, ShotVerdict, Category, Action
+from pureframe.pipeline.detect.audio import AudioContext
 from pureframe.pipeline.detect.nudity import Detection
 from pureframe.pipeline.detect.scene_clip import ShotContext
-from pureframe.pipeline.detect.audio import AudioContext
-
+from pureframe.pipeline.shots import Action, Category, Shot, ShotVerdict
 
 # Primary explicit nudity labels - always flagged
 NUDITY_EXPLICIT_LABELS = {

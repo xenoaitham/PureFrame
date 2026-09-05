@@ -1,16 +1,17 @@
 """Tests for densify_shot and SceneDetector with mocked dependencies."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 
-from pureframe.pipeline.shots import Shot
 from pureframe.pipeline.detect.nudity import Detection
+from pureframe.pipeline.shots import Shot
 
 
 class TestDensifyShot:
     def test_densify_produces_detections(self, synthetic_video):
         """Test densify_shot with a mocked NudityDetector."""
-        from pureframe.hardware import get_settings, HardwareProfile
+        from pureframe.hardware import HardwareProfile, get_settings
 
         settings = get_settings(HardwareProfile.CPU)
 
@@ -36,7 +37,7 @@ class TestDensifyShot:
 
     def test_densify_with_detections(self, synthetic_video):
         """Test densify with a detector that returns actual detections."""
-        from pureframe.hardware import get_settings, HardwareProfile
+        from pureframe.hardware import HardwareProfile, get_settings
 
         settings = get_settings(HardwareProfile.CPU)
 
@@ -62,7 +63,7 @@ class TestDensifyShot:
 
     def test_densify_threshold_filters(self, synthetic_video):
         """Test that threshold filters out low-confidence detections."""
-        from pureframe.hardware import get_settings, HardwareProfile
+        from pureframe.hardware import HardwareProfile, get_settings
 
         settings = get_settings(HardwareProfile.CPU)
 

@@ -17,10 +17,10 @@ Metrics computed:
 """
 
 import json
-import time
 import logging
+import time
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from dataclasses import dataclass, field, asdict
 
 import numpy as np
 
@@ -597,8 +597,9 @@ def run_synthetic_benchmark(
     Returns:
         Complete EvaluationReport with metrics.
     """
-    from importlib.metadata import version as pkg_version, PackageNotFoundError
     from datetime import datetime
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import version as pkg_version
 
     try:
         ver = pkg_version("pureframe")

@@ -9,16 +9,16 @@ Strategy:
 This gives 2-5x speedup on typical content where only 5-15% of frames are censored.
 """
 
-from pathlib import Path
+import logging
+import shutil
 import subprocess
 import tempfile
-import shutil
-import logging
+from pathlib import Path
 
 from pureframe.config import Config
 from pureframe.hardware import ProfileSettings
 from pureframe.pipeline.render.overlay import build_overlay_callback
-from pureframe.utils.ffmpeg import select_hw_encoder, write_video_with_overlay, probe
+from pureframe.utils.ffmpeg import probe, select_hw_encoder, write_video_with_overlay
 
 logger = logging.getLogger(__name__)
 
@@ -265,13 +265,34 @@ def _extract_and_render_segment(
     )
 
 
+def _ensure_within(base: Path, candidate: Path) -> Path:
+    """Return ``candidate`` resolved, refusing paths that escape ``base``.
+
+    Every path written into the concat file is one ffmpeg then reads back -
+    a resolved path outside the working dir would let a corrupted segment
+    name point ffmpeg at arbitrary files.
+    """
+    resolved = candidate.resolve()
+    if not resolved.is_relative_to(base):
+        raise ValueError(f"path {candidate} escapes allowed directory {base}")
+    return resolved
+
+
 def _concat_segments(segment_files: list[Path], output: Path, tmpdir: Path) -> None:
     """Concatenate segments using ffmpeg concat demuxer."""
-    concat_file = tmpdir / "concat.txt"
-    with open(concat_file, "w") as f:
-        for sf in segment_files:
-            if sf.exists() and sf.stat().st_size > 0:
-                f.write(f"file '{sf}'\n")
+    tmpdir = tmpdir.resolve()
+    concat_file = _ensure_within(tmpdir, tmpdir / "concat.txt")
+    lines = []
+    for sf in segment_files:
+        if sf.exists() and sf.stat().st_size > 0:
+            sf = _ensure_within(tmpdir, sf)
+            # Escape single quotes for the concat demuxer: 'it's.mp4'
+            # becomes 'it'\''s.mp4'. Without this, a quote in the path
+            # terminates the quoted token and the remainder is parsed as
+            # concat directives.
+            safe = str(sf).replace("'", "'\\''")
+            lines.append(f"file '{safe}'\n")
+    concat_file.write_text("".join(lines), encoding="utf-8")
 
     cmd = [
         "ffmpeg",

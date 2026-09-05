@@ -1,6 +1,10 @@
+import logging
+from pathlib import Path
+
 import cv2
 import numpy as np
-from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class FaceDetector:
@@ -9,11 +13,25 @@ class FaceDetector:
         prototxt = data_dir / "deploy.prototxt"
         model = data_dir / "res10_300x300_ssd_iter_140000.caffemodel"
 
-        self.net = cv2.dnn.readNetFromCaffe(str(prototxt), str(model))
+        try:
+            self.net = cv2.dnn.readNetFromCaffe(str(prototxt), str(model))
+        except (AttributeError, cv2.error) as e:
+            # OpenCV 5.x removed the Caffe importer from cv2.dnn. Degrade to
+            # "no faces" instead of crashing the whole pipeline; mouth-region
+            # assist signals disappear but NudeNet/CLIP keep working. The
+            # degradation gates on `net is None` (not a separate flag) so a
+            # test may still inject a stand-in net.
+            logger.warning(
+                "Face detector unavailable (%s) - mouth-region assist disabled", e
+            )
+            self.net = None
 
     def detect_mouths(
         self, frame_bgr: np.ndarray, threshold: float = 0.5
     ) -> list[tuple[int, int, int, int]]:
+        if self.net is None:
+            return []
+
         h, w = frame_bgr.shape[:2]
         blob = cv2.dnn.blobFromImage(
             cv2.resize(frame_bgr, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0)

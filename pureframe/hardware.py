@@ -1,6 +1,7 @@
-from enum import Enum
-from pydantic import BaseModel
 import logging
+from enum import Enum
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 

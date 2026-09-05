@@ -1,16 +1,17 @@
 """Tests for FFmpeg utility functions - metadata extraction, encoder selection, probe."""
 
-import pytest
 from fractions import Fraction
 
+import pytest
+
+from pureframe.hardware import HardwareProfile
 from pureframe.utils.ffmpeg import (
-    extract_metadata,
-    select_hw_encoder,
-    probe,
     PureFrameError,
     VideoMetadata,
+    extract_metadata,
+    probe,
+    select_hw_encoder,
 )
-from pureframe.hardware import HardwareProfile
 
 
 class TestProbe:

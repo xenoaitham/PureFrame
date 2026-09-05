@@ -1,5 +1,5 @@
-from pureframe.tracking.iou_tracker import IoUTracker, compute_iou
 from pureframe.pipeline.detect.nudity import Detection
+from pureframe.tracking.iou_tracker import IoUTracker, compute_iou
 
 
 def test_iou_compute():

@@ -1,9 +1,10 @@
-from pathlib import Path
 import shutil
+from pathlib import Path
+
+from pureframe.batch import process_folder
 from pureframe.config import Config
 from pureframe.hardware import HardwareProfile
-from pureframe.batch import process_folder
-from pureframe.pipeline.shots import ShotVerdict, Category, Action
+from pureframe.pipeline.shots import Action, Category, ShotVerdict
 
 
 def global_mocked_process_file(cfg):
@@ -12,10 +13,11 @@ def global_mocked_process_file(cfg):
 
 def create_dummy_video(path: Path):
     # Create a tiny 1-second video
+    import os
+    import subprocess
+
     import cv2
     import numpy as np
-    import subprocess
-    import os
 
     temp_vid = path.with_suffix(".temp.mp4")
     out = cv2.VideoWriter(

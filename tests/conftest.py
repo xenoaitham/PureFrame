@@ -1,13 +1,14 @@
-import pytest
-from pathlib import Path
-import subprocess
 import os
+import subprocess
+from pathlib import Path
+
+import pytest
 
 
 @pytest.fixture(autouse=True)
 def mock_store(monkeypatch, tmp_path):
-    from pureframe.checkpoint import CheckpointStore
     import pureframe.cli
+    from pureframe.checkpoint import CheckpointStore
 
     db_path = tmp_path / "test_checkpoints.db"
     store = CheckpointStore(db_path)

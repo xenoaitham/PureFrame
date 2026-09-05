@@ -1,7 +1,8 @@
 """Tests for render overlay callback - direct unit tests on the apply_censoring callback logic."""
 
-import numpy as np
 import cv2
+import numpy as np
+
 from pureframe.pipeline.shots import Action
 
 

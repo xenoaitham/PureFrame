@@ -1,10 +1,11 @@
 """Tests for checkpoint store edge cases."""
 
-import pytest
 from pathlib import Path
 
+import pytest
+
 from pureframe.checkpoint import CheckpointStore
-from pureframe.pipeline.shots import ShotVerdict, Action, Category
+from pureframe.pipeline.shots import Action, Category, ShotVerdict
 
 
 class TestCheckpointStoreEdgeCases:
@@ -12,8 +13,9 @@ class TestCheckpointStoreEdgeCases:
         db = tmp_path / "test.db"
         store = CheckpointStore(db)
 
-        from pureframe.config import Config
         import tempfile
+
+        from pureframe.config import Config
 
         tf = Path(tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name)
 
@@ -33,8 +35,9 @@ class TestCheckpointStoreEdgeCases:
         db = tmp_path / "test.db"
         store = CheckpointStore(db)
 
-        from pureframe.config import Config
         import tempfile
+
+        from pureframe.config import Config
 
         tf = Path(tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name)
         config = Config(input_path=tf)
@@ -56,8 +59,9 @@ class TestCheckpointStoreEdgeCases:
         db = tmp_path / "test.db"
         store = CheckpointStore(db)
 
-        from pureframe.config import Config
         import tempfile
+
+        from pureframe.config import Config
 
         tf = Path(tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name)
         config = Config(input_path=tf)
@@ -85,8 +89,9 @@ class TestCheckpointStoreEdgeCases:
         db = tmp_path / "test.db"
         store = CheckpointStore(db)
 
-        from pureframe.config import Config
         import tempfile
+
+        from pureframe.config import Config
 
         tf = Path(tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name)
         config = Config(input_path=tf)
@@ -112,8 +117,9 @@ class TestCheckpointStoreEdgeCases:
         db = tmp_path / "test.db"
         store = CheckpointStore(db)
 
-        from pureframe.config import Config
         import tempfile
+
+        from pureframe.config import Config
 
         tf = Path(tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name)
         config = Config(input_path=tf)
@@ -129,8 +135,9 @@ class TestCheckpointStoreEdgeCases:
         db = tmp_path / "test.db"
         store = CheckpointStore(db)
 
-        from pureframe.config import Config
         import tempfile
+
+        from pureframe.config import Config
 
         tf = Path(tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name)
         config = Config(input_path=tf)
@@ -146,8 +153,9 @@ class TestCheckpointStoreEdgeCases:
         db = tmp_path / "test.db"
         store = CheckpointStore(db)
 
-        from pureframe.config import Config
         import tempfile
+
+        from pureframe.config import Config
 
         tf = Path(tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name)
 

@@ -1,6 +1,7 @@
 """Additional CLI coverage tests - version, edge cases, error paths."""
 
 from typer.testing import CliRunner
+
 from pureframe.cli import app
 
 runner = CliRunner()

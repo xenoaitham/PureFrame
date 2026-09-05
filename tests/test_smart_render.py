@@ -1,22 +1,22 @@
 """Tests for smart segment rendering."""
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+from pureframe.config import Config
+from pureframe.hardware import HardwareProfile, ProfileSettings
 from pureframe.pipeline.render.smart import (
-    _find_dirty_segments,
-    _stream_copy,
-    _extract_segment_copy,
     _concat_segments,
-    _get_fps,
     _extract_and_render_segment,
+    _extract_segment_copy,
+    _find_dirty_segments,
+    _get_fps,
     _render_segments,
+    _stream_copy,
     apply_censoring_smart,
 )
-from pureframe.config import Config
-from pureframe.hardware import ProfileSettings, HardwareProfile
 
 
 @pytest.fixture

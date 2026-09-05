@@ -1,6 +1,6 @@
-from pureframe.pipeline.smooth import smooth_detections
-from pureframe.pipeline.shots import Shot
 from pureframe.pipeline.detect.nudity import Detection
+from pureframe.pipeline.shots import Shot
+from pureframe.pipeline.smooth import smooth_detections
 
 
 def test_smoothing_interpolation():

@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+
 from pureframe.pipeline.detect.nudity import Detection
 
 

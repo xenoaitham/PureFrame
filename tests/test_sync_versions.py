@@ -14,7 +14,6 @@ PACKAGING_DIR = Path(__file__).resolve().parent.parent / "packaging"
 sys.path.insert(0, str(PACKAGING_DIR))
 import sync_versions  # type: ignore[import-not-found]  # noqa: E402
 
-
 # --- pure version translators -------------------------------------------------
 
 

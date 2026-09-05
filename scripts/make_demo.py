@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from datetime import datetime
 
+from pureframe.pipeline.probe import probe_video
+
 ASSETS_DIR = Path("assets")
 ASSETS_DIR.mkdir(exist_ok=True)
 
@@ -19,27 +21,27 @@ def create_synthetic_video():
     # Scene 1: Green background (Safe) - 0 to 1.5s
     # Scene 2: Red box moving (Explicit shape) - 1.5s to 3.5s
     # Scene 3: Blue background (Soft implied) - 3.5s to 5.0s
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-f",
-        "lavfi",
-        "-i",
-        "testsrc=duration=5:size=854x480:rate=30",
-        "-vf",
-        "drawbox=x='iw/2-50+t*20':y='ih/2-50':w=100:h=100:color=red@0.8:t=fill",
-        "-c:v",
-        "libx264",
-        "-preset",
-        "ultrafast",
-        str(SYNTHETIC_MP4),
-    ]
     subprocess.run(
-        cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=duration=5:size=854x480:rate=30",
+            "-vf",
+            "drawbox=x='iw/2-50+t*20':y='ih/2-50':w=100:h=100:color=red@0.8:t=fill",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            str(SYNTHETIC_MP4),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        shell=False,
     )
-
-
-from pureframe.pipeline.probe import probe_video
 
 
 def create_plan():
@@ -97,8 +99,7 @@ def create_plan():
             {"x1": x1, "y1": y1, "x2": x1 + 100, "y2": y1 + 100, "frame_idx": f}
         )
 
-    with open(PLAN_JSON, "w") as f:
-        json.dump(plan, f, indent=2)
+    PLAN_JSON.write_text(json.dumps(plan, indent=2), encoding="utf-8")
 
 
 def run_apply():

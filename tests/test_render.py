@@ -1,10 +1,11 @@
 """Tests for the render overlay callback and plan frame actions."""
 
-from pureframe.pipeline.render.plan import CensorPlan
-from pureframe.pipeline.shots import Shot, ShotVerdict, Action, Category
-from pureframe.utils.ffmpeg import VideoMetadata
+from datetime import UTC, datetime
 from fractions import Fraction
-from datetime import datetime, timezone
+
+from pureframe.pipeline.render.plan import CensorPlan
+from pureframe.pipeline.shots import Action, Category, Shot, ShotVerdict
+from pureframe.utils.ffmpeg import VideoMetadata
 
 
 class TestCensorPlanFrameActions:
@@ -32,7 +33,7 @@ class TestCensorPlanFrameActions:
             verdicts=verdicts,
             total_censored_frames=0,
             total_blur_frames=0,
-            generated_at=datetime.now(timezone.utc),
+            generated_at=datetime.now(UTC),
         )
 
     def test_safe_shots_produce_empty_actions(self):
@@ -231,7 +232,7 @@ class TestPlanSerialization:
             verdicts=verdicts,
             total_censored_frames=0,
             total_blur_frames=0,
-            generated_at=datetime.now(timezone.utc),
+            generated_at=datetime.now(UTC),
         )
 
         path = tmp_path / "test_plan.json"

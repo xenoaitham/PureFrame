@@ -1,8 +1,9 @@
-import pytest
-import numpy as np
 import cv2
+import numpy as np
+import pytest
+
+from pureframe.hardware import HardwareProfile, get_settings
 from pureframe.pipeline.detect.scene_clip import SceneClassifier
-from pureframe.hardware import get_settings, HardwareProfile
 
 pytestmark = pytest.mark.slow
 

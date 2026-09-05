@@ -1,10 +1,11 @@
-from pathlib import Path
-from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
+
 import rich
+from pydantic import BaseModel
 from rich.live import Live
 from rich.table import Table
-from pydantic import BaseModel
 
 from pureframe.config import Config
 
