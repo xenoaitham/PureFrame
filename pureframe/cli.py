@@ -7,9 +7,11 @@ import subprocess
 # user installing it system-wide. Safe no-op for normal pip installs.
 import sys as _sys
 import tempfile
+import threading
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+from queue import Full, Queue
 
 import platformdirs
 import typer
@@ -88,6 +90,52 @@ def get_store() -> CheckpointStore:
     return CheckpointStore(db_path)
 
 
+def _extraction_worker(
+    shots,
+    completed_indices,
+    config,
+    settings,
+    meta,
+    timers,
+    out_queue: Queue,
+    stop_event: threading.Event,
+) -> None:
+    """Prefetch keyframe extraction while the main thread runs inference.
+
+    ffmpeg decode is a subprocess and ONNX/torch release the GIL during
+    compute, so overlapping them shortens the plan stage on every profile.
+    FIFO order keeps results deterministic; errors are forwarded in-band.
+    """
+
+    def _put(item):
+        while not stop_event.is_set():
+            try:
+                out_queue.put(item, timeout=0.5)
+                return
+            except Full:
+                continue
+
+    try:
+        for shot in shots:
+            if shot.index in completed_indices:
+                _put((shot, [], {}))
+                continue
+            kf_indices = sample_keyframes(shot, settings.sample_keyframes_per_shot)
+            with timers.phase("extract"):
+                frames = extract_frames(
+                    config.input_path,
+                    kf_indices,
+                    settings.detection_resolution,
+                    meta=meta,
+                )
+            if not _put((shot, kf_indices, frames)):
+                return
+    except Exception as e:
+        _put(e)
+    finally:
+        _put(None)
+
+
 def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPlan:
     timers = timers or PhaseTimers()
     store = get_store()
@@ -156,127 +204,159 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                     completed=len(completed_indices),
                 )
 
-                for shot in shots:
-                    if shot.index in completed_indices:
-                        progress.advance(task)
-                        continue
+                # Prefetch the next shot's keyframe extraction while the
+                # current one is being classified.
+                prefetch: Queue = Queue(maxsize=2)
+                stop_event = threading.Event()
+                worker = threading.Thread(
+                    target=_extraction_worker,
+                    args=(
+                        shots,
+                        completed_indices,
+                        config,
+                        settings,
+                        meta,
+                        timers,
+                        prefetch,
+                        stop_event,
+                    ),
+                    name="pureframe-extract",
+                    daemon=True,
+                )
+                worker.start()
 
-                    progress.update(
-                        task,
-                        description=f"Analyzing [shot {shot.index + 1}/{len(shots)}]",
-                    )
-                    kf_indices = sample_keyframes(
-                        shot, settings.sample_keyframes_per_shot
-                    )
-                    with timers.phase("extract"):
-                        frames_bgr = extract_frames(
-                            config.input_path,
-                            kf_indices,
-                            settings.detection_resolution,
-                            meta=meta,
+                try:
+                    while True:
+                        item = prefetch.get()
+                        if item is None:
+                            break
+                        if isinstance(item, Exception):
+                            raise item
+                        shot, kf_indices, frames_bgr = item
+
+                        if shot.index in completed_indices:
+                            progress.advance(task)
+                            continue
+
+                        progress.update(
+                            task,
+                            description=f"Analyzing [shot {shot.index + 1}/{len(shots)}]",
                         )
 
-                    frames_list = [frames_bgr[i] for i in kf_indices if i in frames_bgr]
-                    if not frames_list:
-                        verdict = ShotVerdict(
-                            shot_index=shot.index,
-                            action=Action.NONE,
-                            category=Category.SAFE,
-                            confidence=1.0,
-                            reasoning="No frames",
-                        )
-                        store.save_verdict(job.id, verdict)
-                        progress.advance(task)
-                        continue
-
-                    with timers.phase("detect_nudity"):
-                        batch_dets = detector.detect_batch(frames_list)
-
-                    mid_idx = len(frames_list) // 2
-                    mid_frame = frames_list[mid_idx]
-                    with timers.phase("detect_clip"):
-                        scene_ctx = scene_classifier.classify_shot(mid_frame)
-
-                    start_sec = shot.start_frame / meta.fps
-                    end_sec = shot.end_frame / meta.fps
-                    if audio_classifier.enabled and context_audio_needed(
-                        scene_ctx, config, config.strict
-                    ):
-                        with timers.phase("detect_audio"):
-                            audio_ctx = audio_classifier.classify_segment(
-                                config.input_path, start_sec, end_sec
+                        frames_list = [
+                            frames_bgr[i] for i in kf_indices if i in frames_bgr
+                        ]
+                        if not frames_list:
+                            verdict = ShotVerdict(
+                                shot_index=shot.index,
+                                action=Action.NONE,
+                                category=Category.SAFE,
+                                confidence=1.0,
+                                reasoning="No frames",
                             )
-                    else:
-                        # The audio score cannot change the verdict when the
-                        # CLIP scene signal is below its thresholds - skip the
-                        # PANNs run entirely and fuse with a neutral context.
-                        audio_ctx = AudioContext(
-                            moaning_score=0.0,
-                            sexual_audio_score=0.0,
-                            music_score=0.0,
-                            speech_score=0.0,
-                        )
+                            store.save_verdict(job.id, verdict)
+                            progress.advance(task)
+                            continue
 
-                    with timers.phase("fuse"):
-                        verdict = fuse(
-                            shot,
-                            batch_dets,
-                            scene_ctx,
-                            audio_ctx,
-                            config,
-                            strict_mode=config.strict,
-                        )
+                        with timers.phase("detect_nudity"):
+                            batch_dets = detector.detect_batch(frames_list)
 
-                    if config.strict and verdict.category == Category.KISS_LIGHT:
-                        verdict.action = Action.BLACK_BOX
+                        mid_idx = len(frames_list) // 2
+                        mid_frame = frames_list[mid_idx]
+                        with timers.phase("detect_clip"):
+                            scene_ctx = scene_classifier.classify_shot(mid_frame)
 
-                    if verdict.action != Action.NONE:
-                        if verdict.action == Action.BLACK_BOX:
-                            if verdict.category in (
-                                Category.KISS_INTENSE,
-                                Category.KISS_LIGHT,
-                            ):
-                                # Sample the shot at the profile's densify
-                                # stride instead of decoding every frame; the
-                                # IoU tracker in smooth_detections bridges the
-                                # gaps so the blur stays continuous.
-                                stride = max(1, settings.densify_every_n_frames)
-                                all_frames = list(
-                                    range(shot.start_frame, shot.end_frame, stride)
+                        start_sec = shot.start_frame / meta.fps
+                        end_sec = shot.end_frame / meta.fps
+                        if audio_classifier.enabled and context_audio_needed(
+                            scene_ctx, config, config.strict
+                        ):
+                            with timers.phase("detect_audio"):
+                                audio_ctx = audio_classifier.classify_segment(
+                                    config.input_path, start_sec, end_sec
                                 )
-                                if all_frames and all_frames[-1] != shot.end_frame - 1:
-                                    all_frames.append(shot.end_frame - 1)
-                                with timers.phase("extract_kiss"):
-                                    all_bgr = extract_frames(
-                                        config.input_path,
-                                        all_frames,
-                                        settings.detection_resolution,
-                                        meta=meta,
-                                    )
+                        else:
+                            # The audio score cannot change the verdict when the
+                            # CLIP scene signal is below its thresholds - skip the
+                            # PANNs run entirely and fuse with a neutral context.
+                            audio_ctx = AudioContext(
+                                moaning_score=0.0,
+                                sexual_audio_score=0.0,
+                                music_score=0.0,
+                                speech_score=0.0,
+                            )
 
-                                dense_faces = {}
-                                with timers.phase("detect_faces"):
-                                    for f_idx, f_bgr in all_bgr.items():
-                                        mouths = face_detector.detect_mouths(f_bgr)
-                                        from pureframe.pipeline.detect.nudity import (
-                                            Detection,
+                        with timers.phase("fuse"):
+                            verdict = fuse(
+                                shot,
+                                batch_dets,
+                                scene_ctx,
+                                audio_ctx,
+                                config,
+                                strict_mode=config.strict,
+                            )
+
+                        if config.strict and verdict.category == Category.KISS_LIGHT:
+                            verdict.action = Action.BLACK_BOX
+
+                        if verdict.action != Action.NONE:
+                            if verdict.action == Action.BLACK_BOX:
+                                if verdict.category in (
+                                    Category.KISS_INTENSE,
+                                    Category.KISS_LIGHT,
+                                ):
+                                    # Sample the shot at the profile's densify
+                                    # stride instead of decoding every frame; the
+                                    # IoU tracker in smooth_detections bridges the
+                                    # gaps so the blur stays continuous.
+                                    stride = max(1, settings.densify_every_n_frames)
+                                    all_frames = list(
+                                        range(shot.start_frame, shot.end_frame, stride)
+                                    )
+                                    if (
+                                        all_frames
+                                        and all_frames[-1] != shot.end_frame - 1
+                                    ):
+                                        all_frames.append(shot.end_frame - 1)
+                                    with timers.phase("extract_kiss"):
+                                        all_bgr = extract_frames(
+                                            config.input_path,
+                                            all_frames,
+                                            settings.detection_resolution,
+                                            meta=meta,
                                         )
 
-                                        dense_faces[f_idx] = [
-                                            Detection(label="MOUTH", score=1.0, box=m)
-                                            for m in mouths
-                                        ]
+                                    dense_faces = {}
+                                    with timers.phase("detect_faces"):
+                                        for f_idx, f_bgr in all_bgr.items():
+                                            mouths = face_detector.detect_mouths(f_bgr)
+                                            from pureframe.pipeline.detect.nudity import (
+                                                Detection,
+                                            )
 
-                                smooth_mouths = smooth_detections(
-                                    dense_faces, shot, config.box_padding_pct
-                                )
-                                from pureframe.pipeline.shots import Box
+                                            dense_faces[f_idx] = [
+                                                Detection(
+                                                    label="MOUTH", score=1.0, box=m
+                                                )
+                                                for m in mouths
+                                            ]
 
-                                verdict.boxes = [
-                                    Box(x1=b[0], y1=b[1], x2=b[2], y2=b[3], frame_idx=f)
-                                    for f, boxes in smooth_mouths.items()
-                                    for b in boxes
-                                ]
+                                    smooth_mouths = smooth_detections(
+                                        dense_faces, shot, config.box_padding_pct
+                                    )
+                                    from pureframe.pipeline.shots import Box
+
+                                    verdict.boxes = [
+                                        Box(
+                                            x1=b[0],
+                                            y1=b[1],
+                                            x2=b[2],
+                                            y2=b[3],
+                                            frame_idx=f,
+                                        )
+                                        for f, boxes in smooth_mouths.items()
+                                        for b in boxes
+                                    ]
                             else:
                                 from pureframe.pipeline.shots import FrameResult
 
@@ -305,8 +385,16 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                     for b in boxes
                                 ]
 
-                    store.save_verdict(job.id, verdict)
-                    progress.advance(task)
+                        store.save_verdict(job.id, verdict)
+                        progress.advance(task)
+                finally:
+                    stop_event.set()
+                    # Unblock a worker waiting on a full queue, then drain.
+                    while not prefetch.empty():
+                        try:
+                            prefetch.get_nowait()
+                        except Exception:
+                            break
 
         except KeyboardInterrupt:
             store.update_status(job.id, "FAILED", error="Interrupted by user")
