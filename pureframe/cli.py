@@ -173,7 +173,7 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
         store.update_status(job.id, "DETECTING", total_shots=len(shots))
         console.print(f"Detected {len(shots)} shots.")
 
-        detector = NudityDetector(settings)
+        detector = NudityDetector(settings, quantize=config.quantize_cpu)
         scene_classifier = SceneClassifier(settings)
         if config.no_clip:
             scene_classifier.enabled = False
@@ -600,6 +600,11 @@ def plan_cmd(
         "--strictness",
         help="Strictness level: low, medium, high, custom",
     ),
+    no_quant: bool = typer.Option(
+        False,
+        "--no-quant",
+        help="Disable int8 CPU model quantization (GPU profiles unaffected)",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose logging"
     ),
@@ -624,6 +629,7 @@ def plan_cmd(
         no_audio=no_audio,
         content_type=content_type,
         strictness=strictness,
+        quantize_cpu=not no_quant,
         log_level="DEBUG" if verbose else "INFO",
     )
 
@@ -774,6 +780,11 @@ def process_cmd(
     force: bool = typer.Option(
         False, "--force", help="Force reprocess even if job already done"
     ),
+    no_quant: bool = typer.Option(
+        False,
+        "--no-quant",
+        help="Disable int8 CPU model quantization (GPU profiles unaffected)",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose logging"
     ),
@@ -801,6 +812,7 @@ def process_cmd(
                 content_type=content_type,
                 strictness=strictness,
                 force=force,
+                quantize_cpu=not no_quant,
                 log_level="DEBUG" if verbose else "INFO",
             )
         process_folder(input, recursive, parallel, base_config)
@@ -816,6 +828,7 @@ def process_cmd(
             content_type=content_type,
             strictness=strictness,
             force=force,
+            quantize_cpu=not no_quant,
             log_level="DEBUG" if verbose else "INFO",
         )
         process_file(config)

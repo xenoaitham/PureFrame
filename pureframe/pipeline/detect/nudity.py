@@ -1,8 +1,12 @@
+import logging
+
 import numpy as np
 from nudenet import NudeDetector
 from pydantic import BaseModel
 
 from pureframe.hardware import ProfileSettings
+
+logger = logging.getLogger(__name__)
 
 EXPLICIT_LABELS = {
     "FEMALE_BREAST_EXPOSED",
@@ -20,21 +24,45 @@ class Detection(BaseModel):
 
 
 class NudityDetector:
-    def __init__(self, settings: ProfileSettings):
+    def __init__(self, settings: ProfileSettings, quantize: bool = True):
         self.settings = settings
+        self.quantize = quantize
         self.detector = None
         if self.settings.keep_models_loaded:
             self._load()
 
     def _load(self):
         if self.detector is None:
-            # Note: NudeDetector initializes ONNXRuntime internally.
-            # We pass providers if NudeDetector exposes it.
-            # Usually in nudenet 3.x, it takes providers param.
+            # CPU-only profiles get a dynamically int8-quantized copy of the
+            # bundled weights (cached after first use, 2-4x CPU inference);
+            # GPU profiles keep fp32 since the CUDA EP doesn't benefit. The
+            # eval-parity CI gate proves the quantized model behaves
+            # identically before anything ships on it.
+            model_path = None
+            if self.quantize and self.settings.onnx_providers == [
+                "CPUExecutionProvider"
+            ]:
+                try:
+                    from pureframe.pipeline.detect.quantize import (
+                        quantized_model_path,
+                    )
+
+                    model_path = str(quantized_model_path())
+                except Exception as e:
+                    logger.warning(
+                        "NudeNet quantization unavailable (%s) - using fp32", e
+                    )
             try:
-                self.detector = NudeDetector(providers=self.settings.onnx_providers)
+                if model_path:
+                    self.detector = NudeDetector(
+                        providers=self.settings.onnx_providers,
+                        model_path=model_path,
+                    )
+                else:
+                    self.detector = NudeDetector(providers=self.settings.onnx_providers)
             except TypeError:
-                self.detector = NudeDetector()  # fallback if providers not supported
+                # Older nudenet without provider/model_path kwargs.
+                self.detector = NudeDetector()
 
     def detect_batch(self, frames_bgr: list[np.ndarray]) -> list[list[Detection]]:
         if not frames_bgr:

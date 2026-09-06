@@ -71,6 +71,10 @@ class Config(BaseSettings):
     strictness: Strictness = Strictness.MEDIUM
     force: bool = False
 
+    # Speed offensive: int8-quantize the NudeNet model on CPU-only profiles
+    # (2-4x CPU inference; accuracy gated by the eval-parity CI job).
+    quantize_cpu: bool = True
+
     model_config = SettingsConfigDict(env_prefix="PUREFRAME_")
 
     @classmethod
@@ -126,6 +130,7 @@ class Config(BaseSettings):
             "no_audio": self.no_audio,
             "content_type": self.content_type.value,
             "strictness": self.strictness.value,
+            "quantize_cpu": self.quantize_cpu,
         }
         data_str = json.dumps(data, sort_keys=True)
         return hashlib.sha256(data_str.encode("utf-8")).hexdigest()

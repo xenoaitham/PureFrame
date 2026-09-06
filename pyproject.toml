@@ -30,6 +30,7 @@ dependencies = [
     "scenedetect>=0.6.4",
     "nudenet>=3.4.2",
     "onnxruntime>=1.15.0",
+    "onnx>=1.15.0",
     "torch>=2.4.0",
     "pydantic>=2.0",
     "pydantic-settings",

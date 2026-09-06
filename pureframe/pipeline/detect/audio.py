@@ -19,6 +19,23 @@ class AudioContext(BaseModel):
     speech_score: float
 
 
+# PANNs inference cost scales linearly with segment length; a long shot's
+# audio character is conveyed by its middle, so analysis is capped there.
+AUDIO_ANALYSIS_WINDOW_SECONDS = 10.0
+
+
+def analysis_window(
+    start_sec: float,
+    end_sec: float,
+    window: float = AUDIO_ANALYSIS_WINDOW_SECONDS,
+) -> tuple[float, float]:
+    """Center-capped analysis window for a shot's audio."""
+    if end_sec - start_sec <= window:
+        return start_sec, end_sec
+    mid = (start_sec + end_sec) / 2
+    return mid - window / 2, mid + window / 2
+
+
 class AudioClassifier:
     # Fallback AudioSet-527 indices used when name resolution fails. These
     # are approximate and should be verified against the active panns_inference
@@ -135,6 +152,7 @@ class AudioClassifier:
             )
 
         try:
+            start_sec, end_sec = analysis_window(start_sec, end_sec)
             cmd = [
                 "ffmpeg",
                 "-y",
