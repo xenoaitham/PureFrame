@@ -28,11 +28,11 @@ from pureframe.checkpoint import CheckpointStore
 from pureframe.config import Config, ContentType, Strictness
 from pureframe.hardware import HardwareProfile, detect_profile, get_settings
 from pureframe.pipeline.densify import densify_shot
-from pureframe.pipeline.detect.audio import AudioClassifier
+from pureframe.pipeline.detect.audio import AudioClassifier, AudioContext
 from pureframe.pipeline.detect.face import FaceDetector
 from pureframe.pipeline.detect.nudity import NudityDetector
 from pureframe.pipeline.detect.scene_clip import SceneClassifier
-from pureframe.pipeline.fuse import fuse
+from pureframe.pipeline.fuse import context_audio_needed, fuse
 from pureframe.pipeline.probe import probe_video
 from pureframe.pipeline.render.apply import apply_censoring
 from pureframe.pipeline.render.plan import CensorPlan
@@ -106,7 +106,7 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
 
     if job.status == "DONE" or job.status == "RENDERING":
         verdicts = store.load_verdicts(job.id)
-        shots = detect_shots(config.input_path)
+        shots = detect_shots(config.input_path, frame_skip=settings.scene_frame_skip)
         meta = probe_video(config.input_path)
     else:
         store.update_status(job.id, "DETECTING")
@@ -118,7 +118,9 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
             console.status("[bold green]Detecting shots..."),
             timers.phase("scene_detect"),
         ):
-            shots = detect_shots(config.input_path)
+            shots = detect_shots(
+                config.input_path, frame_skip=settings.scene_frame_skip
+            )
 
         store.update_status(job.id, "DETECTING", total_shots=len(shots))
         console.print(f"Detected {len(shots)} shots.")
@@ -197,9 +199,22 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
 
                     start_sec = shot.start_frame / meta.fps
                     end_sec = shot.end_frame / meta.fps
-                    with timers.phase("detect_audio"):
-                        audio_ctx = audio_classifier.classify_segment(
-                            config.input_path, start_sec, end_sec
+                    if audio_classifier.enabled and context_audio_needed(
+                        scene_ctx, config, config.strict
+                    ):
+                        with timers.phase("detect_audio"):
+                            audio_ctx = audio_classifier.classify_segment(
+                                config.input_path, start_sec, end_sec
+                            )
+                    else:
+                        # The audio score cannot change the verdict when the
+                        # CLIP scene signal is below its thresholds - skip the
+                        # PANNs run entirely and fuse with a neutral context.
+                        audio_ctx = AudioContext(
+                            moaning_score=0.0,
+                            sexual_audio_score=0.0,
+                            music_score=0.0,
+                            speech_score=0.0,
                         )
 
                     with timers.phase("fuse"):
@@ -221,9 +236,16 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                 Category.KISS_INTENSE,
                                 Category.KISS_LIGHT,
                             ):
+                                # Sample the shot at the profile's densify
+                                # stride instead of decoding every frame; the
+                                # IoU tracker in smooth_detections bridges the
+                                # gaps so the blur stays continuous.
+                                stride = max(1, settings.densify_every_n_frames)
                                 all_frames = list(
-                                    range(shot.start_frame, shot.end_frame)
+                                    range(shot.start_frame, shot.end_frame, stride)
                                 )
+                                if all_frames and all_frames[-1] != shot.end_frame - 1:
+                                    all_frames.append(shot.end_frame - 1)
                                 with timers.phase("extract_kiss"):
                                     all_bgr = extract_frames(
                                         config.input_path,

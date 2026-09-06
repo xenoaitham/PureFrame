@@ -54,11 +54,17 @@ class ShotVerdict(BaseModel):
     reasoning: str
 
 
-def detect_shots(path: Path, threshold: float = 27.0) -> list[Shot]:
+def detect_shots(
+    path: Path, threshold: float = 27.0, frame_skip: int = 0
+) -> list[Shot]:
+    """Detect shots. ``frame_skip`` analyzes every N+1-th frame: the decode
+    cost drops proportionally while reported positions stay real (PySceneDetect
+    tracks actual frame numbers); boundary precision degrades to ±frame_skip
+    frames, which the renderer's segment padding covers."""
     video = open_video(str(path))
     scene_manager = SceneManager()
     scene_manager.add_detector(ContentDetector(threshold=threshold))
-    scene_manager.detect_scenes(video)
+    scene_manager.detect_scenes(video, frame_skip=frame_skip)
 
     scene_list = scene_manager.get_scene_list()
 

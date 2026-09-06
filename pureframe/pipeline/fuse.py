@@ -24,6 +24,32 @@ NUDITY_PARTIAL_LABELS = {
 ALL_NUDITY_LABELS = NUDITY_EXPLICIT_LABELS | NUDITY_PARTIAL_LABELS
 
 
+def context_audio_needed(
+    scene_ctx: ShotContext, config: Config, strict_mode: bool = False
+) -> bool:
+    """True when the audio classifier's score can change the fused verdict.
+
+    fuse() consults audio only in the two sexual-act branches, and both
+    require the CLIP scene signal to already be at/above its own threshold -
+    audio alone can never push a verdict over. When the scene scores sit
+    below those thresholds, the (expensive, per-shot) PANNs run is provably
+    irrelevant: skipping it and passing a neutral AudioContext yields the
+    identical verdict. On typical content this skips the audio model for the
+    vast majority of shots; with --no-clip (neutral scene context) it skips
+    always, matching that audio could never have mattered there anyway.
+    """
+    _, eff_clip, eff_audio = config.get_effective_thresholds()
+    t_mod = 0.85 if strict_mode else 1.0
+
+    explicit_act_thresh = 0.40 * t_mod * (eff_clip / 0.50)
+    implied_sex_thresh = 0.45 * t_mod * (eff_clip / 0.50)
+
+    return (
+        scene_ctx.explicit_act_score >= explicit_act_thresh
+        or scene_ctx.implied_sex_score >= implied_sex_thresh
+    )
+
+
 def fuse(
     shot: Shot,
     nudity_detections: list[list[Detection]],
