@@ -29,4 +29,5 @@ def apply_censoring(
         settings=profile_settings,
         encoder=encoder,
         crf=config.output_crf,
+        preset=profile_settings.encoder_preset,
     )

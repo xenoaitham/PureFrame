@@ -27,6 +27,11 @@ class ProfileSettings(BaseModel):
     # their precision degrades to ±frame_skip frames, which the renderer's
     # 0.5s segment padding already covers.
     scene_frame_skip: int = 0
+    # Software-encoder speed preset (libx264/libx265). ffmpeg's default
+    # "medium" costs 2-3x encode time for negligible quality gains at these
+    # CRFs; faster presets suit a censoring pipeline where the source is
+    # re-encoded once and fidelity is bounded by the blur anyway.
+    encoder_preset: str = "medium"
 
 
 def detect_profile() -> HardwareProfile:
@@ -67,6 +72,7 @@ def get_settings(profile: HardwareProfile) -> ProfileSettings:
             densify_every_n_frames=1,
             onnx_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
             scene_frame_skip=0,
+            encoder_preset="medium",
         )
     elif profile == HardwareProfile.MEDIUM:
         return ProfileSettings(
@@ -79,6 +85,7 @@ def get_settings(profile: HardwareProfile) -> ProfileSettings:
             densify_every_n_frames=2,
             onnx_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
             scene_frame_skip=1,
+            encoder_preset="faster",
         )
     elif profile == HardwareProfile.LOW:
         return ProfileSettings(
@@ -91,6 +98,7 @@ def get_settings(profile: HardwareProfile) -> ProfileSettings:
             densify_every_n_frames=3,
             onnx_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
             scene_frame_skip=2,
+            encoder_preset="veryfast",
         )
     else:  # CPU
         return ProfileSettings(
@@ -103,4 +111,5 @@ def get_settings(profile: HardwareProfile) -> ProfileSettings:
             densify_every_n_frames=5,
             onnx_providers=["CPUExecutionProvider"],
             scene_frame_skip=2,
+            encoder_preset="veryfast",
         )

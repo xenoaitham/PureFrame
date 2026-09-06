@@ -120,6 +120,10 @@ def apply_censoring_smart(
     )
 
     try:
+        # Encoder selection and fps probing are per-RENDER facts, not
+        # per-segment facts - resolve once and thread through the segments
+        # instead of re-running `ffmpeg -encoders` + ffprobe N times.
+        encoder = select_hw_encoder(profile_settings.profile, config.output_codec)
         _render_segments(
             input_path,
             output_path,
@@ -128,6 +132,8 @@ def apply_censoring_smart(
             total_duration,
             config,
             profile_settings,
+            encoder=encoder,
+            fps=fps,
         )
     except Exception as e:
         logger.warning(f"Smart render failed ({e}), falling back to full re-encode")
@@ -162,6 +168,8 @@ def _render_segments(
     total_duration: float,
     config: Config,
     profile_settings: ProfileSettings,
+    encoder: str | None = None,
+    fps: float | None = None,
 ) -> None:
     """Render dirty segments with overlay, copy clean segments, then concatenate."""
     tmpdir = Path(tempfile.mkdtemp(prefix="pureframe_smart_"))
@@ -188,6 +196,8 @@ def _render_segments(
                 frame_actions,
                 config,
                 profile_settings,
+                encoder=encoder,
+                fps=fps,
             )
             segment_files.append(dirty_file)
             prev_end = dirty_end
@@ -237,16 +247,21 @@ def _extract_and_render_segment(
     frame_actions: dict[int, dict],
     config: Config,
     profile_settings: ProfileSettings,
+    encoder: str | None = None,
+    fps: float | None = None,
 ) -> None:
     """Extract a segment and re-encode it with the shared overlay callback.
 
     ``frame_actions`` is keyed by absolute frame index, but the underlying
     callback receives segment-local indices. We compute the segment's frame
     offset once and pass it via ``frame_offset`` so the shared overlay knows
-    how to translate.
+    how to translate. ``encoder``/``fps`` are resolved once per render by the
+    caller; both fall back to per-call resolution when omitted.
     """
-    encoder = select_hw_encoder(profile_settings.profile, config.output_codec)
-    fps = _get_fps(input_path)
+    if encoder is None:
+        encoder = select_hw_encoder(profile_settings.profile, config.output_codec)
+    if fps is None:
+        fps = _get_fps(input_path)
     frame_offset = int(round(start * fps))
 
     overlay_callback = build_overlay_callback(
@@ -262,6 +277,7 @@ def _extract_and_render_segment(
         crf=config.output_crf,
         ss=start,
         to=end,
+        preset=profile_settings.encoder_preset,
     )
 
 

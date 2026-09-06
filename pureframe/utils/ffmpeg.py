@@ -207,11 +207,14 @@ def write_video_with_overlay(
     crf: int,
     ss: float | None = None,
     to: float | None = None,
+    preset: str | None = None,
 ) -> None:
     """Re-encode *input_path* to *output_path*, applying *overlay_callback* per frame.
 
     Optional ``ss``/``to`` (seconds) restrict decoding to a sub-range, used by
-    the smart segment renderer to re-encode only dirty segments.
+    the smart segment renderer to re-encode only dirty segments. ``preset``
+    sets the encoder speed/quality preset - ffmpeg's default ``medium`` costs
+    2-3x encode time on software encoders, so profiles ship a faster one.
     """
     import os
     import tempfile
@@ -263,6 +266,8 @@ def write_video_with_overlay(
         "crf": crf,
         "pix_fmt": "yuv420p",  # safe default
     }
+    if preset:
+        out_kwargs["preset"] = preset
 
     # Colorspace is not passed through to avoid encoder compat issues;
     # ffmpeg will autodetect from input.
@@ -312,7 +317,9 @@ def write_video_with_overlay(
                 frame = frame[:enc_height, :enc_width]
 
             try:
-                process_out.stdin.write(frame.tobytes())
+                # memoryview avoids a second full-frame copy; the frame
+                # buffer is exclusively ours after the overlay callback.
+                process_out.stdin.write(memoryview(frame))
             except BrokenPipeError:
                 # Wait briefly for drain thread to flush remaining stderr.
                 t_out.join(timeout=2.0)
