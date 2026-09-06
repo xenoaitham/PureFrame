@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 
@@ -40,6 +41,7 @@ from pureframe.pipeline.shots import Action, Category, ShotVerdict, detect_shots
 from pureframe.pipeline.smooth import smooth_detections
 from pureframe.utils.ffmpeg import PureFrameError
 from pureframe.utils.logging import setup_logging
+from pureframe.utils.timing import PhaseTimers
 
 if getattr(_sys, "frozen", False):
     _exe_dir = os.path.dirname(_sys.executable)
@@ -77,11 +79,17 @@ def main(
 
 
 def get_store() -> CheckpointStore:
-    db_path = Path(platformdirs.user_data_dir("PureFrame")) / "jobs.db"
+    # PUREFRAME_DATA_DIR isolates checkpoint state (used by `pureframe bench`
+    # and tests); default to the standard per-user data directory.
+    data_dir = os.environ.get("PUREFRAME_DATA_DIR") or platformdirs.user_data_dir(
+        "PureFrame"
+    )
+    db_path = Path(data_dir) / "jobs.db"
     return CheckpointStore(db_path)
 
 
-def generate_plan(config: Config) -> CensorPlan:
+def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPlan:
+    timers = timers or PhaseTimers()
     store = get_store()
     job = store.find_or_create_job(config.input_path, config.output_path, config)
 
@@ -103,10 +111,13 @@ def generate_plan(config: Config) -> CensorPlan:
     else:
         store.update_status(job.id, "DETECTING")
 
-        with console.status("[bold green]Probing video..."):
+        with console.status("[bold green]Probing video..."), timers.phase("probe"):
             meta = probe_video(config.input_path)
 
-        with console.status("[bold green]Detecting shots..."):
+        with (
+            console.status("[bold green]Detecting shots..."),
+            timers.phase("scene_detect"),
+        ):
             shots = detect_shots(config.input_path)
 
         store.update_status(job.id, "DETECTING", total_shots=len(shots))
@@ -155,9 +166,13 @@ def generate_plan(config: Config) -> CensorPlan:
                     kf_indices = sample_keyframes(
                         shot, settings.sample_keyframes_per_shot
                     )
-                    frames_bgr = extract_frames(
-                        config.input_path, kf_indices, settings.detection_resolution
-                    )
+                    with timers.phase("extract"):
+                        frames_bgr = extract_frames(
+                            config.input_path,
+                            kf_indices,
+                            settings.detection_resolution,
+                            meta=meta,
+                        )
 
                     frames_list = [frames_bgr[i] for i in kf_indices if i in frames_bgr]
                     if not frames_list:
@@ -172,26 +187,30 @@ def generate_plan(config: Config) -> CensorPlan:
                         progress.advance(task)
                         continue
 
-                    batch_dets = detector.detect_batch(frames_list)
+                    with timers.phase("detect_nudity"):
+                        batch_dets = detector.detect_batch(frames_list)
 
                     mid_idx = len(frames_list) // 2
                     mid_frame = frames_list[mid_idx]
-                    scene_ctx = scene_classifier.classify_shot(mid_frame)
+                    with timers.phase("detect_clip"):
+                        scene_ctx = scene_classifier.classify_shot(mid_frame)
 
                     start_sec = shot.start_frame / meta.fps
                     end_sec = shot.end_frame / meta.fps
-                    audio_ctx = audio_classifier.classify_segment(
-                        config.input_path, start_sec, end_sec
-                    )
+                    with timers.phase("detect_audio"):
+                        audio_ctx = audio_classifier.classify_segment(
+                            config.input_path, start_sec, end_sec
+                        )
 
-                    verdict = fuse(
-                        shot,
-                        batch_dets,
-                        scene_ctx,
-                        audio_ctx,
-                        config,
-                        strict_mode=config.strict,
-                    )
+                    with timers.phase("fuse"):
+                        verdict = fuse(
+                            shot,
+                            batch_dets,
+                            scene_ctx,
+                            audio_ctx,
+                            config,
+                            strict_mode=config.strict,
+                        )
 
                     if config.strict and verdict.category == Category.KISS_LIGHT:
                         verdict.action = Action.BLACK_BOX
@@ -205,23 +224,26 @@ def generate_plan(config: Config) -> CensorPlan:
                                 all_frames = list(
                                     range(shot.start_frame, shot.end_frame)
                                 )
-                                all_bgr = extract_frames(
-                                    config.input_path,
-                                    all_frames,
-                                    settings.detection_resolution,
-                                )
-
-                                dense_faces = {}
-                                for f_idx, f_bgr in all_bgr.items():
-                                    mouths = face_detector.detect_mouths(f_bgr)
-                                    from pureframe.pipeline.detect.nudity import (
-                                        Detection,
+                                with timers.phase("extract_kiss"):
+                                    all_bgr = extract_frames(
+                                        config.input_path,
+                                        all_frames,
+                                        settings.detection_resolution,
+                                        meta=meta,
                                     )
 
-                                    dense_faces[f_idx] = [
-                                        Detection(label="MOUTH", score=1.0, box=m)
-                                        for m in mouths
-                                    ]
+                                dense_faces = {}
+                                with timers.phase("detect_faces"):
+                                    for f_idx, f_bgr in all_bgr.items():
+                                        mouths = face_detector.detect_mouths(f_bgr)
+                                        from pureframe.pipeline.detect.nudity import (
+                                            Detection,
+                                        )
+
+                                        dense_faces[f_idx] = [
+                                            Detection(label="MOUTH", score=1.0, box=m)
+                                            for m in mouths
+                                        ]
 
                                 smooth_mouths = smooth_detections(
                                     dense_faces, shot, config.box_padding_pct
@@ -241,13 +263,15 @@ def generate_plan(config: Config) -> CensorPlan:
                                         frame_idx=idx, detections=dets
                                     )
 
-                                dense_dets = densify_shot(
-                                    shot,
-                                    config.input_path,
-                                    detector,
-                                    settings,
-                                    config.nudity_threshold,
-                                )
+                                with timers.phase("densify"):
+                                    dense_dets = densify_shot(
+                                        shot,
+                                        config.input_path,
+                                        detector,
+                                        settings,
+                                        config.nudity_threshold,
+                                        meta=meta,
+                                    )
                                 smooth_boxes = smooth_detections(
                                     dense_dets, shot, config.box_padding_pct
                                 )
@@ -314,7 +338,13 @@ def generate_plan(config: Config) -> CensorPlan:
     return plan
 
 
-def execute_render(plan: CensorPlan, config: Config, smart: bool = True):
+def execute_render(
+    plan: CensorPlan,
+    config: Config,
+    smart: bool = True,
+    timers: PhaseTimers | None = None,
+):
+    timers = timers or PhaseTimers()
     store = get_store()
     job = store.find_or_create_job(config.input_path, config.output_path, config)
 
@@ -324,26 +354,27 @@ def execute_render(plan: CensorPlan, config: Config, smart: bool = True):
         with console.status(
             "[bold green]Rendering final video... (this may take a while)"
         ):
-            if smart:
-                from pureframe.pipeline.render.smart import apply_censoring_smart
+            with timers.phase("render"):
+                if smart:
+                    from pureframe.pipeline.render.smart import apply_censoring_smart
 
-                apply_censoring_smart(
-                    config.input_path,
-                    config.output_path,
-                    frame_actions,
-                    config,
-                    get_settings(config.profile),
-                    plan.input_metadata.total_frames,
-                    plan.input_metadata.fps,
-                )
-            else:
-                apply_censoring(
-                    config.input_path,
-                    config.output_path,
-                    frame_actions,
-                    config,
-                    get_settings(config.profile),
-                )
+                    apply_censoring_smart(
+                        config.input_path,
+                        config.output_path,
+                        frame_actions,
+                        config,
+                        get_settings(config.profile),
+                        plan.input_metadata.total_frames,
+                        plan.input_metadata.fps,
+                    )
+                else:
+                    apply_censoring(
+                        config.input_path,
+                        config.output_path,
+                        frame_actions,
+                        config,
+                        get_settings(config.profile),
+                    )
 
         # A render that silently produced nothing must never be recorded as
         # DONE - that is exactly how stale checkpoints went on to skip every
@@ -396,12 +427,35 @@ def process_file(config: Config):
         )
         return
 
-    plan = generate_plan(config)
+    timers = PhaseTimers()
+    plan = generate_plan(config, timers)
 
     console.print(
         f"Flagged {sum(1 for v in plan.verdicts if v.action != Action.NONE)} shots for censoring."
     )
-    execute_render(plan, config)
+    execute_render(plan, config, timers=timers)
+
+    if config.log_level == "DEBUG":
+        console.print(timers.summary())
+    if os.environ.get("PUREFRAME_PRINT_TIMERS") == "1" or os.environ.get(
+        "PUREFRAME_TIMERS_FILE"
+    ):
+        # Machine-readable hook for `pureframe bench`.
+        import json
+
+        payload = json.dumps(
+            {
+                "phases": timers.as_dict(),
+                "flagged_shots": sum(
+                    1 for v in plan.verdicts if v.action != Action.NONE
+                ),
+            }
+        )
+        timers_file = os.environ.get("PUREFRAME_TIMERS_FILE")
+        if timers_file:
+            Path(timers_file).write_text(payload, encoding="utf-8")
+        else:
+            print(f"PUREFRAME_TIMERS {payload}", flush=True)
 
 
 @app.command("plan")
@@ -463,8 +517,16 @@ def plan_cmd(
         log_level="DEBUG" if verbose else "INFO",
     )
 
-    plan = generate_plan(config)
+    timers = PhaseTimers()
+    plan = generate_plan(config, timers)
     plan.serialize(output)
+
+    if verbose:
+        console.print(timers.summary())
+    if os.environ.get("PUREFRAME_PRINT_TIMERS") == "1":
+        import json
+
+        print(f"PUREFRAME_TIMERS {json.dumps(timers.as_dict())}", flush=True)
     console.print(f"[green]Plan saved to {output}[/green]")
 
 
@@ -890,6 +952,68 @@ def evaluate(
         default_path = Path("evaluation_report.json")
         report.save(default_path)
         console.print(f"\n[green]Report saved to {default_path}[/green]")
+
+
+@app.command("bench")
+def bench_cmd(
+    duration: float = typer.Option(
+        30.0, "--duration", help="Synthetic clip length in seconds"
+    ),
+    width: int = typer.Option(1280, "--width", help="Clip width"),
+    height: int = typer.Option(720, "--height", help="Clip height"),
+    profiles: str = typer.Option(
+        "CPU,LOW,MEDIUM,HIGH", "--profiles", help="Comma-separated hardware profiles"
+    ),
+    reps: int = typer.Option(
+        1, "--reps", min=1, help="Runs per profile (median reported)"
+    ),
+    output: Path = typer.Option(
+        None, "--output", "-o", help="Write the JSON report to this path"
+    ),
+    keep_clip: bool = typer.Option(
+        False,
+        "--keep-clip",
+        help="Save the generated clip next to the report for reuse",
+    ),
+):
+    """Repeatable performance benchmark across hardware profiles.
+
+    Generates a synthetic clip with moving skin-tone regions (so detection,
+    densify and blur actually run), then times the full `process` flow per
+    profile with per-phase breakdowns. Checkpoint state is isolated; model
+    caches are shared between runs.
+    """
+    from pureframe.bench import BENCH_PROFILES, report_to_markdown, run_benchmark
+
+    profile_list = [p.strip().upper() for p in profiles.split(",") if p.strip()]
+    invalid = [p for p in profile_list if p not in BENCH_PROFILES]
+    if invalid:
+        console.print(
+            f"[red]Unknown profile(s): {', '.join(invalid)}. "
+            f"Valid: {', '.join(BENCH_PROFILES)}[/red]"
+        )
+        raise typer.Exit(1)
+
+    keep_path = None
+    if keep_clip:
+        # Reused across invocations; run_benchmark generates it if missing.
+        keep_path = Path.cwd() / f"pureframe_bench_clip_{width}x{height}.mp4"
+
+    report = run_benchmark(
+        profiles=profile_list,
+        reps=reps,
+        duration=duration,
+        width=width,
+        height=height,
+        keep_clip=keep_path,
+    )
+
+    console.print()
+    console.print(report_to_markdown(report))
+
+    if output:
+        output.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        console.print(f"\n[green]JSON report saved to {output}[/green]")
 
 
 if __name__ == "__main__":

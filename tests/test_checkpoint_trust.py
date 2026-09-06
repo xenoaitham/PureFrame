@@ -36,9 +36,13 @@ def test_done_job_with_existing_output_skips(store, tmp_path, monkeypatch):
     store.update_status(job.id, "DONE")
 
     calls = []
-    monkeypatch.setattr(cli, "generate_plan", lambda c: calls.append("plan"))
     monkeypatch.setattr(
-        cli, "execute_render", lambda p, c, smart=True: calls.append("render")
+        cli, "generate_plan", lambda c, timers=None: calls.append("plan")
+    )
+    monkeypatch.setattr(
+        cli,
+        "execute_render",
+        lambda p, c, smart=True, timers=None: calls.append("render"),
     )
 
     cli.process_file(cfg)
@@ -56,12 +60,14 @@ def test_done_job_with_deleted_output_reruns(store, tmp_path, monkeypatch):
 
     rendered = []
     monkeypatch.setattr(
-        cli, "generate_plan", lambda c: type("PlanStub", (), {"verdicts": []})()
+        cli,
+        "generate_plan",
+        lambda c, timers=None: type("PlanStub", (), {"verdicts": []})(),
     )
     monkeypatch.setattr(
         cli,
         "execute_render",
-        lambda p, c, smart=True: rendered.append(c.output_path),
+        lambda p, c, smart=True, timers=None: rendered.append(c.output_path),
     )
 
     cli.process_file(cfg)
@@ -81,12 +87,14 @@ def test_done_job_with_empty_output_reruns(store, tmp_path, monkeypatch):
 
     rendered = []
     monkeypatch.setattr(
-        cli, "generate_plan", lambda c: type("PlanStub", (), {"verdicts": []})()
+        cli,
+        "generate_plan",
+        lambda c, timers=None: type("PlanStub", (), {"verdicts": []})(),
     )
     monkeypatch.setattr(
         cli,
         "execute_render",
-        lambda p, c, smart=True: rendered.append(c.output_path),
+        lambda p, c, smart=True, timers=None: rendered.append(c.output_path),
     )
 
     cli.process_file(cfg)
@@ -108,12 +116,14 @@ def test_done_job_with_different_output_target_reruns(store, tmp_path, monkeypat
 
     rendered = []
     monkeypatch.setattr(
-        cli, "generate_plan", lambda c: type("PlanStub", (), {"verdicts": []})()
+        cli,
+        "generate_plan",
+        lambda c, timers=None: type("PlanStub", (), {"verdicts": []})(),
     )
     monkeypatch.setattr(
         cli,
         "execute_render",
-        lambda p, c, smart=True: rendered.append(c.output_path),
+        lambda p, c, smart=True, timers=None: rendered.append(c.output_path),
     )
 
     cli.process_file(cfg_b)
@@ -133,12 +143,14 @@ def test_force_flag_reprocesses_done_job(store, tmp_path, monkeypatch):
 
     rendered = []
     monkeypatch.setattr(
-        cli, "generate_plan", lambda c: type("PlanStub", (), {"verdicts": []})()
+        cli,
+        "generate_plan",
+        lambda c, timers=None: type("PlanStub", (), {"verdicts": []})(),
     )
     monkeypatch.setattr(
         cli,
         "execute_render",
-        lambda p, c, smart=True: rendered.append(c.output_path),
+        lambda p, c, smart=True, timers=None: rendered.append(c.output_path),
     )
 
     forced = cfg.model_copy(update={"force": True})
@@ -156,12 +168,14 @@ def test_failed_job_is_never_skipped(store, tmp_path, monkeypatch):
 
     rendered = []
     monkeypatch.setattr(
-        cli, "generate_plan", lambda c: type("PlanStub", (), {"verdicts": []})()
+        cli,
+        "generate_plan",
+        lambda c, timers=None: type("PlanStub", (), {"verdicts": []})(),
     )
     monkeypatch.setattr(
         cli,
         "execute_render",
-        lambda p, c, smart=True: rendered.append(c.output_path),
+        lambda p, c, smart=True, timers=None: rendered.append(c.output_path),
     )
 
     cli.process_file(cfg)

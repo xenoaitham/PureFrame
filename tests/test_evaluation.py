@@ -183,8 +183,10 @@ class TestSyntheticFrameGeneration:
     def test_unknown_type_returns_black(self):
         frame = _generate_synthetic_frame("totally_unknown")
         assert frame.shape == (480, 640, 3)
-        # Should be all zeros (black)
-        assert frame.sum() == 0
+        # Unknown type paints no layout, but the deterministic photographic
+        # texture pass (noise + gradient) still applies - keep it near-black.
+        assert int(frame.max()) <= 60
+        assert int(frame.mean()) < 40
 
 
 class TestRunSyntheticBenchmark:
@@ -198,7 +200,7 @@ class TestRunSyntheticBenchmark:
         # Create a fake detection result
         fake_det = MagicMock()
         fake_det.score = 0.85
-        fake_det.label = "EXPOSED_BREAST_F"
+        fake_det.label = "FEMALE_BREAST_EXPOSED"
 
         # Mock detector that returns one detection per frame
         detector = MagicMock()
@@ -238,7 +240,7 @@ class TestRunSyntheticBenchmark:
 
         fake_det = MagicMock()
         fake_det.score = 0.65
-        fake_det.label = "EXPOSED_GENITALIA_F"
+        fake_det.label = "FEMALE_GENITALIA_EXPOSED"
 
         detector = MagicMock()
         detector.detect_batch.return_value = [[fake_det]]

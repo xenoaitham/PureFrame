@@ -12,6 +12,7 @@ def densify_shot(
     detector: NudityDetector,
     settings: ProfileSettings,
     threshold: float,
+    meta=None,
 ) -> dict[int, list[Detection]]:
     n = settings.densify_every_n_frames
 
@@ -20,7 +21,7 @@ def densify_shot(
         frame_indices.append(shot.end_frame - 1)
 
     frames_bgr = extract_frames(
-        video_path, frame_indices, settings.detection_resolution
+        video_path, frame_indices, settings.detection_resolution, meta=meta
     )
 
     results = {}

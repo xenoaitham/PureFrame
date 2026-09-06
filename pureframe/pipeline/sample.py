@@ -26,12 +26,18 @@ def _spawn_decode(
     w: int,
     h: int,
     use_fps_mode: bool,
+    seek_time: float | None = None,
 ):
     """Spawn the ffmpeg frame-selection decoder.
 
     ``-vsync 0`` was removed in ffmpeg 7; its replacement is
     ``-fps_mode passthrough`` (ffmpeg >= 5.1). Callers start with the modern
     option and retry with the legacy one when the local ffmpeg rejects it.
+
+    ``seek_time`` (when set) becomes an input seek so ffmpeg only decodes
+    from the keyframe before the requested window instead of the start of
+    the file - without it, every per-shot extraction re-decoded the whole
+    video from frame 0, a near-quadratic cost across a movie's shots.
     """
     out_kwargs = {"format": "rawvideo", "pix_fmt": "bgr24"}
     if use_fps_mode:
@@ -39,9 +45,11 @@ def _spawn_decode(
     else:
         out_kwargs["vsync"] = 0
 
+    input_stream = (
+        ffmpeg.input(str(path), ss=seek_time) if seek_time else ffmpeg.input(str(path))
+    )
     return (
-        ffmpeg.input(str(path))
-        .filter("select", select_expr)
+        input_stream.filter("select", select_expr)
         .filter("scale", w, h)
         .output("pipe:", **out_kwargs)
         .run_async(pipe_stdout=True, pipe_stderr=True)
@@ -68,12 +76,36 @@ def _drain(pipe, tail: list) -> None:
 
 
 def extract_frames(
-    path: Path, frame_indices: list[int], downscale_max_edge: int
+    path: Path,
+    frame_indices: list[int],
+    downscale_max_edge: int,
+    meta=None,
 ) -> dict[int, np.ndarray]:
+    """Extract the requested frames as BGR arrays.
+
+    Uses an input seek to the requested window (constant-framerate videos).
+    With accurate seek, decoded frame ``n=0`` is exactly frame
+    ``first_index - 1``, so the select filter matches relative indices and
+    never re-decodes the video from its start. Pass ``meta`` (from
+    ``extract_metadata(probe(path))``) to reuse an already-probed result
+    instead of spawning an ffprobe per call.
+    """
     if not frame_indices:
         return {}
 
-    meta = extract_metadata(probe(path))
+    if meta is None:
+        meta = extract_metadata(probe(path))
+
+    indices = sorted(frame_indices)
+    first = indices[0]
+
+    fps = float(getattr(meta, "fps", 0.0) or 0.0)
+    # Seek so decoded n=0 is exactly frame ``first - 1``: land the seek point
+    # strictly between frames first-2 and first-1 (frame k has pts k/fps).
+    seek_frame = first - 1
+    seek_time = (seek_frame - 0.5) / fps if (fps > 0 and seek_frame > 0) else None
+    if seek_time is not None and seek_time < 0:
+        seek_time = None
 
     # Calculate scale
     w, h = meta.width, meta.height
@@ -86,14 +118,15 @@ def extract_frames(
     w = w - (w % 2)
     h = h - (h % 2)
 
-    # Build select filter string
-    # select='eq(n,0)+eq(n,10)+...'
-    select_expr = "+".join([f"eq(n,{i})" for i in frame_indices])
+    # Select RELATIVE frame numbers when seeking (n counts decoded frames
+    # after the seek point), absolute otherwise.
+    rel_base = seek_frame if seek_time is not None else 0
+    select_expr = "+".join([f"eq(n,{i - rel_base})" for i in indices])
 
     # First attempt uses -fps_mode (ffmpeg >= 5.1, required on 7+); if the
     # local ffmpeg predates it, retry once with the legacy -vsync form.
     for use_fps_mode in (True, False):
-        process = _spawn_decode(path, select_expr, w, h, use_fps_mode)
+        process = _spawn_decode(path, select_expr, w, h, use_fps_mode, seek_time)
         tail: list = []
         drain_t = threading.Thread(
             target=_drain, args=(process.stderr, tail), daemon=True
@@ -104,7 +137,7 @@ def extract_frames(
         results = {}
 
         try:
-            for idx in frame_indices:
+            for idx in indices:
                 in_bytes = process.stdout.read(frame_size)
                 if not in_bytes or len(in_bytes) != frame_size:
                     break

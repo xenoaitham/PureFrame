@@ -161,3 +161,33 @@ jobs:
         with:
           python-version: "3.12"
       - run: python packaging/sync_versions.py --check
+
+  eval-parity:
+    name: Eval parity (detection quality gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install CPU-only PyTorch first
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Install package
+        run: pip install -e ".[dev]"
+      - name: Run synthetic evaluation (NudeNet on CPU)
+        run: pureframe evaluate --output evaluation_report.json
+        timeout-minutes: 20
+      - name: Check parity against baseline
+        run: python scripts/check_eval_parity.py evaluation_report.json
+      - name: Upload evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: evaluation_report.json
+          retention-days: 7

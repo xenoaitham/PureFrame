@@ -1,0 +1,289 @@
+"""`pureframe bench` - repeatable performance benchmark.
+
+Generates a synthetic clip that actually exercises the pipeline (moving
+skin-tone regions trigger detections; a silent audio track exercises the
+audio classifier), runs the `process` flow once per profile/rep against an
+isolated checkpoint directory, and writes a JSON + Markdown report with
+per-phase timings.
+
+The inner runs invoke the Typer app in-process (CliRunner) rather than
+spawning a subprocess: no binary discovery, deterministic capture, and the
+only environment switch needed is `PUREFRAME_DATA_DIR`, which
+`cli.get_store()` honors for checkpoint isolation. Model caches are shared
+across runs on purpose - wiping them would benchmark downloads, not
+PureFrame.
+"""
+
+import json
+import os
+import platform
+import re
+import shutil
+import statistics
+import subprocess
+import sys
+import tempfile
+import time
+from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
+
+from typer.testing import CliRunner
+
+PHASES = (
+    "probe",
+    "scene_detect",
+    "extract",
+    "extract_kiss",
+    "detect_nudity",
+    "detect_clip",
+    "detect_audio",
+    "detect_faces",
+    "densify",
+    "fuse",
+    "render",
+)
+
+BENCH_PROFILES = ("CPU", "LOW", "MEDIUM", "HIGH")
+
+
+def generate_bench_clip(
+    path: Path, duration: float = 30.0, width: int = 1280, height: int = 720
+) -> Path:
+    """Render the synthetic benchmark clip with ffmpeg.
+
+    Two skin-tone boxes sweep the frame so NudeNet has something to fire on
+    (the previous bench clip was flat grey with zero detections, so its
+    numbers never exercised detect/densify/blur). A silent mono track keeps
+    the audio classifier in the measured path.
+    """
+    box1 = (
+        f"drawbox=x='(iw-300)/2+{width // 4}*sin(2*PI*t/10)':"
+        f"y='(ih-400)/2+{height // 5}*cos(2*PI*t/7)':"
+        "w=300:h=400:color=0xE0AC69@1:t=fill"
+    )
+    box2 = (
+        f"drawbox=x='(iw-200)/2-{width // 5}*sin(2*PI*t/13+1)':"
+        f"y='(ih-260)/2+{height // 6}*sin(2*PI*t/5)':"
+        "w=200:h=260:color=0xD8A074@1:t=fill"
+    )
+    vf = f"{box1},{box2}"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"testsrc2=duration={duration}:size={width}x{height}:rate=30",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=32000:cl=mono",
+            "-vf",
+            vf,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-crf",
+            "20",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "64k",
+            "-shortest",
+            str(path),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        shell=False,
+    )
+    return path
+
+
+def _ffmpeg_version() -> str:
+    try:
+        out = subprocess.run(
+            ["ffmpeg", "-version"],
+            check=True,
+            capture_output=True,
+            text=True,
+            shell=False,
+        )
+        return out.stdout.splitlines()[0]
+    except Exception:
+        return "unknown"
+
+
+def _package_version() -> str:
+    try:
+        return version("pureframe")
+    except PackageNotFoundError:
+        return "unknown"
+
+
+def capture_environment() -> dict:
+    return {
+        "pureframe": _package_version(),
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+        "processor": platform.processor() or platform.machine(),
+        "cpu_count": os.cpu_count(),
+        "ffmpeg": _ffmpeg_version(),
+    }
+
+
+def _parse_timers_payload(stdout: str) -> dict | None:
+    for line in reversed(stdout.splitlines()):
+        if line.startswith("PUREFRAME_TIMERS "):
+            return json.loads(line[len("PUREFRAME_TIMERS ") :])
+    return None
+
+
+def _parse_flagged(payload: dict | None, stdout: str) -> int:
+    if payload and "flagged_shots" in payload:
+        return int(payload["flagged_shots"])
+    m = re.search(r"Flagged (\d+) shots", stdout)
+    return int(m.group(1)) if m else 0
+
+
+def run_benchmark(
+    profiles: list[str],
+    reps: int = 1,
+    duration: float = 30.0,
+    width: int = 1280,
+    height: int = 720,
+    keep_clip: Path | None = None,
+) -> dict:
+    """Run the benchmark matrix and return the full report as a dict."""
+    from pureframe.cli import app
+
+    runner = CliRunner()
+
+    workdir = Path(tempfile.mkdtemp(prefix="pureframe_bench_"))
+    clip = keep_clip if keep_clip else workdir / "bench_clip.mp4"
+    if not clip.exists():
+        print(f"Generating benchmark clip ({duration:.0f}s, {width}x{height})...")
+        generate_bench_clip(clip, duration, width, height)
+
+    report: dict = {
+        "environment": capture_environment(),
+        "clip": str(clip),
+        "profiles": {},
+    }
+
+    try:
+        for profile in profiles:
+            totals: list[float] = []
+            phase_sums: dict[str, list[float]] = {}
+            flagged_counts: list[int] = []
+            reps_detail: list[dict] = []
+
+            for rep in range(reps):
+                out_path = workdir / f"out_{profile}_{rep}.mp4"
+                timers_file = workdir / f"timers_{profile}_{rep}.json"
+                with tempfile.TemporaryDirectory(prefix="pureframe_bench_db_") as td:
+                    old_data_dir = os.environ.get("PUREFRAME_DATA_DIR")
+                    os.environ["PUREFRAME_DATA_DIR"] = td
+                    os.environ["PUREFRAME_TIMERS_FILE"] = str(timers_file)
+                    started = time.perf_counter()
+                    try:
+                        result = runner.invoke(
+                            app,
+                            [
+                                "process",
+                                str(clip),
+                                "--output",
+                                str(out_path),
+                                "--profile",
+                                profile,
+                                "--force",
+                            ],
+                        )
+                    finally:
+                        elapsed = time.perf_counter() - started
+                        _restore_env("PUREFRAME_DATA_DIR", old_data_dir)
+                        _restore_env("PUREFRAME_TIMERS_FILE", None)
+
+                if result.exit_code != 0:
+                    raise SystemExit(
+                        f"bench run failed for profile {profile} (rep {rep}): "
+                        f"{result.exception!r}"
+                    )
+
+                payload = _parse_timers_payload(
+                    timers_file.read_text(encoding="utf-8")
+                    if timers_file.exists()
+                    else result.stdout
+                )
+                if payload is None:
+                    raise SystemExit(
+                        f"no timer payload emitted for profile {profile} (rep {rep})"
+                    )
+                timers = payload.get("phases", {})
+                flagged = _parse_flagged(payload, result.stdout)
+
+                totals.append(elapsed)
+                flagged_counts.append(flagged)
+                for name, d in timers.items():
+                    phase_sums.setdefault(name, []).append(d["seconds"])
+                reps_detail.append(
+                    {
+                        "rep": rep,
+                        "total_seconds": round(elapsed, 2),
+                        "timers": timers,
+                    }
+                )
+                print(
+                    f"[{profile}] rep {rep + 1}/{reps}: {elapsed:.1f}s, "
+                    f"{flagged} shots flagged"
+                )
+
+            report["profiles"][profile] = {
+                "reps": reps_detail,
+                "total_seconds_median": round(statistics.median(totals), 2),
+                "flagged_median": int(statistics.median(flagged_counts)),
+                "phase_seconds_median": {
+                    name: round(statistics.median(vals), 3)
+                    for name, vals in phase_sums.items()
+                },
+            }
+
+        return report
+    finally:
+        if not keep_clip:
+            shutil.rmtree(workdir, ignore_errors=True)
+
+
+def _restore_env(key: str, old_value: str | None) -> None:
+    if old_value is None:
+        os.environ.pop(key, None)
+    else:
+        os.environ[key] = old_value
+
+
+def report_to_markdown(report: dict) -> str:
+    """Markdown table rows (for BENCHMARKS.md) from a report dict."""
+    env = report["environment"]
+    lines = [
+        f"Benchmarked with pureframe {env['pureframe']} | {env['platform']} | "
+        f"{env['cpu_count']} cores | {env['ffmpeg']}",
+        "",
+        "| Clip | Profile | Total (median) | Detections | Top phases |",
+        "|---|---|---:|---:|---|",
+    ]
+    for profile, data in report["profiles"].items():
+        top = sorted(data["phase_seconds_median"].items(), key=lambda kv: -kv[1])[:3]
+        top_str = ", ".join(f"{n} {s:.1f}s" for n, s in top)
+        lines.append(
+            f"| {Path(report['clip']).name} | {profile} | "
+            f"{data['total_seconds_median']:.1f}s | {data['flagged_median']} | {top_str} |"
+        )
+    return "\n".join(lines)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    print("Run via: pureframe bench", file=sys.stderr)

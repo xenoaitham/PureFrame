@@ -42,6 +42,11 @@ class SceneResult:
     true_negative: bool = False
     false_positive: bool = False
     false_negative: bool = False
+    # Detection signature: every label -> max score the model emitted for
+    # this scenario, explicit or not. This is the fingerprint the eval-parity
+    # gate compares - sensitive to ANY model-behavior change (quantization,
+    # version bumps, preprocessing drift), not just explicit-label hits.
+    labels: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.expected_explicit and self.detected_explicit:
@@ -507,18 +512,24 @@ SYNTHETIC_SCENARIOS = [
 
 
 def _generate_synthetic_frame(frame_type: str) -> np.ndarray:
-    """Generate a synthetic test frame with known properties."""
+    """Generate a deterministic synthetic test frame with known properties.
+
+    The layout pass paints the per-type regions; a photographic-texture pass
+    (blur + seeded noise + gradient) follows so the frames resemble camera
+    output - real NudeNet barely responds to flat color patches. The seed is
+    derived from the frame type so every run produces identical inputs, a
+    requirement for the eval-parity gate.
+    """
+    import zlib
+
+    import cv2
+
     h, w = 480, 640
     frame = np.zeros((h, w, 3), dtype=np.uint8)
 
     if frame_type == "high_skin_ratio":
         # Large skin-colored region (potential explicit)
         frame[100:400, 150:500] = [180, 200, 230]  # skin tone in BGR
-        # Add some variation
-        noise = np.random.randint(-10, 10, (300, 350, 3), dtype=np.int16)
-        frame[100:400, 150:500] = np.clip(
-            frame[100:400, 150:500].astype(np.int16) + noise, 0, 255
-        ).astype(np.uint8)
 
     elif frame_type == "medium_skin_ratio":
         # Moderate skin region
@@ -581,6 +592,14 @@ def _generate_synthetic_frame(frame_type: str) -> np.ndarray:
         frame[:] = [gray, gray, gray]
         frame[100:350, 150:450] = [200, 200, 200]
 
+    # Photographic texture pass - identical for every frame type.
+    frame = cv2.GaussianBlur(frame, (7, 7), 0)
+    rng = np.random.default_rng(zlib.crc32(frame_type.encode("utf-8")))
+    noise = rng.integers(-10, 11, frame.shape, dtype=np.int16)
+    frame = np.clip(frame.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+    gradient = np.linspace(18, -18, w, dtype=np.int16).reshape(1, w, 1)
+    frame = np.clip(frame.astype(np.int16) + gradient, 0, 255).astype(np.uint8)
+
     return frame
 
 
@@ -612,18 +631,19 @@ def run_synthetic_benchmark(
     )
 
     if detector is None:
+        from pureframe.hardware import HardwareProfile, get_settings
         from pureframe.pipeline.detect.nudity import NudityDetector
 
-        detector = NudityDetector()
+        # CPU settings: deterministic across machines, no GPU variance in
+        # the numbers this gate compares.
+        detector = NudityDetector(get_settings(HardwareProfile.CPU))
 
-    # Explicit labels that should trigger censoring
-    explicit_labels = {
-        "EXPOSED_BREAST_F",
-        "EXPOSED_GENITALIA_F",
-        "EXPOSED_GENITALIA_M",
-        "EXPOSED_BUTTOCKS",
-        "EXPOSED_ANUS",
-    }
+    # Explicit labels that should trigger censoring - the canonical set from
+    # the detector module (NudeNet 3.x names; the old 2.x names here made
+    # every scenario score as safe).
+    from pureframe.pipeline.detect.nudity import EXPLICIT_LABELS
+
+    explicit_labels = EXPLICIT_LABELS
 
     for scenario in SYNTHETIC_SCENARIOS:
         frame = _generate_synthetic_frame(scenario["frame_type"])
@@ -641,6 +661,11 @@ def run_synthetic_benchmark(
             default=0.0,
         )
 
+        # Detection signature over ALL labels (not just explicit ones).
+        label_scores: dict[str, float] = {}
+        for d in detections:
+            label_scores[d.label] = max(label_scores.get(d.label, 0.0), d.score)
+
         result = SceneResult(
             scene_id=scenario["id"],
             genre=scenario["genre"],
@@ -649,6 +674,7 @@ def run_synthetic_benchmark(
             detected_explicit=detected,
             confidence=max_conf,
             detection_time_ms=elapsed_ms,
+            labels=label_scores,
         )
         report.results.append(result)
 

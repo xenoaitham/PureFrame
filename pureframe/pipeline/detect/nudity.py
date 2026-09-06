@@ -40,9 +40,11 @@ class NudityDetector:
         if not frames_bgr:
             return []
 
-        was_unloaded = self.detector is None
-        if was_unloaded:
-            self._load()
+        # Load once on first use and keep the session resident: the CPU/LOW
+        # profiles previously unloaded after every call, and since densify
+        # calls this per frame, each densified frame paid a full ONNX session
+        # re-init. cli.generate_plan unloads explicitly at end of plan.
+        self._load()
 
         batch_results = []
         # NudeDetector typically works on paths or frames.
@@ -72,9 +74,6 @@ class NudityDetector:
                 batch_results.append(detections)
             except Exception:
                 batch_results.append([])
-
-        if was_unloaded and not self.settings.keep_models_loaded:
-            self.unload()
 
         return batch_results
 
