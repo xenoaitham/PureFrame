@@ -20,6 +20,20 @@
 - [x] Real localized Gaussian blur / pixelate (no more solid boxes)
 - [x] Hardened Tauri backend (path canonicalization, CSP lockdown, plan size cap)
 
+## September 2026 - Low-end-PC Speed Offensive (shipped)
+
+- [x] Seek-based frame extraction (no per-shot from-0 decode)
+- [x] NudeNet session stays resident (no per-frame ONNX re-init)
+- [x] Lazy audio classification (runs only when its score can matter)
+- [x] Scene-detection frame_skip profiles
+- [x] Pipelined plan generation (extraction ∥ inference)
+- [x] int8 CPU quantization of NudeNet (eval-parity gated, `--no-quant` escape)
+- [x] PANNs analysis window cap (center 10s)
+- [x] Encoder presets + per-render encoder/fps caching + copy elimination
+- [x] `pureframe bench` repeatable benchmark with per-phase timers
+- [x] `eval-parity` CI gate (detection-signature drift fails the build)
+- [ ] Fresh before/after benchmark tables on reference hardware (needs a local `pureframe bench` run)
+
 ## v0.2.0 - Stability & Polish
 
 - [x] Smart render (re-encode only affected segments)

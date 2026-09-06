@@ -202,6 +202,15 @@ Measured on author's machine: RTX 3060 12GB, i5-10400F, Pop!_OS.
 pureframe process movie.mp4 --profile MEDIUM
 ```
 
+**September 2026 speed offensive:** a series of algorithmic fixes (seek-based
+frame extraction, on-demand model loading, lazy audio classification, pipelined
+decode/inference, int8 CPU quantization) targets **~10-20 minutes for a
+90-minute movie on CPU-only hardware**. Run `pureframe bench` for per-phase
+timings on your machine, and see
+[docs/performance.md](docs/performance.md) for the full engineering story.
+The table above predates the offensive and will be replaced by fresh
+measurements.
+
 See [BENCHMARKS.md](BENCHMARKS.md) for full metrics and how to run benchmarks.
 
 ## Desktop App (Experimental)
@@ -283,6 +292,7 @@ Models are cached in your system's standard cache directory (`~/.cache/` on Linu
 | [Confidence Calibration](docs/CALIBRATION.md) | Threshold presets, content types, and tuning workflow |
 | [Known Limitations](docs/KNOWN_LIMITATIONS.md) | False positives/negatives, edge cases, audio gaps |
 | [Evaluation Report](docs/evaluation.md) | Detection accuracy and synthetic benchmarks |
+| [Performance](docs/performance.md) | The low-end-PC speed offensive: bottlenecks, fixes, measurement |
 | [Censor Plan Schema](docs/censor-plan-schema.md) | JSON schema reference |
 | [Architecture](docs/architecture.md) | Pipeline diagram and component details |
 | [Privacy Policy](docs/privacy.md) | Data handling and telemetry statement |

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Speed offensive** - algorithmic + model-level optimizations targeting ~10-20 min for a 90-min movie on CPU-only hardware (see `docs/performance.md` for the full narrative):
+  - `pureframe bench`: repeatable benchmark with a detection-exercising synthetic clip, per-phase timers, checkpoint isolation, JSON/Markdown reports.
+  - Per-phase timers (`--verbose`) and the `PUREFRAME_TIMERS_FILE` machine hook.
+  - Seek-based frame extraction (was: re-decode from frame 0 per shot); probed metadata reused across calls.
+  - `fuse.context_audio_needed`: the audio classifier runs only when the CLIP scene signal makes its score relevant (verdict-identical skip, pinned by parity tests).
+  - Scene-detection `frame_skip` per profile; kiss shots sampled at the densify stride.
+  - Pipelined plan generation: keyframe extraction overlaps model inference on a bounded worker.
+  - int8 dynamic quantization of NudeNet on CPU profiles (cached, `--no-quant` escape hatch, eval-parity gated) and a center-10s PANNs analysis window.
+  - Encoder presets per profile; encoder/fps resolved once per smart render; one less full-frame copy per dirty frame.
+  - `eval-parity` CI job: the real detector runs the synthetic corpus on every PR; detection-signature drift fails the build. See `eval-baseline.json`.
+
 ## [0.1.0b16] - 2026-09-06
 
 The revival release. The code was sound, but the ecosystem moved underneath it
