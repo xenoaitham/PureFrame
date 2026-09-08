@@ -14,7 +14,7 @@
 
   <br /><br />
   <img src="assets/demo.gif" alt="PureFrame in action" width="640" />
-  <p><em>Synthetic demo - left: original, right: PureFrame output. The flagged region is blurred smoothly, frame by frame; everything else is untouched.</em></p>
+  <p><em>Synthetic demo - left: original, right: PureFrame output. The flagged region is Gaussian-blurred and smoothly tracked as the figure crosses the frame; everything else is untouched. Regenerate with <code>scripts/make_demo.py</code>.</em></p>
 </div>
 
 ---
@@ -42,7 +42,7 @@ No Python needed:
 - **macOS (Apple Silicon)** - [pureframe-macos-arm64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-macos-arm64.tar.gz)
 - **Linux (x86_64)** - [pureframe-linux-x86_64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-linux-x86_64.tar.gz)
 
-> **Intel mac users:** no standalone PyInstaller build (GitHub-hosted `macos-13` runners are EOL'd and perpetually backlogged). Use `pip install pureframe` or the Tauri `PureFrame_0.1.4_x64.dmg` installer.
+> **Intel mac users:** no standalone PyInstaller build (GitHub-hosted `macos-13` runners are EOL'd and perpetually backlogged). Use `pip install pureframe` or the Tauri `PureFrame_x64.dmg` from the [latest release](https://github.com/xenoaitham/PureFrame/releases/latest).
 
 Extract anywhere, then run `pureframe --help` (Windows: `pureframe.exe --help`).
 
@@ -61,7 +61,7 @@ Verify downloads against the `SHA256SUMS.txt` asset attached to each release:
 
 ```bash
 # Linux / macOS
-curl -LO https://github.com/xenoaitham/PureFrame/releases/download/v0.1.0b15/SHA256SUMS.txt
+curl -LO https://github.com/xenoaitham/PureFrame/releases/latest/download/SHA256SUMS.txt
 sha256sum -c --ignore-missing SHA256SUMS.txt
 
 # Windows PowerShell
@@ -142,7 +142,7 @@ See [Evaluation Report](docs/evaluation.md) for threshold calibration guide.
 
 **Works on any local video file.** VidAngel and ClearPlay only support a curated list of popular titles. PureFrame uses computer vision - it works on any MP4, MKV, AVI, or WebM you throw at it. Foreign films, indie movies, decades-old DVDs.
 
-**Audio-aware detection.** An audio classifier runs alongside the visual pipeline to disambiguate ambiguous scenes - reducing false positives without sacrificing coverage.
+**Audio-aware detection - only when it matters.** An audio classifier runs alongside the visual pipeline to disambiguate ambiguous scenes. A verdict-preserving gate means it only runs on shots where the scene signal could actually change the outcome - most shots skip it entirely, which is a large part of why detection got an order of magnitude faster in the September 2026 speed offensive ([details](docs/performance.md)).
 
 **Review before rendering.** The `plan` command generates a JSON file with every detection, bounding box, confidence score, and reasoning. Inspect it, whitelist false positives, or adjust thresholds before committing to the render.
 
@@ -167,7 +167,7 @@ flowchart TD
 1. **Scene detection** splits the video into shots using adaptive threshold detection (PySceneDetect).
 2. **NudeNet** analyzes sampled frames for nudity with localized bounding boxes.
 3. **CLIP** provides scene-level semantic classification for sexual activity detection.
-4. **PANNs** classifies audio events (moaning detection) for context disambiguation.
+4. **PANNs** classifies audio events (moaning detection) for context disambiguation - behind a verdict-preserving gate, so it only runs on shots where the scene signal makes audio relevant.
 5. A **confidence fusion engine** combines all signals with configurable per-category thresholds.
 6. Results are written to a **censor plan** (`.censorplan.json`) - fully editable before rendering.
 7. The **renderer** applies tracked bounding-box blurs frame-by-frame and re-encodes with FFmpeg.
@@ -187,36 +187,40 @@ flowchart TD
 
 ## Performance
 
-Measured on author's machine: RTX 3060 12GB, i5-10400F, Pop!_OS.
+Measured with `pureframe bench --duration 30 --reps 3` (medians) on the
+author's machine - i5-10400F (12 threads), RTX 3060, Pop!_OS - after the
+**September 2026 speed offensive**: seek-based frame extraction, resident
+ONNX sessions, lazy audio classification, pipelined decode/inference, int8
+CPU quantization (on by default, `--no-quant` to disable), and per-profile
+encoder presets.
 
-| Profile | 30s synthetic 1080p clip | Extrapolated 90-min movie |
-|---|---:|---:|
-| HIGH | 25.96s | ~78 min |
-| MEDIUM | 41.23s | ~124 min |
-| LOW | 27.83s | ~83 min |
-| CPU | 21.37s* | ~64 min* |
+| Profile | 30 s bench clip (median) | Detections | Top phases |
+|---|---:|---:|---|
+| CPU | **3.0 s** | 0 | scene 0.7 · extract 0.4 · nudity 0.2 |
+| LOW | **15.1 s** | 1 | render 4.1 · faces 4.0 · scene 0.6 |
+| MEDIUM | **16.2 s** | 1 | faces 5.8 · render 4.0 · scene 0.7 |
+| HIGH | **23.7 s** | 1 | faces 12.2 · render 4.0 · kiss 1.6 |
 
-*Synthetic zero-detection numbers. Real movies with detections will be slower.*
+The offensive targets **~10-20 minutes for a 90-minute movie on CPU-only
+hardware**. Honest caveats: this is a 30 s synthetic clip with 1-2 shots,
+not a movie - real films amortize per-shot work differently, and the CPU
+run's zero detections under-represents real content. Full tables, per-phase
+breakdowns, the "before" numbers, and the engineering narrative:
+[docs/performance.md](docs/performance.md) · [BENCHMARKS.md](BENCHMARKS.md).
+
+Measure your own machine:
 
 ```bash
-pureframe process movie.mp4 --profile MEDIUM
+pureframe bench --duration 30 --reps 3 -o bench-report.json
 ```
-
-**September 2026 speed offensive:** a series of algorithmic fixes (seek-based
-frame extraction, on-demand model loading, lazy audio classification, pipelined
-decode/inference, int8 CPU quantization) targets **~10-20 minutes for a
-90-minute movie on CPU-only hardware**. Measured with the built-in benchmark
-on the author's RTX 3060 / 12-thread machine: a 30 s clip processes in
-**3.0 s (CPU profile)** to 23.7 s (HIGH, max-quality sampling) - full tables
-and per-phase breakdowns in
-[docs/performance.md](docs/performance.md) and [BENCHMARKS.md](BENCHMARKS.md).
-Run `pureframe bench` to measure your own machine.
-
-See [BENCHMARKS.md](BENCHMARKS.md) for full metrics and how to run benchmarks.
 
 ## Desktop App (Experimental)
 
-PureFrame includes an experimental [Tauri](https://tauri.app/) desktop GUI with:
+PureFrame includes an experimental [Tauri](https://tauri.app/) desktop GUI - dark theme, live job progress, and shot-level plan review:
+
+| Job queue | Plan editor |
+|---|---|
+| <img src="assets/gui_queue.png" alt="PureFrame desktop GUI - job queue with live progress" width="400" /> | <img src="assets/gui_plan_editor.png" alt="PureFrame desktop GUI - plan editor with color-coded timeline" width="400" /> |
 
 - ✅ File drag-and-drop queue
 - ✅ Plan editor with color-coded timeline
