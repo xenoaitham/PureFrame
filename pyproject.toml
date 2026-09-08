@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pureframe"
-version = "0.2.0"
+version = "0.2.1"
 description = "Local AI tool that applies smooth, localized blur over explicit visuals in movies and TV files. No scene cutting, no audio changes."
 readme = "README.md"
 license = {text = "MIT"}
