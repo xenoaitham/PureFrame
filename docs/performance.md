@@ -99,6 +99,40 @@ pureframe bench --duration 30 --reps 3 -o bench-report.json
 approach measured everything except the expensive parts) and does not wipe
 model caches between reps (that benchmarks downloads, not PureFrame).
 
+## Measured results (September 2026)
+
+`pureframe bench --duration 30 --reps 3` on the author's machine - **12 cores,
+RTX 3060, Linux 7.1.5, pureframe 0.1.0b16** - after the entire offensive:
+
+| Profile | 30 s clip (median) | Detections | Top phases |
+|---|---:|---:|---|
+| CPU | **3.0 s** | 0 | scene_detect 0.7 · extract 0.4 · nudity 0.2 |
+| LOW | **15.1 s** | 1 | render 4.1 · faces 4.0 · scene 0.6 |
+| MEDIUM | **16.2 s** | 1 | faces 5.8 · render 4.0 · scene 0.7 |
+| HIGH | **23.7 s** | 1 | faces 12.2 · render 4.0 · extract_kiss 1.6 |
+
+What the per-phase data proves:
+
+- **CPU profile: 10× realtime** on the synthetic clip - the audio gate kept
+  PANNs out entirely (`detect_audio` absent), CLIP is disabled by design
+  (0.0 s), and the int8-quantized NudeNet classified the whole clip in
+  0.2 s.
+- **The audio gate works as designed on GPU profiles too**: audio ran for
+  exactly one context-worthy shot (0.07 s) instead of every shot.
+- **HIGH costs what you'd expect**: `detect_faces 12.2 s` is the max-quality
+  `densify_every_n_frames=1` sampling doing per-frame face detection - the
+  honest price of maximum coverage, not a regression.
+- `render 4.0 s` on GPU profiles is nvenc's full re-encode of the flagged
+  shot (the bench's single flagged shot covers 100 % of its duration, so the
+  smart renderer correctly falls back to full re-encode - worst case by
+  construction).
+
+Honest caveats: this is a 30 s synthetic clip with 1-2 shots, not a movie.
+A real film's hundreds of mostly-clean shots amortize the per-shot work
+differently, and the CPU profile's zero-detection run under-represents real
+content. Reproduce with `pureframe bench --duration 30 --reps 3`; real-movie
+benchmarks are tracked in the roadmap (v1.0, "Real-world benchmark suite").
+
 ## Before/after
 
 To be filled from `pureframe bench` runs on reference hardware. The numbers

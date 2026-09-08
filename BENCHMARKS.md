@@ -1,5 +1,33 @@
 # Performance Benchmarks
 
+## September 2026 - Speed offensive validation (`pureframe bench`)
+
+Measured with `pureframe bench --duration 30 --reps 3` (medians) on the
+author's machine, **after** the low-end-PC speed offensive - see
+[docs/performance.md](docs/performance.md) for what changed:
+
+| | |
+|---|---|
+| **OS** | Pop!_OS 24.04, kernel **7.1.5-76070105** |
+| **CPU** | Intel Core i5-10400F (12 threads) |
+| **GPU** | NVIDIA GeForce RTX 3060 (12 GB VRAM) |
+| **pureframe** | 0.1.0b16 + speed offensive |
+
+| Profile | 30s 720p bench clip (median) | Detections | Top phases |
+|---|---:|---:|---|
+| CPU | **3.0s** | 0 | scene_detect 0.7s · extract 0.4s · nudity 0.2s |
+| LOW | **15.1s** | 1 | render 4.1s · detect_faces 4.0s · scene 0.6s |
+| MEDIUM | **16.2s** | 1 | detect_faces 5.8s · render 4.0s · scene 0.7s |
+| HIGH | **23.7s** | 1 | detect_faces 12.2s · render 4.0s · extract_kiss 1.6s |
+
+Notes: the bench clip is synthetic with one flagged shot; per-phase medians
+come from the built-in `PhaseTimers`. The audio classifier ran for exactly
+one context-worthy shot on GPU profiles (the lazy audio gate); CLIP is
+disabled on the CPU profile by design. Reproduce with
+`pureframe bench --duration 30 --reps 3 -o report.json`.
+
+## Legacy full-scale measurements (pre-offensive, for reference)
+
 > Measurements below are **real, on the machine indicated**. Other tiers are estimated from community contributions. To add your hardware, run `scripts/run_benchmarks.sh` and open a PR.
 
 > **Note on these numbers:** The benchmark clip is a 30s synthetic 1080p video (solid colours, test patterns) with **zero detections**. Real movie content with actual detections will take longer - blurring adds per-frame overhead, and complex scenes trigger more model inference. Use these numbers as a floor, not a ceiling.

@@ -205,11 +205,12 @@ pureframe process movie.mp4 --profile MEDIUM
 **September 2026 speed offensive:** a series of algorithmic fixes (seek-based
 frame extraction, on-demand model loading, lazy audio classification, pipelined
 decode/inference, int8 CPU quantization) targets **~10-20 minutes for a
-90-minute movie on CPU-only hardware**. Run `pureframe bench` for per-phase
-timings on your machine, and see
-[docs/performance.md](docs/performance.md) for the full engineering story.
-The table above predates the offensive and will be replaced by fresh
-measurements.
+90-minute movie on CPU-only hardware**. Measured with the built-in benchmark
+on the author's RTX 3060 / 12-thread machine: a 30 s clip processes in
+**3.0 s (CPU profile)** to 23.7 s (HIGH, max-quality sampling) - full tables
+and per-phase breakdowns in
+[docs/performance.md](docs/performance.md) and [BENCHMARKS.md](BENCHMARKS.md).
+Run `pureframe bench` to measure your own machine.
 
 See [BENCHMARKS.md](BENCHMARKS.md) for full metrics and how to run benchmarks.
 

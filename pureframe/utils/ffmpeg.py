@@ -198,6 +198,17 @@ def frames_iter(
         drain_t.join(timeout=2.0)
 
 
+def _encoder_preset_arg(encoder: str, preset: str | None) -> str | None:
+    """Map the profile's speed preset onto the encoder, or drop it.
+
+    The profile presets use the x264/x265 scale ("veryfast" etc.), which
+    hardware encoders (nvenc/qsv/videotoolbox/amf) reject outright -
+    nvenc: ``Unable to parse option value "veryfast"``. Hardware encoders
+    keep their own defaults, which are already fast.
+    """
+    return preset if preset and encoder.startswith("lib") else None
+
+
 def write_video_with_overlay(
     input_path: Path,
     output_path: Path,
@@ -266,8 +277,13 @@ def write_video_with_overlay(
         "crf": crf,
         "pix_fmt": "yuv420p",  # safe default
     }
-    if preset:
-        out_kwargs["preset"] = preset
+    # Speed presets from the profile use the x264/x265 scale ("veryfast"
+    # etc.), which hardware encoders reject outright (nvenc: "Unable to
+    # parse option value"). Software encoders get the preset; hardware
+    # encoders keep their defaults - they don't need it.
+    preset_arg = _encoder_preset_arg(encoder, preset)
+    if preset_arg:
+        out_kwargs["preset"] = preset_arg
 
     # Colorspace is not passed through to avoid encoder compat issues;
     # ffmpeg will autodetect from input.

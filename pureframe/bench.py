@@ -174,6 +174,11 @@ def run_benchmark(
         "clip": str(clip),
         "profiles": {},
     }
+    # The CLI emits its payload to BOTH the timers file and a stdout line;
+    # enabling the stdout channel here gives bench a fallback if the file
+    # mechanism ever hiccups.
+    old_print_timers = os.environ.get("PUREFRAME_PRINT_TIMERS")
+    os.environ["PUREFRAME_PRINT_TIMERS"] = "1"
 
     try:
         for profile in profiles:
@@ -211,17 +216,23 @@ def run_benchmark(
                 if result.exit_code != 0:
                     raise SystemExit(
                         f"bench run failed for profile {profile} (rep {rep}): "
-                        f"{result.exception!r}"
+                        f"{result.exception!r}\n"
+                        f"CLI stdout (tail): {result.stdout[-2000:]}\n"
+                        f"CLI stderr (tail): {getattr(result, 'stderr', '')[-1000:]}"
                     )
 
-                payload = _parse_timers_payload(
-                    timers_file.read_text(encoding="utf-8")
-                    if timers_file.exists()
-                    else result.stdout
-                )
+                # The timers file holds the bare JSON payload; the stdout
+                # fallback line carries a "PUREFRAME_TIMERS " prefix, so the
+                # two channels need different parsers.
+                if timers_file.exists():
+                    payload = json.loads(timers_file.read_text(encoding="utf-8"))
+                else:
+                    payload = _parse_timers_payload(result.stdout)
                 if payload is None:
                     raise SystemExit(
-                        f"no timer payload emitted for profile {profile} (rep {rep})"
+                        f"no timer payload emitted for profile {profile} (rep {rep})\n"
+                        f"CLI stdout (tail): {result.stdout[-2000:]}\n"
+                        f"CLI stderr (tail): {getattr(result, 'stderr', '')[-1000:]}"
                     )
                 timers = payload.get("phases", {})
                 flagged = _parse_flagged(payload, result.stdout)
@@ -254,6 +265,7 @@ def run_benchmark(
 
         return report
     finally:
+        _restore_env("PUREFRAME_PRINT_TIMERS", old_print_timers)
         if not keep_clip:
             shutil.rmtree(workdir, ignore_errors=True)
 
