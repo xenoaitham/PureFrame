@@ -5,7 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-09-08
+
+First stable release. Headline: the speed offensive.
 
 ### Added
 - **Speed offensive** - algorithmic + model-level optimizations targeting ~10-20 min for a 90-min movie on CPU-only hardware (see `docs/performance.md` for the full narrative):
@@ -18,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - int8 dynamic quantization of NudeNet on CPU profiles (cached, `--no-quant` escape hatch, eval-parity gated) and a center-10s PANNs analysis window.
   - Encoder presets per profile; encoder/fps resolved once per smart render; one less full-frame copy per dirty frame.
   - `eval-parity` CI job: the real detector runs the synthetic corpus on every PR; detection-signature drift fails the build. See `eval-baseline.json`.
+
+### Changed
+- README publish pass: the demo GIF is now a cinematic synthetic scene with a
+  tracked censor blur (the old one was a raw test pattern *and* placed the
+  blur in the wrong corner - plan boxes must be authored in detection space);
+  measured post-offensive bench numbers replaced the stale pre-offensive
+  table; GUI screenshots added; stale version pins removed.
 
 ## [0.1.0b16] - 2026-09-06
 
