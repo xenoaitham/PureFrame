@@ -1,5 +1,6 @@
 """Sync version metadata across pyproject.toml, gui/package.json,
-gui/src-tauri/tauri.conf.json, and gui/src-tauri/Cargo.toml.
+gui/src-tauri/tauri.conf.json, gui/src-tauri/Cargo.toml, and the
+pureframe-desktop entry in gui/src-tauri/Cargo.lock.
 
 Source of truth: pyproject.toml [project] version.
 
@@ -10,7 +11,7 @@ PEP 440 forms supported:
 
 Translates to:
     npm SemVer (gui/package.json):       0.1.0-beta.14 / 0.1.0-rc.1 / 0.1.0
-    Cargo SemVer (Cargo.toml):           0.1.0-beta.14 / 0.1.0-rc.1 / 0.1.0
+    Cargo SemVer (Cargo.toml + lock):    0.1.0-beta.14 / 0.1.0-rc.1 / 0.1.0
     Tauri 3-part numeric (tauri.conf):   0.1.14 / 0.1.1001 / 0.1.0
     Linux package version (rpm/deb):     0.1.0~beta14 / 0.1.0~rc1 / 0.1.0
 
@@ -35,6 +36,8 @@ PYPROJECT = ROOT / "pyproject.toml"
 GUI_PKG = ROOT / "gui" / "package.json"
 TAURI_CONF = ROOT / "gui" / "src-tauri" / "tauri.conf.json"
 CARGO = ROOT / "gui" / "src-tauri" / "Cargo.toml"
+CARGO_LOCK = ROOT / "gui" / "src-tauri" / "Cargo.lock"
+CARGO_LOCK_PACKAGE = "pureframe-desktop"
 
 
 _PEP440_RE = re.compile(
@@ -51,7 +54,11 @@ def parse_pep440(v: str) -> tuple[tuple[int, int, int], str | None, int | None]:
     parts = tuple(int(x) for x in m.group("release").split("."))
     if len(parts) != 3:
         raise SystemExit(f"need 3-part release, got '{v}'")
-    return parts, m.group("pre_kind"), int(m.group("pre_num")) if m.group("pre_num") else None  # type: ignore[return-value]
+    return (
+        parts,
+        m.group("pre_kind"),
+        int(m.group("pre_num")) if m.group("pre_num") else None,
+    )  # type: ignore[return-value]
 
 
 def npm_version(v: str) -> str:
@@ -111,6 +118,47 @@ def update_cargo_version(path: Path, new: str) -> bool:
     return True
 
 
+def _cargo_lock_version(path: Path, package: str) -> str | None:
+    """Version of *package* in a Cargo.lock file, or None if absent."""
+    in_package = False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped == "[[package]]":
+            in_package = False
+        elif stripped == f'name = "{package}"':
+            in_package = True
+        elif in_package and stripped.startswith("version = "):
+            parts = stripped.split('"')
+            return parts[1] if len(parts) > 1 else None
+    return None
+
+
+def update_cargo_lock(path: Path, package: str, new: str) -> bool:
+    """Rewrite *package*'s version inside Cargo.lock.
+
+    cargo regenerates the lock on build, but the release version-guard runs
+    against the committed file, so the entry is kept in step here.
+    """
+    current = _cargo_lock_version(path, package)
+    if current is None or current == new:
+        return False
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    in_package = False
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped == "[[package]]":
+            in_package = False
+        elif stripped == f'name = "{package}"':
+            in_package = True
+        elif in_package and stripped.startswith("version = "):
+            indent = line[: len(line) - len(line.lstrip())]
+            ending = line[len(line.rstrip("\r\n")) :]
+            lines[i] = f'{indent}version = "{new}"{ending}'
+            path.write_text("".join(lines), encoding="utf-8")
+            return True
+    return False
+
+
 def check_versions() -> int:
     """Exit 0 if all downstream files match; 1 otherwise."""
     src = read_pyproject_version()
@@ -133,8 +181,13 @@ def check_versions() -> int:
     m = re.search(r'^version\s*=\s*"([^"]+)"', cargo_text, flags=re.MULTILINE)
     cargo_version = m.group(1) if m else None
     if cargo_version != expected_npm:
+        drift.append(f"gui/src-tauri/Cargo.toml: {cargo_version} != {expected_npm}")
+
+    lock_version = _cargo_lock_version(CARGO_LOCK, CARGO_LOCK_PACKAGE)
+    if lock_version is not None and lock_version != expected_npm:
         drift.append(
-            f"gui/src-tauri/Cargo.toml: {cargo_version} != {expected_npm}"
+            f"gui/src-tauri/Cargo.lock ({CARGO_LOCK_PACKAGE}): "
+            f"{lock_version} != {expected_npm}"
         )
 
     if drift:
@@ -164,6 +217,9 @@ def sync_versions() -> None:
         changed = True
     if update_cargo_version(CARGO, npm):
         print(f"gui/src-tauri/Cargo.toml -> {npm}")
+        changed = True
+    if update_cargo_lock(CARGO_LOCK, CARGO_LOCK_PACKAGE, npm):
+        print(f"gui/src-tauri/Cargo.lock ({CARGO_LOCK_PACKAGE}) -> {npm}")
         changed = True
     if not changed:
         print(f"All versions already in sync ({src}).")

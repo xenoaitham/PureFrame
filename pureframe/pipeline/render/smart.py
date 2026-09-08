@@ -7,6 +7,10 @@ Strategy:
 4. Concatenate all segments using the concat demuxer.
 
 This gives 2-5x speedup on typical content where only 5-15% of frames are censored.
+
+Segment cuts must land on stream keyframes: a stream-copy cut can only begin
+at a sync point, so bounds are snapped outward to the probed keyframe map
+(see ``_snap_to_keyframes``).
 """
 
 import logging
@@ -74,6 +78,84 @@ def _find_dirty_segments(
     return merged
 
 
+def _probe_keyframe_times(path: Path) -> list[float]:
+    """Timestamps of all video keyframes in *path*, ascending.
+
+    Stream copy can only begin a cut at a keyframe: an input-side ``-ss``
+    snaps back to the previous sync point and silently duplicates everything
+    from there (a single-keyframe clip duplicates the whole video). Segment
+    planning therefore needs the real keyframe map.
+    """
+    result = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-skip_frame",
+            "nokey",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "frame=pts_time",
+            "-of",
+            "csv=p=0",
+            str(path),
+        ],
+        capture_output=True,
+        check=True,
+        text=True,
+        shell=False,
+    )
+    times: list[float] = []
+    for line in result.stdout.splitlines():
+        line = line.strip().rstrip(",")
+        if line and line != "N/A":
+            times.append(float(line))
+    if not times:
+        raise RuntimeError(f"no keyframes found in {path}")
+    return times
+
+
+def _snap_to_keyframes(
+    ranges: list[tuple[float, float]],
+    keyframes: list[float],
+    duration: float,
+) -> list[tuple[float, float]]:
+    """Expand segment bounds outward so every cut lands on a keyframe.
+
+    Clean segments are stream-copied, and copy cuts are only exact at
+    keyframes; dirty segments are re-encoded whole-GOP so their bounds line
+    up with the copies around them. Overlaps created by the expansion are
+    merged. ``duration`` is the fallback end for ranges extending past the
+    last keyframe (the video tail).
+    """
+    snapped: list[tuple[float, float]] = []
+    for s, e in ranges:
+        k_start = 0.0
+        for k in keyframes:  # ascending: last keyframe <= s
+            if k <= s + 1e-6:
+                k_start = k
+            else:
+                break
+        k_end = duration
+        for k in reversed(keyframes):  # descending: first keyframe >= e
+            if k >= e - 1e-6:
+                k_end = k
+            else:
+                break
+        if k_end < k_start:  # degenerate (zero-duration inputs) - clamp
+            k_end = k_start
+        snapped.append((k_start, k_end))
+
+    merged = [snapped[0]]
+    for s, e in snapped[1:]:
+        if s <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+        else:
+            merged.append((s, e))
+    return merged
+
+
 def apply_censoring_smart(
     input_path: Path,
     output_path: Path,
@@ -88,18 +170,33 @@ def apply_censoring_smart(
     Falls back to full re-encode if:
     - More than 60% of video is dirty (not worth the concat overhead)
     - Only a single segment covers the whole video
+    - The keyframe map cannot be probed (copy cuts would be inexact)
     - ffmpeg concat fails for any reason
     """
-    dirty_segments = _find_dirty_segments(frame_actions, total_frames, fps)
+    padded_ranges = _find_dirty_segments(frame_actions, total_frames, fps)
 
-    if not dirty_segments:
+    if not padded_ranges:
         # No censoring needed - just stream copy
         logger.info("No dirty segments - stream copying entire video")
         _stream_copy(input_path, output_path)
         return
 
-    # Calculate dirty ratio
+    try:
+        keyframes = _probe_keyframe_times(input_path)
+    except Exception as e:
+        logger.warning(f"Keyframe probe failed ({e}) - falling back to full re-encode")
+        from pureframe.pipeline.render.apply import apply_censoring
+
+        apply_censoring(
+            input_path, output_path, frame_actions, config, profile_settings
+        )
+        return
+
+    # Cuts must sit on keyframes, or stream copy duplicates whole GOPs.
     total_duration = total_frames / fps
+    dirty_segments = _snap_to_keyframes(padded_ranges, keyframes, total_duration)
+
+    # Calculate dirty ratio
     dirty_duration = sum(e - s for s, e in dirty_segments)
     dirty_ratio = dirty_duration / total_duration if total_duration > 0 else 1.0
 
@@ -146,18 +243,22 @@ def apply_censoring_smart(
 
 def _stream_copy(input_path: Path, output_path: Path) -> None:
     """Copy video without re-encoding."""
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        str(input_path),
-        "-c",
-        "copy",
-        "-map",
-        "0",
-        str(output_path),
-    ]
-    subprocess.run(cmd, capture_output=True, check=True)
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(input_path),
+            "-c",
+            "copy",
+            "-map",
+            "0",
+            str(output_path),
+        ],
+        capture_output=True,
+        check=True,
+        shell=False,
+    )
 
 
 def _render_segments(
@@ -171,42 +272,45 @@ def _render_segments(
     encoder: str | None = None,
     fps: float | None = None,
 ) -> None:
-    """Render dirty segments with overlay, copy clean segments, then concatenate."""
+    """Re-encode dirty segments with overlay; stream-copy the rest; concatenate.
+
+    Copy cuts cannot be made with ``-ss``/``-to`` on a plain ``-c copy``:
+    the demuxer cuts in decode order, so B-frame tails truncate or shift the
+    boundary (observed as a 9.1s render of a 5s clip). Instead the input is
+    split at the keyframe-aligned dirty boundaries with the segment muxer -
+    which cuts losslessly on keyframes - and only chunks inside dirty
+    ranges are replaced by re-encoded overlay renders before concat.
+    """
     tmpdir = Path(tempfile.mkdtemp(prefix="pureframe_smart_"))
-    segment_files = []
 
     try:
-        # Build complete timeline: interleave clean copies and dirty re-encodes
-        prev_end = 0.0
+        boundaries = sorted({t for s, e in dirty_segments for t in (s, e)})
+        # Chunk intervals must align with the bounds the muxer actually
+        # cuts at, so filter here (0.0 and end-of-video are implicit).
+        bounds = [t for t in boundaries if 1e-6 < t < total_duration - 1e-6]
+        chunks = _segment_at_boundaries(input_path, tmpdir, bounds, total_duration)
 
-        for i, (dirty_start, dirty_end) in enumerate(dirty_segments):
-            # Clean segment before this dirty one
-            if dirty_start > prev_end + 0.1:
-                clean_file = tmpdir / f"clean_{i:04d}.mkv"
-                _extract_segment_copy(input_path, clean_file, prev_end, dirty_start)
-                segment_files.append(clean_file)
-
-            # Dirty segment - re-encode with overlay
-            dirty_file = tmpdir / f"dirty_{i:04d}.mkv"
-            _extract_and_render_segment(
-                input_path,
-                dirty_file,
-                dirty_start,
-                dirty_end,
-                frame_actions,
-                config,
-                profile_settings,
-                encoder=encoder,
-                fps=fps,
-            )
-            segment_files.append(dirty_file)
-            prev_end = dirty_end
-
-        # Final clean segment after last dirty one
-        if prev_end < total_duration - 0.1:
-            final_clean = tmpdir / "clean_final.mkv"
-            _extract_segment_copy(input_path, final_clean, prev_end, total_duration)
-            segment_files.append(final_clean)
+        segment_files: list[Path] = []
+        start = 0.0
+        for i, chunk in enumerate(chunks):
+            end = bounds[i] if i < len(bounds) else total_duration
+            if _overlaps_any(start, end, dirty_segments):
+                rendered = tmpdir / f"dirty_{i:04d}.mkv"
+                _extract_and_render_segment(
+                    input_path,
+                    rendered,
+                    start,
+                    end,
+                    frame_actions,
+                    config,
+                    profile_settings,
+                    encoder=encoder,
+                    fps=fps,
+                )
+                segment_files.append(rendered)
+            else:
+                segment_files.append(chunk)
+            start = end
 
         # Concatenate all segments
         _concat_segments(segment_files, output_path, tmpdir)
@@ -215,28 +319,60 @@ def _render_segments(
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
-def _extract_segment_copy(
-    input_path: Path, output: Path, start: float, end: float
-) -> None:
-    """Extract a segment via stream copy (no re-encode)."""
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-ss",
-        f"{start:.3f}",
-        "-to",
-        f"{end:.3f}",
-        "-i",
-        str(input_path),
-        "-c",
-        "copy",
-        "-map",
-        "0",
-        "-avoid_negative_ts",
-        "make_zero",
-        str(output),
-    ]
-    subprocess.run(cmd, capture_output=True, check=True)
+def _overlaps_any(start: float, end: float, ranges: list[tuple[float, float]]) -> bool:
+    eps = 1e-6
+    return any(s < end - eps and e > start + eps for s, e in ranges)
+
+
+def _segment_at_boundaries(
+    input_path: Path,
+    tmpdir: Path,
+    boundaries: list[float],
+    total_duration: float,
+) -> list[Path]:
+    """Split *input_path* at *boundaries* via the segment muxer (lossless).
+
+    Returns one chunk file per interval, timestamps reset per chunk. Cuts
+    at 0.0 (implied) and at/after the video end are skipped; a cut that is
+    not exactly on a keyframe snaps forward within ``segment_time_delta``.
+    """
+    bounds = [t for t in boundaries if 1e-6 < t < total_duration - 1e-6]
+    pattern = str(tmpdir / "chunk_%04d.mkv")
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "error",
+            "-i",
+            str(input_path),
+            "-f",
+            "segment",
+            "-segment_times",
+            ",".join(f"{t:.3f}" for t in bounds),
+            "-segment_time_delta",
+            "0.05",
+            "-c",
+            "copy",
+            "-map",
+            "0",
+            "-avoid_negative_ts",
+            "make_zero",
+            "-reset_timestamps",
+            "1",
+            pattern,
+        ],
+        capture_output=True,
+        check=True,
+        shell=False,
+    )
+    chunks: list[Path] = []
+    for i in range(len(bounds) + 1):
+        chunk = tmpdir / f"chunk_{i:04d}.mkv"
+        if not chunk.exists() or chunk.stat().st_size == 0:
+            raise RuntimeError(f"segment muxer produced no chunk {i}")
+        chunks.append(chunk)
+    return chunks
 
 
 def _extract_and_render_segment(
@@ -310,22 +446,26 @@ def _concat_segments(segment_files: list[Path], output: Path, tmpdir: Path) -> N
             lines.append(f"file '{safe}'\n")
     concat_file.write_text("".join(lines), encoding="utf-8")
 
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-f",
-        "concat",
-        "-safe",
-        "0",
-        "-i",
-        str(concat_file),
-        "-c",
-        "copy",
-        "-map",
-        "0",
-        str(output),
-    ]
-    subprocess.run(cmd, capture_output=True, check=True)
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(concat_file),
+            "-c",
+            "copy",
+            "-map",
+            "0",
+            str(output),
+        ],
+        capture_output=True,
+        check=True,
+        shell=False,
+    )
 
 
 def _get_fps(path: Path) -> float:

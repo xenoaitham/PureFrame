@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Nudity detections were never censored: every `NUDITY_EXPLICIT` verdict
+  shipped with `boxes=None`.** The plan loop only attached tracked boxes for
+  kiss-flagged shots (mouth boxes) and `FULL_FRAME_BLUR` verdicts; the
+  primary category - nudity, a `BLACK_BOX` action that renders per-frame
+  boxes - fell through both paths, so the renderer re-encoded flagged shots
+  **without applying any blur**. Only the sexual-context full-frame branches
+  and hand-edited plans ever censored anything. Nudity-flagged shots now run
+  the same densify + IoU-tracking pass, attaching per-frame boxes to the
+  plan (151 tracked frames on the e2e fixture, previously 0). The real-render
+  e2e guards that cover this were failing on master and skipped by CI
+  (`-m "not slow"`); both now pass.
+- **Smart renderer duplicated content after the first flagged segment.**
+  Clean segments were cut with input-side `-ss`/`-to` under `-c copy`, which
+  snaps back to the previous keyframe in decode order - on a clip whose only
+  keyframe is frame 0, the final clean segment re-copied the entire video
+  (a 5 s clip rendered 9.1 s, and the README demo GIF visibly "played the
+  original, unblurred" after the censored section). The renderer now probes
+  the keyframe map, snaps segment boundaries outward to keyframes, and splits
+  with the segment muxer (lossless, B-frame-safe); single-keyframe inputs
+  correctly take the full-re-encode fallback. Output frame count now matches
+  the input exactly - pinned by a real-clip regression test.
+- GUI plan editor: `SEXUAL_CONTEXT_NO_NUDITY` timeline segments rendered red
+  instead of orange (the category check matched "NUDITY" inside
+  "NO_NUDITY" before the sexual-context check).
+
+### Changed
+- `packaging/sync_versions.py` now also syncs (and `--check` guards) the
+  `pureframe-desktop` version entry in `gui/src-tauri/Cargo.lock`, which had
+  silently stayed at 0.1.0-beta.15 through two releases.
+- Demo GIF regenerated from the fixed renderer (0.94 MiB, exact 5 s loop) and
+  the GUI plan-editor screenshot refreshed with the corrected timeline colors.
+- Re-benchmarked after the renderer fixes: published medians reproduce within
+  run-to-run noise (`pureframe bench --duration 30 --reps 3`, RTX 3060:
+  CPU 3.0 s · LOW 15.4 s · MEDIUM 17.1 s · HIGH 24.9 s).
+
 ## [0.2.0] - 2026-09-08
 
 First stable release. Headline: the speed offensive.

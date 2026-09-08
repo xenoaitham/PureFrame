@@ -300,64 +300,71 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                             verdict.action = Action.BLACK_BOX
 
                         if verdict.action != Action.NONE:
-                            if verdict.action == Action.BLACK_BOX:
-                                if verdict.category in (
+                            is_kiss_black_box = (
+                                verdict.action == Action.BLACK_BOX
+                                and verdict.category
+                                in (
                                     Category.KISS_INTENSE,
                                     Category.KISS_LIGHT,
-                                ):
-                                    # Sample the shot at the profile's densify
-                                    # stride instead of decoding every frame; the
-                                    # IoU tracker in smooth_detections bridges the
-                                    # gaps so the blur stays continuous.
-                                    stride = max(1, settings.densify_every_n_frames)
-                                    all_frames = list(
-                                        range(shot.start_frame, shot.end_frame, stride)
+                                )
+                            )
+                            if is_kiss_black_box:
+                                # Sample the shot at the profile's densify
+                                # stride instead of decoding every frame; the
+                                # IoU tracker in smooth_detections bridges the
+                                # gaps so the blur stays continuous.
+                                stride = max(1, settings.densify_every_n_frames)
+                                all_frames = list(
+                                    range(shot.start_frame, shot.end_frame, stride)
+                                )
+                                if all_frames and all_frames[-1] != shot.end_frame - 1:
+                                    all_frames.append(shot.end_frame - 1)
+                                with timers.phase("extract_kiss"):
+                                    all_bgr = extract_frames(
+                                        config.input_path,
+                                        all_frames,
+                                        settings.detection_resolution,
+                                        meta=meta,
                                     )
-                                    if (
-                                        all_frames
-                                        and all_frames[-1] != shot.end_frame - 1
-                                    ):
-                                        all_frames.append(shot.end_frame - 1)
-                                    with timers.phase("extract_kiss"):
-                                        all_bgr = extract_frames(
-                                            config.input_path,
-                                            all_frames,
-                                            settings.detection_resolution,
-                                            meta=meta,
+
+                                dense_faces = {}
+                                with timers.phase("detect_faces"):
+                                    for f_idx, f_bgr in all_bgr.items():
+                                        mouths = face_detector.detect_mouths(f_bgr)
+                                        from pureframe.pipeline.detect.nudity import (
+                                            Detection,
                                         )
 
-                                    dense_faces = {}
-                                    with timers.phase("detect_faces"):
-                                        for f_idx, f_bgr in all_bgr.items():
-                                            mouths = face_detector.detect_mouths(f_bgr)
-                                            from pureframe.pipeline.detect.nudity import (
-                                                Detection,
-                                            )
+                                        dense_faces[f_idx] = [
+                                            Detection(label="MOUTH", score=1.0, box=m)
+                                            for m in mouths
+                                        ]
 
-                                            dense_faces[f_idx] = [
-                                                Detection(
-                                                    label="MOUTH", score=1.0, box=m
-                                                )
-                                                for m in mouths
-                                            ]
+                                smooth_mouths = smooth_detections(
+                                    dense_faces, shot, config.box_padding_pct
+                                )
+                                from pureframe.pipeline.shots import Box
 
-                                    smooth_mouths = smooth_detections(
-                                        dense_faces, shot, config.box_padding_pct
+                                verdict.boxes = [
+                                    Box(
+                                        x1=b[0],
+                                        y1=b[1],
+                                        x2=b[2],
+                                        y2=b[3],
+                                        frame_idx=f,
                                     )
-                                    from pureframe.pipeline.shots import Box
-
-                                    verdict.boxes = [
-                                        Box(
-                                            x1=b[0],
-                                            y1=b[1],
-                                            x2=b[2],
-                                            y2=b[3],
-                                            frame_idx=f,
-                                        )
-                                        for f, boxes in smooth_mouths.items()
-                                        for b in boxes
-                                    ]
+                                    for f, boxes in smooth_mouths.items()
+                                    for b in boxes
+                                ]
                             else:
+                                # Every other flagged verdict lands here -
+                                # nudity BLACK_BOX included. Without this the
+                                # verdict carries boxes=None and the renderer
+                                # re-encodes the shot without censoring it
+                                # (nudity is the primary category, so this
+                                # path is the product's main blur source).
+                                # FULL_FRAME_BLUR ignores boxes at render
+                                # time, but the plan stays reviewable.
                                 from pureframe.pipeline.shots import FrameResult
 
                                 for idx, dets in zip(kf_indices, batch_dets):

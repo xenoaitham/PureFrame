@@ -582,8 +582,10 @@ export default function App() {
               const width = ((shot.end_time - shot.start_time) / duration) * 100;
 
               let color = "bg-sky-500";
-              if (v.category.includes("NUDITY")) color = "bg-red-500";
-              else if (v.category.includes("SEXUAL")) color = "bg-orange-500";
+              // SEXUAL_CONTEXT_NO_NUDITY contains "NUDITY" - the sexual
+              // check must come first or that category renders red.
+              if (v.category.includes("SEXUAL")) color = "bg-orange-500";
+              else if (v.category.includes("NUDITY")) color = "bg-red-500";
               else if (v.category.includes("KISS")) color = "bg-yellow-500";
               if (v.action === "NONE") color = "bg-slate-600";
 

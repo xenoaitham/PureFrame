@@ -1,8 +1,10 @@
 """Tests for smart segment rendering."""
 
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import cv2
 import pytest
 
 from pureframe.config import Config
@@ -10,10 +12,12 @@ from pureframe.hardware import HardwareProfile, ProfileSettings
 from pureframe.pipeline.render.smart import (
     _concat_segments,
     _extract_and_render_segment,
-    _extract_segment_copy,
     _find_dirty_segments,
     _get_fps,
+    _probe_keyframe_times,
     _render_segments,
+    _segment_at_boundaries,
+    _snap_to_keyframes,
     _stream_copy,
     apply_censoring_smart,
 )
@@ -80,6 +84,58 @@ class TestFindDirtySegments:
         assert len(result) == 1  # all merge due to padding
 
 
+# ── _probe_keyframe_times ────────────────────────────────────────────────
+
+
+class TestProbeKeyframeTimes:
+    @patch("pureframe.pipeline.render.smart.subprocess.run")
+    def test_parses_timestamps(self, mock_run):
+        mock_run.return_value = MagicMock(stdout="0.0\n1.0\n2.5\n", returncode=0)
+        assert _probe_keyframe_times(Path("/in.mp4")) == [0.0, 1.0, 2.5]
+
+    @patch("pureframe.pipeline.render.smart.subprocess.run")
+    def test_raises_on_no_keyframes(self, mock_run):
+        mock_run.return_value = MagicMock(stdout="", returncode=0)
+        with pytest.raises(RuntimeError, match="no keyframes"):
+            _probe_keyframe_times(Path("/in.mp4"))
+
+    @patch("pureframe.pipeline.render.smart.subprocess.run")
+    def test_raises_on_ffprobe_failure(self, mock_run):
+        mock_run.side_effect = RuntimeError("ffprobe exploded")
+        with pytest.raises(RuntimeError):
+            _probe_keyframe_times(Path("/in.mp4"))
+
+
+# ── _snap_to_keyframes ───────────────────────────────────────────────────
+
+
+class TestSnapToKeyframes:
+    def test_snaps_outward(self):
+        result = _snap_to_keyframes([(2.8, 5.8)], [0.0, 1.0, 3.0, 6.0], 10.0)
+        assert result == [(1.0, 6.0)]
+
+    def test_tail_defaults_to_duration(self):
+        result = _snap_to_keyframes([(8.0, 9.5)], [0.0, 5.0], 10.0)
+        assert result == [(5.0, 10.0)]
+
+    def test_head_defaults_to_zero(self):
+        # Start before the first keyframe → 0.0; end snaps forward to the
+        # next keyframe (2.0 lies inside the [1.0, 5.0] GOP).
+        result = _snap_to_keyframes([(0.5, 2.0)], [1.0, 5.0], 10.0)
+        assert result == [(0.0, 5.0)]
+
+    def test_merges_ranges_that_snap_into_overlap(self):
+        result = _snap_to_keyframes(
+            [(2.0, 2.5), (2.8, 3.2)], [0.0, 1.0, 3.0, 4.0, 10.0], 10.0
+        )
+        # (2.0,2.5) → (1.0,3.0); (2.8,3.2) → (1.0,4.0); merged into one
+        assert result == [(1.0, 4.0)]
+
+    def test_degenerate_range_clamps(self):
+        result = _snap_to_keyframes([(0.0, -1.0)], [0.0], 0.0)
+        assert result == [(0.0, 0.0)]
+
+
 # ── _stream_copy ─────────────────────────────────────────────────────────
 
 
@@ -95,19 +151,28 @@ class TestStreamCopy:
         assert "copy" in args
 
 
-# ── _extract_segment_copy ────────────────────────────────────────────────
+# ── _segment_at_boundaries ───────────────────────────────────────────────
 
 
-class TestExtractSegmentCopy:
+class TestSegmentAtBoundaries:
     @patch("pureframe.pipeline.render.smart.subprocess.run")
-    def test_extract_copy(self, mock_run):
+    def test_filters_trivial_boundaries(self, mock_run, tmp_path):
         mock_run.return_value = MagicMock(returncode=0)
-        _extract_segment_copy(Path("/in.mp4"), Path("/seg.mkv"), 1.0, 5.0)
-        mock_run.assert_called_once()
-        args = mock_run.call_args[0][0]
-        assert "1.000" in args
-        assert "5.000" in args
-        assert "-avoid_negative_ts" in args
+        for i in range(2):
+            (tmp_path / f"chunk_{i:04d}.mkv").write_bytes(b"x")
+        chunks = _segment_at_boundaries(
+            Path("/in.mp4"), tmp_path, [0.0, 5.0, 30.0], 30.0
+        )
+        assert len(chunks) == 2
+        argv = mock_run.call_args[0][0]
+        times = argv[argv.index("-segment_times") + 1]
+        assert times == "5.000"
+
+    @patch("pureframe.pipeline.render.smart.subprocess.run")
+    def test_raises_when_chunk_missing(self, mock_run, tmp_path):
+        mock_run.return_value = MagicMock(returncode=0)
+        with pytest.raises(RuntimeError, match="no chunk"):
+            _segment_at_boundaries(Path("/in.mp4"), tmp_path, [5.0], 30.0)
 
 
 # ── _concat_segments ─────────────────────────────────────────────────────
@@ -192,58 +257,95 @@ class TestGetFps:
 # ── _render_segments ─────────────────────────────────────────────────────
 
 
+def _make_chunks(tmp_path, n):
+    chunks = []
+    for i in range(n):
+        c = tmp_path / f"chunk_{i:04d}.mkv"
+        c.write_bytes(b"\x00" * 10)
+        chunks.append(c)
+    return chunks
+
+
 class TestRenderSegments:
     @patch("pureframe.pipeline.render.smart._concat_segments")
     @patch("pureframe.pipeline.render.smart._extract_and_render_segment")
-    @patch("pureframe.pipeline.render.smart._extract_segment_copy")
+    @patch("pureframe.pipeline.render.smart._segment_at_boundaries")
     @patch("pureframe.pipeline.render.smart.shutil.rmtree")
     def test_render_with_clean_and_dirty(
-        self, mock_rm, mock_copy, mock_render, mock_concat, config, profile_settings
+        self,
+        mock_rm,
+        mock_seg,
+        mock_render,
+        mock_concat,
+        config,
+        profile_settings,
+        tmp_path,
     ):
-        dirty_segments = [(5.0, 10.0)]
+        chunks = _make_chunks(tmp_path, 3)
+        mock_seg.return_value = chunks
         _render_segments(
             config.input_path,
             config.output_path,
             {150: {"action": "blur"}},
-            dirty_segments,
+            [(5.0, 10.0)],
             30.0,
             config,
             profile_settings,
         )
-        # Should extract clean before dirty, render dirty, extract clean after, concat
-        assert mock_copy.call_count == 2  # before + after
+        # Split at dirty boundaries; only the overlapping chunk re-renders
+        mock_seg.assert_called_once()
         assert mock_render.call_count == 1
-        mock_concat.assert_called_once()
+        merged = mock_concat.call_args[0][0]
+        assert merged == [chunks[0], merged[1], chunks[2]]
+        assert merged[1].name.startswith("dirty_")
         mock_rm.assert_called_once()
 
     @patch("pureframe.pipeline.render.smart._concat_segments")
     @patch("pureframe.pipeline.render.smart._extract_and_render_segment")
-    @patch("pureframe.pipeline.render.smart._extract_segment_copy")
+    @patch("pureframe.pipeline.render.smart._segment_at_boundaries")
     @patch("pureframe.pipeline.render.smart.shutil.rmtree")
     def test_render_dirty_at_start(
-        self, mock_rm, mock_copy, mock_render, mock_concat, config, profile_settings
+        self,
+        mock_rm,
+        mock_seg,
+        mock_render,
+        mock_concat,
+        config,
+        profile_settings,
+        tmp_path,
     ):
-        dirty_segments = [(0.0, 5.0)]
+        chunks = _make_chunks(tmp_path, 2)
+        mock_seg.return_value = chunks
         _render_segments(
             config.input_path,
             config.output_path,
             {10: {"action": "blur"}},
-            dirty_segments,
+            [(0.0, 5.0)],
             30.0,
             config,
             profile_settings,
         )
-        # No clean before (starts at 0), one clean after
-        assert mock_copy.call_count == 1
+        # Chunk [0,5) is dirty, [5,30) passes through
         assert mock_render.call_count == 1
+        merged = mock_concat.call_args[0][0]
+        assert merged == [merged[0], chunks[1]]
+        assert merged[0].name.startswith("dirty_")
 
     @patch("pureframe.pipeline.render.smart._concat_segments")
     @patch("pureframe.pipeline.render.smart._extract_and_render_segment")
-    @patch("pureframe.pipeline.render.smart._extract_segment_copy")
+    @patch("pureframe.pipeline.render.smart._segment_at_boundaries")
     @patch("pureframe.pipeline.render.smart.shutil.rmtree")
     def test_cleanup_on_error(
-        self, mock_rm, mock_copy, mock_render, mock_concat, config, profile_settings
+        self,
+        mock_rm,
+        mock_seg,
+        mock_render,
+        mock_concat,
+        config,
+        profile_settings,
+        tmp_path,
     ):
+        mock_seg.return_value = _make_chunks(tmp_path, 3)
         mock_render.side_effect = RuntimeError("boom")
         with pytest.raises(RuntimeError):
             _render_segments(
@@ -300,7 +402,11 @@ class TestSmartRendering:
             )
             mock_copy.assert_called_once()
 
-    def test_high_dirty_ratio_falls_back(self, config, profile_settings):
+    @patch(
+        "pureframe.pipeline.render.smart._probe_keyframe_times",
+        return_value=[0.0, 33.333],
+    )
+    def test_high_dirty_ratio_falls_back(self, _probe, config, profile_settings):
         actions = {i: {"action": "blur"} for i in range(0, 700)}
         with patch("pureframe.pipeline.render.apply.apply_censoring") as mock_full:
             apply_censoring_smart(
@@ -314,7 +420,11 @@ class TestSmartRendering:
             )
             mock_full.assert_called_once()
 
-    def test_low_dirty_ratio_renders_segments(self, config, profile_settings):
+    @patch(
+        "pureframe.pipeline.render.smart._probe_keyframe_times",
+        return_value=[0.0, 2.8, 5.9, 100.0],
+    )
+    def test_low_dirty_ratio_renders_segments(self, _probe, config, profile_settings):
         actions = {i: {"action": "blur"} for i in range(100, 150)}
         with patch("pureframe.pipeline.render.smart._render_segments") as mock_segments:
             apply_censoring_smart(
@@ -328,7 +438,11 @@ class TestSmartRendering:
             )
             mock_segments.assert_called_once()
 
-    def test_segment_render_failure_falls_back(self, config, profile_settings):
+    @patch(
+        "pureframe.pipeline.render.smart._probe_keyframe_times",
+        return_value=[0.0, 2.8, 3.9, 100.0],
+    )
+    def test_segment_render_failure_falls_back(self, _probe, config, profile_settings):
         actions = {100: {"action": "blur"}}
         with patch(
             "pureframe.pipeline.render.smart._render_segments",
@@ -346,7 +460,11 @@ class TestSmartRendering:
                 )
                 mock_full.assert_called_once()
 
-    def test_zero_duration_defaults_ratio(self, config, profile_settings):
+    @patch(
+        "pureframe.pipeline.render.smart._probe_keyframe_times",
+        return_value=[0.0],
+    )
+    def test_zero_duration_defaults_ratio(self, _probe, config, profile_settings):
         """If total_frames=0, dirty_ratio defaults to 1.0 → fallback."""
         actions = {0: {"action": "blur"}}
         with patch("pureframe.pipeline.render.apply.apply_censoring"):
@@ -361,3 +479,119 @@ class TestSmartRendering:
             )
             # total_frames=0 means fps calculation gives empty segments,
             # so it should call _stream_copy or fallback. Either way, no crash.
+
+
+# ── keyframe alignment (the stream-copy duplication regression) ─────────
+
+
+class TestSmartRenderKeyframeAlignment:
+    """End-to-end guard for the keyframe-snap contract.
+
+    A stream-copy cut that is not on a keyframe snaps back to the previous
+    sync point and duplicates everything from there - the output grows and
+    replayed content shows up after the censored section (observed as a
+    9.1s render of a 5s clip whose demo GIF then "played the original"
+    after the blur). With ``-g 15`` there are keyframes every second, so
+    the smart path stays a real segment render; the output must keep the
+    input's exact frame count, with blur present only in the dirty window.
+    """
+
+    def test_output_preserves_frame_count_and_blur_window(self, tmp_path):
+        clip = tmp_path / "clip.mp4"
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc=duration=6:size=320x240:rate=15",
+                "-c:v",
+                "libx264",
+                "-g",
+                "15",
+                "-pix_fmt",
+                "yuv420p",
+                str(clip),
+            ],
+            check=True,
+            capture_output=True,
+            shell=False,
+        )
+        out = tmp_path / "out.mp4"
+        config = Config(input_path=clip, output_path=out)
+        profile_settings = ProfileSettings(
+            profile=HardwareProfile.CPU,
+            detection_resolution=480,
+            detection_batch_size=1,
+            use_fp16=False,
+            keep_models_loaded=True,
+            sample_keyframes_per_shot=2,
+            densify_every_n_frames=5,
+            onnx_providers=["CPUExecutionProvider"],
+        )
+
+        # Dirty window 2.0s-3.0s (frames 30-44), padded to 1.5-3.5s and
+        # keyframe-snapped to 1.0-4.0s. Box in native coords (320px wide is
+        # below the CPU profile's 480px detection resolution → no scaling).
+        frame_actions = {
+            f: {
+                "action": "BLACK_BOX",
+                "boxes": [(100, 80, 220, 160)],
+            }
+            for f in range(30, 45)
+        }
+        apply_censoring_smart(
+            clip,
+            out,
+            frame_actions,
+            config,
+            profile_settings,
+            total_frames=90,
+            fps=15.0,
+        )
+
+        assert out.exists() and out.stat().st_size > 0
+
+        def nb_frames(path: Path) -> int:
+            res = subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "v:0",
+                    "-count_frames",
+                    "-show_entries",
+                    "stream=nb_read_frames",
+                    "-of",
+                    "default=noprint_wrappers=1:nokey=1",
+                    str(path),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                shell=False,
+            )
+            return int(res.stdout.strip())
+
+        assert nb_frames(out) == nb_frames(clip) == 90
+
+        def roi_lap_var(frame_idx: int) -> float:
+            cap = cv2.VideoCapture(str(out))
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ok, frame = cap.read()
+            cap.release()
+            assert ok
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            roi = gray[80:160, 100:220]
+            return float(cv2.Laplacian(roi, cv2.CV_64F).var())
+
+        clean_var = roi_lap_var(0)
+        blurred_var = roi_lap_var(37)
+        after_var = roi_lap_var(80)
+        # Blurred ROI loses most of its detail; clean frames keep it.
+        assert blurred_var < clean_var * 0.2
+        assert after_var > clean_var * 0.5
