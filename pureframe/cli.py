@@ -28,6 +28,11 @@ from rich.table import Table
 
 from pureframe.checkpoint import CheckpointStore
 from pureframe.config import Config, ContentType, Strictness
+from pureframe.eta import (
+    estimate_analysis_seconds,
+    estimate_render_seconds,
+    format_duration,
+)
 from pureframe.hardware import HardwareProfile, detect_profile, get_settings
 from pureframe.pipeline.densify import densify_shot
 from pureframe.pipeline.detect.audio import AudioClassifier, AudioContext
@@ -169,6 +174,12 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
 
         with console.status("[bold green]Probing video..."), timers.phase("probe"):
             meta = probe_video(config.input_path)
+
+        if meta.total_frames > 0:
+            console.print(
+                f"Analysis estimate: {format_duration(estimate_analysis_seconds(settings.profile, meta.total_frames))} "
+                f"({meta.total_frames} frames, live remaining time in the bar below)"
+            )
 
         with (
             console.status("[bold green]Detecting shots..."),
@@ -474,6 +485,12 @@ def execute_render(
     job = store.find_or_create_job(config.input_path, config.output_path, config)
 
     frame_actions = plan.build_frame_actions()
+
+    if plan.input_metadata.total_frames > 0:
+        console.print(
+            f"Render estimate: {format_duration(estimate_render_seconds(config.profile, plan.input_metadata.total_frames, plan.total_censored_frames))} "
+            f"({plan.total_censored_frames} censored of {plan.input_metadata.total_frames} frames)"
+        )
 
     try:
         with console.status(
