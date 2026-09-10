@@ -23,15 +23,42 @@ export const tauriShimScript = `
         output: null,
         log_tail: ["Densifying shot 3 — 42%|██████ | 1337/3180"],
       }),
-      // load_plan -> empty plan JSON
+      // load_plan -> small plan with three shots (safe / flagged / safe) so
+      // the plan editor's timeline and scrubber have something to render.
       load_plan: () => JSON.stringify({
         pureframe_version: "0.0.0-e2e",
         plan_version: 1,
-        input_metadata: { duration_seconds: 0 },
+        input_metadata: { duration_seconds: 90, fps: "30/1" },
         config_snapshot: {},
-        shots: [],
-        verdicts: [],
-        total_censored_frames: 0,
+        shots: [
+          { index: 0, start_frame: 0, end_frame: 300, start_time: 0, end_time: 10 },
+          { index: 1, start_frame: 300, end_frame: 600, start_time: 10, end_time: 20 },
+          { index: 2, start_frame: 600, end_frame: 2700, start_time: 20, end_time: 90 },
+        ],
+        verdicts: [
+          {
+            shot_index: 0,
+            action: "NONE",
+            category: "SAFE",
+            confidence: 0.99,
+            reasoning: "e2e shim",
+          },
+          {
+            shot_index: 1,
+            action: "BLACK_BOX",
+            category: "NUDITY_EXPLICIT",
+            confidence: 0.91,
+            reasoning: "e2e shim",
+          },
+          {
+            shot_index: 2,
+            action: "NONE",
+            category: "SAFE",
+            confidence: 0.98,
+            reasoning: "e2e shim",
+          },
+        ],
+        total_censored_frames: 300,
       }),
       save_plan: () => null,
       // base64 of a 1x1 transparent png
