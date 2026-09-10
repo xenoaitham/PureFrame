@@ -107,18 +107,26 @@ def _extraction_worker(
     FIFO order keeps results deterministic; errors are forwarded in-band.
     """
 
-    def _put(item):
+    def _put(item) -> bool:
+        """Queue *item*; False only if the consumer asked us to stop.
+
+        The caller uses the result to bail out of the shot loop, so a bare
+        ``return`` here (v0.2.0–v0.2.1) read as "stop" after the very first
+        shot — every later shot went unanalyzed and uncensored.
+        """
         while not stop_event.is_set():
             try:
                 out_queue.put(item, timeout=0.5)
-                return
+                return True
             except Full:
                 continue
+        return False
 
     try:
         for shot in shots:
             if shot.index in completed_indices:
-                _put((shot, [], {}))
+                if not _put((shot, [], {})):
+                    return
                 continue
             kf_indices = sample_keyframes(shot, settings.sample_keyframes_per_shot)
             with timers.phase("extract"):
