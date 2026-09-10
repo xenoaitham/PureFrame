@@ -22,7 +22,14 @@ from pathlib import Path
 from pureframe.config import Config
 from pureframe.hardware import ProfileSettings
 from pureframe.pipeline.render.overlay import build_overlay_callback
-from pureframe.utils.ffmpeg import probe, select_hw_encoder, write_video_with_overlay
+from pureframe.utils.ffmpeg import (
+    container_bsf_args,
+    probe,
+    probe_video_codec,
+    select_hw_encoder,
+    select_render_encoder,
+    write_video_with_overlay,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,18 +92,24 @@ def _probe_keyframe_times(path: Path) -> list[float]:
     snaps back to the previous sync point and silently duplicates everything
     from there (a single-keyframe clip duplicates the whole video). Segment
     planning therefore needs the real keyframe map.
+
+    The map is read from packet flags — demux only, no decoding — which is
+    both faster on long inputs and codec-independent. The earlier
+    decode-based probe (``-skip_frame nokey``) relied on decoder support:
+    the VP8/VP9 decoders ignore that flag and reported *every* frame as a
+    keyframe, which would have put copy cuts on non-keyframes for WebM.
+    Packets without a presentation timestamp (AVI/H.264) are skipped; such
+    inputs take the full re-encode fallback.
     """
     result = subprocess.run(
         [
             "ffprobe",
             "-v",
             "error",
-            "-skip_frame",
-            "nokey",
             "-select_streams",
             "v:0",
             "-show_entries",
-            "frame=pts_time",
+            "packet=pts_time,flags",
             "-of",
             "csv=p=0",
             str(path),
@@ -108,12 +121,15 @@ def _probe_keyframe_times(path: Path) -> list[float]:
     )
     times: list[float] = []
     for line in result.stdout.splitlines():
-        line = line.strip().rstrip(",")
-        if line and line != "N/A":
-            times.append(float(line))
+        parts = line.strip().split(",")
+        if len(parts) < 2:
+            continue
+        pts, flags = parts[0], parts[-1]
+        if "K" in flags and pts and pts != "N/A":
+            times.append(float(pts))
     if not times:
         raise RuntimeError(f"no keyframes found in {path}")
-    return times
+    return sorted(times)
 
 
 def _snap_to_keyframes(
@@ -164,8 +180,13 @@ def apply_censoring_smart(
     profile_settings: ProfileSettings,
     total_frames: int,
     fps: float,
+    input_codec: str | None = None,
 ) -> None:
     """Smart renderer that only re-encodes dirty segments.
+
+    ``input_codec`` (the source's video codec, probed when omitted) steers
+    the re-encode so it matches the stream-copied chunks and the input's
+    container — WebM must stay VP8/VP9, AVI stays MPEG-4/Annex-B H.264.
 
     Falls back to full re-encode if:
     - More than 60% of video is dirty (not worth the concat overhead)
@@ -181,6 +202,9 @@ def apply_censoring_smart(
         _stream_copy(input_path, output_path)
         return
 
+    if input_codec is None:
+        input_codec = probe_video_codec(input_path)
+
     try:
         keyframes = _probe_keyframe_times(input_path)
     except Exception as e:
@@ -188,7 +212,12 @@ def apply_censoring_smart(
         from pureframe.pipeline.render.apply import apply_censoring
 
         apply_censoring(
-            input_path, output_path, frame_actions, config, profile_settings
+            input_path,
+            output_path,
+            frame_actions,
+            config,
+            profile_settings,
+            input_codec=input_codec,
         )
         return
 
@@ -207,7 +236,12 @@ def apply_censoring_smart(
         from pureframe.pipeline.render.apply import apply_censoring
 
         apply_censoring(
-            input_path, output_path, frame_actions, config, profile_settings
+            input_path,
+            output_path,
+            frame_actions,
+            config,
+            profile_settings,
+            input_codec=input_codec,
         )
         return
 
@@ -220,7 +254,9 @@ def apply_censoring_smart(
         # Encoder selection and fps probing are per-RENDER facts, not
         # per-segment facts — resolve once and thread through the segments
         # instead of re-running `ffmpeg -encoders` + ffprobe N times.
-        encoder = select_hw_encoder(profile_settings.profile, config.output_codec)
+        encoder = select_render_encoder(
+            profile_settings.profile, config.output_codec, input_codec
+        )
         _render_segments(
             input_path,
             output_path,
@@ -231,13 +267,19 @@ def apply_censoring_smart(
             profile_settings,
             encoder=encoder,
             fps=fps,
+            video_codec=input_codec,
         )
     except Exception as e:
         logger.warning(f"Smart render failed ({e}), falling back to full re-encode")
         from pureframe.pipeline.render.apply import apply_censoring
 
         apply_censoring(
-            input_path, output_path, frame_actions, config, profile_settings
+            input_path,
+            output_path,
+            frame_actions,
+            config,
+            profile_settings,
+            input_codec=input_codec,
         )
 
 
@@ -271,6 +313,7 @@ def _render_segments(
     profile_settings: ProfileSettings,
     encoder: str | None = None,
     fps: float | None = None,
+    video_codec: str | None = None,
 ) -> None:
     """Re-encode dirty segments with overlay; stream-copy the rest; concatenate.
 
@@ -313,7 +356,7 @@ def _render_segments(
             start = end
 
         # Concatenate all segments
-        _concat_segments(segment_files, output_path, tmpdir)
+        _concat_segments(segment_files, output_path, tmpdir, video_codec=video_codec)
 
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
@@ -430,8 +473,17 @@ def _ensure_within(base: Path, candidate: Path) -> Path:
     return resolved
 
 
-def _concat_segments(segment_files: list[Path], output: Path, tmpdir: Path) -> None:
-    """Concatenate segments using ffmpeg concat demuxer."""
+def _concat_segments(
+    segment_files: list[Path],
+    output: Path,
+    tmpdir: Path,
+    video_codec: str | None = None,
+) -> None:
+    """Concatenate segments using ffmpeg concat demuxer.
+
+    ``video_codec`` (the stream's codec) lets the copy add any bitstream
+    filter the output container demands — AVI needs Annex-B H.264.
+    """
     tmpdir = tmpdir.resolve()
     concat_file = _ensure_within(tmpdir, tmpdir / "concat.txt")
     lines = []
@@ -460,6 +512,7 @@ def _concat_segments(segment_files: list[Path], output: Path, tmpdir: Path) -> N
             "copy",
             "-map",
             "0",
+            *container_bsf_args(output, video_codec),
             str(output),
         ],
         capture_output=True,

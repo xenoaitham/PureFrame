@@ -491,6 +491,7 @@ def execute_render(
                         get_settings(config.profile),
                         plan.input_metadata.total_frames,
                         plan.input_metadata.fps,
+                        input_codec=plan.input_metadata.video_codec,
                     )
                 else:
                     apply_censoring(
@@ -499,6 +500,7 @@ def execute_render(
                         frame_actions,
                         config,
                         get_settings(config.profile),
+                        input_codec=plan.input_metadata.video_codec,
                     )
 
         # A render that silently produced nothing must never be recorded as

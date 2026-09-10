@@ -89,9 +89,24 @@ class TestFindDirtySegments:
 
 class TestProbeKeyframeTimes:
     @patch("pureframe.pipeline.render.smart.subprocess.run")
-    def test_parses_timestamps(self, mock_run):
-        mock_run.return_value = MagicMock(stdout="0.0\n1.0\n2.5\n", returncode=0)
+    def test_keeps_only_keyframe_packets(self, mock_run):
+        mock_run.return_value = MagicMock(
+            stdout="0.0,K__\n0.5,___\n1.0,K__\n1.5,__D\n2.5,K__\n", returncode=0
+        )
         assert _probe_keyframe_times(Path("/in.mp4")) == [0.0, 1.0, 2.5]
+        argv = mock_run.call_args[0][0]
+        # Demux-only probe: packet flags, never a decode pass.
+        assert "packet=pts_time,flags" in argv
+        assert "-skip_frame" not in argv
+
+    @patch("pureframe.pipeline.render.smart.subprocess.run")
+    def test_skips_packets_without_pts(self, mock_run):
+        # AVI/H.264 carries no presentation timestamps — no usable map.
+        mock_run.return_value = MagicMock(
+            stdout="N/A,K__\nN/A,___\nN/A,K__\n", returncode=0
+        )
+        with pytest.raises(RuntimeError, match="no keyframes"):
+            _probe_keyframe_times(Path("/in.avi"))
 
     @patch("pureframe.pipeline.render.smart.subprocess.run")
     def test_raises_on_no_keyframes(self, mock_run):
