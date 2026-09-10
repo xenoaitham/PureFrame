@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Only the first shot of a video was ever analyzed (0.2.0–0.2.1).** The
+  plan loop's prefetch worker (added with the pipelined extraction in 0.2.0)
+  used a queue helper whose bare `return` read as "stop" to the shot loop,
+  so extraction quit after shot 0 and the plan ended with one verdict — on a
+  real movie, nothing past the first cut was ever inspected or censored.
+  Every fixture in the suite happened to be single-shot, which is how it
+  slipped through; a three-shot regression clip now pins one verdict per
+  shot and boxes on the right one.
+
 ## [0.2.1] - 2026-09-08
 
 Urgent follow-up to 0.2.0: **0.2.0's render path censored almost nothing.**
