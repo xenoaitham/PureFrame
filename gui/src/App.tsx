@@ -97,6 +97,8 @@ const VIDEO_EXTS = ["mkv", "mp4", "mov", "avi", "webm", "m4v", "ts", "wmv"];
 const SETTINGS_KEY = "pureframe_settings";
 const JOBS_KEY = "pureframe_jobs";
 const POLL_INTERVAL_MS = 1200;
+// Timeline scrubber: debounce for the ffmpeg frame fetch while dragging.
+const SCRUB_DEBOUNCE_MS = 250;
 
 function loadSettings(): AppSettings {
   try {
@@ -147,6 +149,28 @@ function planSourcePath(plan: CensorPlan, planPath: string): string {
   return planPath.replace(/\.censorplan\.json$/i, "");
 }
 
+/** fps as a number, tolerating "30000/1001"-style fractions; 30 as fallback. */
+function planFps(plan: CensorPlan): number {
+  const raw = (plan.input_metadata as Record<string, unknown>).fps;
+  if (typeof raw === "number" && raw > 0) return raw;
+  if (typeof raw === "string") {
+    const m = raw.match(/^(\d+)\/(\d+)$/);
+    if (m) {
+      const den = Number(m[2]);
+      if (den > 0) return Number(m[1]) / den;
+    }
+    const n = Number(raw);
+    if (n > 0) return n;
+  }
+  return 30;
+}
+
+function formatTimecode(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds - m * 60;
+  return `${m}:${s.toFixed(1).padStart(4, "0")}`;
+}
+
 function StatusPill({ status }: { status: JobStatus }) {
   const styles: Record<JobStatus, { cls: string; label: string; icon?: React.ReactNode }> = {
     RUNNING: {
@@ -187,7 +211,14 @@ export default function App() {
   const [currentPlanPath, setCurrentPlanPath] = useState<string>("");
   const [selectedShot, setSelectedShot] = useState<ShotVerdict | null>(null);
   const [thumbnailBase64, setThumbnailBase64] = useState<string>("");
+  const [scrubTime, setScrubTime] = useState<number | null>(null);
+  const [scrubThumb, setScrubThumb] = useState<string>("");
+  const [scrubLoading, setScrubLoading] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
+
+  // Monotonic token so a slow thumbnail fetch can't overwrite a newer one.
+  const scrubRequestId = useRef(0);
+  const scrubTimer = useRef<number | null>(null);
 
   // Latest jobs for the poller without re-arming the interval on each update.
   const jobsRef = useRef<Job[]>([]);
@@ -404,6 +435,42 @@ export default function App() {
       console.error("No thumbnail:", e);
       setThumbnailBase64("");
     }
+    // The scrubber follows selection so the bar always reflects what the
+    // preview shows (the shot thumbnail fetch above already ran).
+    setScrubTime((shot.start_time + shot.end_time) / 2);
+  };
+
+  /** Seek the timeline scrubber to *time* seconds and fetch its frame.
+
+   * The position label updates immediately; the ffmpeg frame fetch is
+   * debounced so a drag doesn't spawn a process per pixel. A monotonic
+   * request id lets an older (slower) fetch be discarded when a newer one
+   * has already landed.
+   */
+  const seekTo = (time: number) => {
+    if (!currentPlan) return;
+    const duration = currentPlan.input_metadata.duration_seconds || 1;
+    const clamped = Math.min(Math.max(time, 0), duration);
+    setScrubTime(clamped);
+    if (scrubTimer.current !== null) window.clearTimeout(scrubTimer.current);
+    scrubTimer.current = window.setTimeout(() => {
+      const requestId = ++scrubRequestId.current;
+      setScrubLoading(true);
+      invoke<string>("extract_thumbnail", {
+        videoPath: planSourcePath(currentPlan, currentPlanPath),
+        frameIdx: Math.floor(clamped * planFps(currentPlan)),
+      })
+        .then((b64) => {
+          if (scrubRequestId.current === requestId) setScrubThumb(b64);
+        })
+        .catch((e) => {
+          console.error("No scrub thumbnail:", e);
+          if (scrubRequestId.current === requestId) setScrubThumb("");
+        })
+        .finally(() => {
+          if (scrubRequestId.current === requestId) setScrubLoading(false);
+        });
+    }, SCRUB_DEBOUNCE_MS);
   };
 
   const updateVerdictAction = (action: string) => {
@@ -600,6 +667,45 @@ export default function App() {
               );
             })}
           </div>
+
+          <div className="mt-3 flex items-center gap-3">
+            <input
+              aria-label="Scrub timeline"
+              type="range"
+              min={0}
+              max={duration}
+              step={0.05}
+              value={scrubTime ?? 0}
+              onChange={(e) => seekTo(Number(e.target.value))}
+              className="flex-1 accent-sky-500"
+            />
+            <span
+              data-testid="scrub-timecode"
+              className="text-xs text-slate-400 font-mono tabular-nums whitespace-nowrap"
+            >
+              {scrubTime !== null
+                ? `${formatTimecode(scrubTime)} / ${formatTimecode(duration)}`
+                : formatTimecode(duration)}
+            </span>
+          </div>
+
+          {scrubTime !== null && (
+            <div className="mt-3 bg-slate-950/60 border border-slate-800 rounded-lg p-2 flex items-center justify-center min-h-[120px]">
+              {scrubThumb ? (
+                <img
+                  src={scrubThumb}
+                  alt="Scrub preview"
+                  className="max-h-48 object-contain"
+                />
+              ) : scrubLoading ? (
+                <Loader2 className="animate-spin text-slate-500" />
+              ) : (
+                <span className="text-slate-600 text-sm">
+                  No preview at {formatTimecode(scrubTime)}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {selectedShot ? (
