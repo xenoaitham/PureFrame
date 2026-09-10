@@ -12,9 +12,7 @@ a decision that isn't the code's to make.
 
 ## Now
 
-1. **Nightly slow-suite CI job.** CI runs `-m "not slow"`, so the two
-   real-render e2e guards never ran there — they were failing on master
-   while 0.2.0 shipped censoring nothing. A scheduled job closes that gap.
+_Nothing in flight — the next work is queued under Next._
 
 ## Next
 
@@ -142,6 +140,13 @@ a decision that isn't the code's to make.
       config re-runs skip model inference, and replaced files are misses
       (the old path-only key couldn't see that). `--no-cache` escape with a
       per-invocation salt; pinned by `tests/test_inference_cache.py`
+
+### Continuous integration
+
+- [x] Nightly slow-suite job — `.github/workflows/nightly.yml` runs the full
+      slow suite (real-render e2e guards + model classifier tests) daily and
+      on demand; the gap where those guards never ran in CI is how the
+      v0.2.0 render bugs shipped
 
 ### Desktop packaging (every release since v0.2.0 — `release.yml`)
 
