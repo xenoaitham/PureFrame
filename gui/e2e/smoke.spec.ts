@@ -47,3 +47,42 @@ test("no uncaught console errors during initial render", async ({ page }) => {
   );
   expect(meaningful, meaningful.join("\n")).toEqual([]);
 });
+
+test("plan editor timeline scrubber fetches the frame at the new position", async ({
+  page,
+}) => {
+  // Seed a DONE plan job so the queue offers "Review plan"; the shim's
+  // load_plan serves a 90 s plan with a flagged middle shot.
+  await page.addInitScript(() => {
+    window.localStorage.setItem("onboarding_done", "1");
+    window.localStorage.setItem(
+      "pureframe_jobs",
+      JSON.stringify([
+        {
+          id: "job-e2e-1",
+          path: "/videos/movie.mkv",
+          status: "DONE",
+          mode: "plan",
+          progress: 100,
+          lastLine: null,
+          output: "/videos/movie.censorplan.json",
+          exitCode: 0,
+        },
+      ]),
+    );
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: /review plan/i }).click();
+
+  const scrub = page.getByLabel(/scrub timeline/i);
+  await expect(scrub).toBeVisible();
+  // No preview panel before the first seek.
+  await expect(page.getByAltText(/scrub preview/i)).toHaveCount(0);
+
+  await scrub.fill("45");
+  await expect(page.getByTestId("scrub-timecode")).toHaveText(
+    "0:45.0 / 1:30.0",
+  );
+  // The shim resolves extract_thumbnail with a deterministic image.
+  await expect(page.getByAltText(/scrub preview/i)).toBeVisible();
+});
