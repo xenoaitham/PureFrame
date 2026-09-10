@@ -34,6 +34,7 @@ pureframe process <INPUT> [OPTIONS]
 | `--strict` | flag | false | Enable strict mode (lower thresholds) |
 | `--no-clip` | flag | false | Skip CLIP scene classification |
 | `--no-audio` | flag | false | Skip audio moaning detection |
+| `--no-cache` | flag | false | Skip the inference cache for this run (re-analyze even if this exact file + config is cached) |
 | `--content-type` | enum | `live-action` | Content type: `live-action`, `animation`, `anime`, `low-light` |
 | `--strictness` | enum | `medium` | Strictness: `low`, `medium`, `high`, `custom` |
 | `--verbose, -v` | flag | false | Enable debug logging |
@@ -89,6 +90,7 @@ pureframe plan <INPUT> [OPTIONS]
 | `--strict` | flag | false | Enable strict mode |
 | `--no-clip` | flag | false | Skip CLIP classification |
 | `--no-audio` | flag | false | Skip audio detection |
+| `--no-cache` | flag | false | Skip the inference cache for this run |
 | `--content-type` | enum | `live-action` | Content type preset |
 | `--strictness` | enum | `medium` | Strictness level |
 | `--verbose, -v` | flag | false | Enable debug logging |
