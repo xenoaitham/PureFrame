@@ -44,7 +44,7 @@ def _make_plan(three_shot_video, tmp_path, monkeypatch) -> Path:
 
     original = pureframe.cli.get_settings
 
-    def dense(profile):
+    def dense(profile, **kwargs):
         s = original(profile)
         s.sample_keyframes_per_shot = 10
         return s

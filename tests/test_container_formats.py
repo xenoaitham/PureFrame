@@ -162,7 +162,7 @@ def _run_process(clip: Path, out_path: Path, monkeypatch) -> None:
     # would miss a 1 s marker window entirely; sample densely enough to hit it.
     original_get_settings = pureframe.cli.get_settings
 
-    def dense_settings(profile):
+    def dense_settings(profile, **kwargs):
         s = original_get_settings(profile)
         s.sample_keyframes_per_shot = 10
         return s
