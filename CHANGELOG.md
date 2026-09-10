@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   many frames are flagged (re-encode cost for flagged frames, stream-copy
   for the rest). The analysis progress bar keeps its live remaining-time
   column.
+- **Inference cache keyed on the file's content.** Re-running `process`/`plan`
+  on an unchanged file with the same settings skips model inference
+  entirely — verdicts come from the checkpoint store, which now folds a
+  streaming SHA-256 of the input into its key. Replacing the file at the
+  same path (the old key couldn't see that) is a cache miss, as is any
+  config change. `--no-cache` forces a from-scratch analysis for one run
+  without touching what the cache holds.
 
 ### Fixed
 - **Flagged shots could lose their blur boxes.** The plan loop filtered
