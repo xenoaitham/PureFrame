@@ -94,6 +94,11 @@ def generate_bench_clip(
             "-b:a",
             "64k",
             "-shortest",
+            # Output-side hard stop: with two lavfi inputs, newer ffmpeg
+            # builds let -shortest overshoot badly (a 2 s request muxed
+            # ~8 s of anullsrc on a macOS runner), so pin the mux duration.
+            "-t",
+            f"{duration}",
             str(path),
         ],
         check=True,
