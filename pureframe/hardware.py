@@ -32,16 +32,63 @@ class ProfileSettings(BaseModel):
     # CRFs; faster presets suit a censoring pipeline where the source is
     # re-encoded once and fidelity is bounded by the blur anyway.
     encoder_preset: str = "medium"
+    # CUDA device index for the ML models (0-based). Pinning a device makes
+    # ONNX Runtime run the CUDA EP on that GPU (provider options) and puts
+    # the torch models on cuda:<n>. Verdicts don't depend on it, so it is
+    # deliberately excluded from the checkpoint config hash.
+    cuda_device: int = 0
 
 
-def detect_profile() -> HardwareProfile:
+def onnx_providers_for(base: list[str], cuda_device: int) -> list:
+    """Pin the CUDA EP to *cuda_device* when the profile has it.
+
+    onnxruntime picks GPU 0 unless told otherwise; ``{"device_id": n}`` is
+    the provider-option form NudeDetector passes through to InferenceSession.
+    """
+    if cuda_device == 0 or "CUDAExecutionProvider" not in base:
+        return base
+    pinned: list = []
+    for provider in base:
+        if provider == "CUDAExecutionProvider":
+            pinned.append(("CUDAExecutionProvider", {"device_id": str(cuda_device)}))
+        else:
+            pinned.append(provider)
+    return pinned
+
+
+def torch_device_str(cuda_device: int) -> str:
+    """torch device string for the models, honoring the pinned CUDA device."""
+    try:
+        import torch
+
+        if torch.cuda.is_available() and cuda_device < torch.cuda.device_count():
+            return f"cuda:{cuda_device}"
+    except Exception:
+        pass
+    return "cpu"
+
+
+def detect_profile(cuda_device: int = 0) -> HardwareProfile:
     try:
         import torch
 
         if not torch.cuda.is_available():
             return HardwareProfile.CPU
-        # Get free VRAM in GB
-        free_vram = torch.cuda.mem_get_info(0)[0] / (1024**3)
+        # Only guard against out-of-range indexes when the runtime gives us
+        # a real count (callers may mock torch partially).
+        try:
+            device_count = torch.cuda.device_count()
+        except Exception:
+            device_count = None
+        if isinstance(device_count, int) and cuda_device >= device_count:
+            logger.warning(
+                "CUDA device %s does not exist (%s GPU(s) found) — profiling device 0.",
+                cuda_device,
+                device_count,
+            )
+            cuda_device = 0
+        # Get free VRAM in GB on the pinned device
+        free_vram = torch.cuda.mem_get_info(cuda_device)[0] / (1024**3)
         if free_vram >= 11:
             return HardwareProfile.HIGH
         elif free_vram >= 6:
@@ -60,7 +107,7 @@ def detect_profile() -> HardwareProfile:
         return HardwareProfile.CPU
 
 
-def get_settings(profile: HardwareProfile) -> ProfileSettings:
+def get_settings(profile: HardwareProfile, cuda_device: int = 0) -> ProfileSettings:
     if profile == HardwareProfile.HIGH:
         return ProfileSettings(
             profile=profile,
@@ -73,6 +120,7 @@ def get_settings(profile: HardwareProfile) -> ProfileSettings:
             onnx_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
             scene_frame_skip=0,
             encoder_preset="medium",
+            cuda_device=cuda_device,
         )
     elif profile == HardwareProfile.MEDIUM:
         return ProfileSettings(
@@ -86,6 +134,7 @@ def get_settings(profile: HardwareProfile) -> ProfileSettings:
             onnx_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
             scene_frame_skip=1,
             encoder_preset="faster",
+            cuda_device=cuda_device,
         )
     elif profile == HardwareProfile.LOW:
         return ProfileSettings(
@@ -99,6 +148,7 @@ def get_settings(profile: HardwareProfile) -> ProfileSettings:
             onnx_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
             scene_frame_skip=2,
             encoder_preset="veryfast",
+            cuda_device=cuda_device,
         )
     else:  # CPU
         return ProfileSettings(
@@ -112,4 +162,5 @@ def get_settings(profile: HardwareProfile) -> ProfileSettings:
             onnx_providers=["CPUExecutionProvider"],
             scene_frame_skip=2,
             encoder_preset="veryfast",
+            cuda_device=cuda_device,
         )

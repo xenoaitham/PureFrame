@@ -47,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scrub bar: dragging updates the timecode immediately and fetches the frame
   at the position (debounced, latest-wins) through the existing thumbnail
   IPC; selecting a shot moves the bar to that shot's midpoint.
+- **CUDA device selection (`--device`).** Multi-GPU machines could only ever
+  use GPU 0. `--device 1` pins NudeNet (ONNX CUDA EP provider options), CLIP
+  and PANNs to the chosen GPU, and auto-profiling reads that device's VRAM
+  so a smaller second GPU picks a fitting profile. Excluded from the
+  checkpoint hash — a cached verdict from GPU 0 is valid on GPU 1. Full
+  multi-GPU sharding is analyzed and descoped in `docs/multi-gpu.md`.
 
 ### Fixed
 - **Flagged plans failed to serialize on Python 3.13.** `sample_keyframes`

@@ -78,11 +78,12 @@ class AudioClassifier:
 
         # Respect GPU availability instead of pinning to CPU. The previous
         # implementation hardcoded ``cpu`` even on CUDA-capable machines,
-        # making PANNs inference dramatically slower than needed.
+        # making PANNs inference dramatically slower than needed. The pinned
+        # CUDA device (--device) is honored when present.
         try:
-            import torch
+            from pureframe.hardware import torch_device_str
 
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.device = torch_device_str(settings.cuda_device)
         except Exception:
             self.device = "cpu"
         logger.info(f"Loading PANNs SoundEventDetection model on {self.device}")

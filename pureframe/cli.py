@@ -178,7 +178,7 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
     store = get_store()
     job = store.find_or_create_job(config.input_path, config.output_path, config)
 
-    settings = get_settings(config.profile)
+    settings = get_settings(config.profile, cuda_device=config.device or 0)
 
     try:
         package_version = version("pureframe")
@@ -536,7 +536,7 @@ def execute_render(
                         config.output_path,
                         frame_actions,
                         config,
-                        get_settings(config.profile),
+                        get_settings(config.profile, cuda_device=config.device or 0),
                         plan.input_metadata.total_frames,
                         plan.input_metadata.fps,
                         input_codec=plan.input_metadata.video_codec,
@@ -547,7 +547,7 @@ def execute_render(
                         config.output_path,
                         frame_actions,
                         config,
-                        get_settings(config.profile),
+                        get_settings(config.profile, cuda_device=config.device or 0),
                         input_codec=plan.input_metadata.video_codec,
                     )
 
@@ -702,6 +702,12 @@ def plan_cmd(
         "--no-quant",
         help="Disable int8 CPU model quantization (GPU profiles unaffected)",
     ),
+    device: int | None = typer.Option(
+        None,
+        "--device",
+        min=0,
+        help="CUDA device index for the ML models (0-based, e.g. 1 for the second GPU)",
+    ),
     no_cache: bool = typer.Option(
         False,
         "--no-cache",
@@ -714,7 +720,7 @@ def plan_cmd(
     """Run detection only, save a censor plan JSON. Do not render."""
     setup_logging(log_level="DEBUG" if verbose else "INFO")
     if profile is None:
-        profile = detect_profile()
+        profile = detect_profile(device or 0)
 
     if output is None:
         output = input.with_name(f"{input.name}.censorplan.json")
@@ -744,6 +750,7 @@ def plan_cmd(
         quantize_cpu=not no_quant,
         no_cache=no_cache,
         cache_salt=uuid4().hex if no_cache else "",
+        device=device,
         log_level="DEBUG" if verbose else "INFO",
     )
 
@@ -931,6 +938,12 @@ def process_cmd(
         "--no-quant",
         help="Disable int8 CPU model quantization (GPU profiles unaffected)",
     ),
+    device: int | None = typer.Option(
+        None,
+        "--device",
+        min=0,
+        help="CUDA device index for the ML models (0-based, e.g. 1 for the second GPU)",
+    ),
     no_cache: bool = typer.Option(
         False,
         "--no-cache",
@@ -946,7 +959,7 @@ def process_cmd(
     setup_logging(log_level="DEBUG" if verbose else "INFO")
 
     if profile is None:
-        profile = detect_profile()
+        profile = detect_profile(device or 0)
 
     try:
         overrides = _threshold_overrides(
@@ -978,6 +991,7 @@ def process_cmd(
                 quantize_cpu=not no_quant,
                 no_cache=no_cache,
                 cache_salt=cache_salt,
+                device=device,
                 log_level="DEBUG" if verbose else "INFO",
             )
         process_folder(input, recursive, parallel, base_config)
@@ -996,6 +1010,7 @@ def process_cmd(
             quantize_cpu=not no_quant,
             no_cache=no_cache,
             cache_salt=cache_salt,
+            device=device,
             log_level="DEBUG" if verbose else "INFO",
         )
         process_file(config)

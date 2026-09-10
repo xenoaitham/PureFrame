@@ -35,9 +35,11 @@ _Nothing in flight — the next work is queued under Next._
 
 ## Later
 
-- **Multi-GPU.** NudeNet session per CUDA device with shot-level sharding —
-  only if the design lands without surgery on the checkpoint store. If it
-  doesn't, descope to `--device cuda:N` selection and leave the rest here.
+- **Multi-GPU sharding.** The descope shipped: `--device cuda:N` pins all ML
+  models to a chosen GPU with per-device VRAM profiling (`docs/multi-gpu.md`).
+  Shot-level sharding stays here — the plan loop and checkpoint store would
+  need surgery, and detection is the smallest phase on the reference box
+  (Amdahl); revisit for 4K-first or CPU-dominated deployments.
 - **Evaluation on real footage.** The synthetic corpus and the eval-parity
   gate exist; a metrics suite on real (user-supplied) footage does not.
 - **AV1 and other codecs re-encoded in their own codec.** Today they fall
