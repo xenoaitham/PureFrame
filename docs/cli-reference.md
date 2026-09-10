@@ -171,6 +171,8 @@ pureframe preview <PLAN> [OPTIONS]
 | `PLAN` | path | *required* | Path to `.censorplan.json` file |
 | `--output, -o` | path | `<plan>.preview.html` | Output HTML report path |
 | `--blur` | flag | true | Apply blur to flagged regions in thumbnails |
+| `--before-after` | flag | false | Render a full-resolution original/censored PNG pair per flagged shot (needs the source video) and embed them in the report |
+| `--frames-dir` | path | `<video>.preview_frames/` | Directory for the paired frame images |
 
 ---
 

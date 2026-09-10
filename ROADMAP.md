@@ -20,9 +20,10 @@ _Nothing in flight — the next work is queued under Next._
   plan editor (`extract_thumbnail` already exists server-side). Iterate in a
   plain browser via the e2e Tauri shim (`gui/e2e/tauri-shim.ts`); no Rust
   build needed.
-- **Before/after preview.** `pureframe preview --before-after` writes paired
-  original/blurred frames per flagged shot; the GUI loads them via
-  `load_plan`-style IPC. Python side first — testable, no Rust changes.
+- **Before/after in the GUI.** The CLI side shipped (`pureframe preview
+  --before-after` writes full-resolution PNG pairs per flagged shot, embedded
+  in the HTML report); the GUI plan editor still needs to load and display
+  them via `load_plan`-style IPC.
 - **Plugin API for custom detectors.** Design note before code: a detector
   is `detect_batch(frames) -> [Detection]` + a label→category map + a
   threshold, registered via entry points; `fuse()` must treat non-nudity
@@ -140,6 +141,12 @@ _Nothing in flight — the next work is queued under Next._
       config re-runs skip model inference, and replaced files are misses
       (the old path-only key couldn't see that). `--no-cache` escape with a
       per-invocation salt; pinned by `tests/test_inference_cache.py`
+- [x] Before/after preview (CLI) — `pureframe preview --before-after`
+      renders a full-resolution original/censored PNG pair per flagged shot
+      through the real overlay code and embeds them in the HTML report
+- [x] Nightly slow-suite CI job — `.github/workflows/nightly.yml`; also
+      fixed on the way: flagged plans failed to serialize on py3.13 (numpy
+      int64 keys from the keyframe sampler)
 
 ### Continuous integration
 

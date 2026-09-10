@@ -17,7 +17,9 @@ def sample_keyframes(shot: Shot, n: int) -> list[int]:
     # Evenly spaced
     # If n=3: start, mid, end-1
     indices = np.linspace(shot.start_frame, shot.end_frame - 1, n, dtype=int)
-    return sorted(list(set(indices)))
+    # Plain ints: these land in Shot.frames keys and Box.frame_idx, and the
+    # numpy scalars break pydantic's strict JSON serialization of the plan.
+    return sorted({int(i) for i in indices})
 
 
 def _spawn_decode(

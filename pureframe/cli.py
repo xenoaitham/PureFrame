@@ -1088,8 +1088,24 @@ def preview_cmd(
     blur: bool = typer.Option(
         True, "--blur/--no-blur", help="Apply blur to flagged regions in thumbnails"
     ),
+    before_after: bool = typer.Option(
+        False,
+        "--before-after",
+        help="Render paired original/censored frames per flagged shot (PNG next to the report)",
+    ),
+    frames_dir: Path | None = typer.Option(
+        None,
+        "--frames-dir",
+        help="Directory for the paired frame images (default: <plan>.preview_frames/)",
+    ),
 ):
-    """Export flagged frame thumbnails as an HTML contact sheet for safe review."""
+    """Export flagged frame thumbnails as an HTML contact sheet for safe review.
+
+    With ``--before-after`` each flagged shot also gets a side-by-side pair
+    of full-resolution PNGs — the untouched frame and the same frame with
+    this plan's censoring applied — so you can check blur placement without
+    rendering the whole video.
+    """
     plan = CensorPlan.load(plan_path)
 
     if output is None:
@@ -1108,6 +1124,15 @@ def preview_cmd(
     video_path = Path(video_path_str)
     video_name = video_path.name if video_path_str else "unknown"
 
+    pairs: dict[int, tuple[Path, Path]] = {}
+    if before_after:
+        if not video_path.exists():
+            console.print(
+                f"[red]--before-after needs the source video, but {video_path} does not exist.[/red]"
+            )
+            raise typer.Exit(2)
+        pairs = render_before_after_frames(plan, video_path, frames_dir)
+
     html_parts = [
         "<!DOCTYPE html>",
         "<html><head><meta charset='utf-8'>",
@@ -1120,12 +1145,16 @@ def preview_cmd(
         ".action-box{display:inline-block;padding:4px 12px;border-radius:4px;font-weight:bold;}",
         ".BLACK_BOX{background:#dc2626;color:#fff;}",
         ".FULL_FRAME_BLUR{background:#f59e0b;color:#000;}",
-        "</style></head><body>",
-        "<h1>PureFrame Preview Report</h1>",
+        ".pair img{width:48%;border-radius:4px;margin:0.5% 0;}",
+        ".pair{background:#000;border-radius:8px;padding:0.5rem;}",
+    ]
+    html_parts.append("</style></head><body>")
+    html_parts.append("<h1>PureFrame Preview Report</h1>")
+    html_parts.append(
         f"<p class='meta'>Plan: {plan_path.name} | Video: {video_name} | "
         f"Flagged: {len(flagged)}/{len(plan.verdicts)} shots | "
-        f"Generated: {plan.generated_at}</p>",
-    ]
+        f"Generated: {plan.generated_at}</p>"
+    )
 
     for v in flagged:
         shot = next((s for s in plan.shots if s.index == v.shot_index), None)
@@ -1145,15 +1174,87 @@ def preview_cmd(
             f"<p>Action: <span class='action-box {v.action}'>{v.action}</span></p>"
         )
         html_parts.append(f"<p class='meta'>Reasoning: {v.reasoning}</p>")
+        if v.shot_index in pairs:
+            before, after = pairs[v.shot_index]
+            before_rel = Path(os.path.relpath(before, output.parent))
+            after_rel = Path(os.path.relpath(after, output.parent))
+            html_parts.append(
+                f"<div class='pair'><img src='{before_rel.as_posix()}' "
+                f"alt='shot {v.shot_index} original'>"
+                f"<img src='{after_rel.as_posix()}' "
+                f"alt='shot {v.shot_index} censored'></div>"
+            )
         html_parts.append("</div>")
 
     html_parts.append("</body></html>")
 
     output.write_text("\n".join(html_parts), encoding="utf-8")
     console.print(f"[green]Preview report saved to {output}[/green]")
+    if pairs:
+        frames_parent = next(iter(pairs.values()))[0].parent
+        console.print(f"Before/after frames for {len(pairs)} shots in {frames_parent}")
     console.print(
         f"Flagged {len(flagged)} shots across {plan.input_metadata.duration_seconds:.0f}s of video."
     )
+
+
+def render_before_after_frames(
+    plan: CensorPlan, video_path: Path, frames_dir: Path | None
+) -> dict[int, tuple[Path, Path]]:
+    """Render one (original, censored) PNG pair per flagged shot.
+
+    Uses the plan's own config snapshot and the shared overlay callback, so
+    the "after" frame is exactly what a full render would produce for that
+    frame. Images land in *frames_dir* (default ``<plan>.preview_frames``).
+    """
+    import cv2
+
+    from pureframe.hardware import get_settings
+    from pureframe.pipeline.probe import probe_video
+    from pureframe.pipeline.render.overlay import build_overlay_callback
+    from pureframe.pipeline.sample import extract_frames
+
+    if frames_dir is None:
+        frames_dir = video_path.with_name(video_path.name + ".preview_frames")
+    frames_dir.mkdir(parents=True, exist_ok=True)
+
+    config_dict = plan.config_snapshot.copy()
+    config_dict["input_path"] = video_path
+    snapshot_config = Config(**config_dict)
+
+    profile = snapshot_config.profile or HardwareProfile.CPU
+    settings = get_settings(profile)
+    meta = probe_video(video_path)
+
+    frame_actions = plan.build_frame_actions()
+    overlay = build_overlay_callback(frame_actions, snapshot_config, settings)
+
+    pairs: dict[int, tuple[Path, Path]] = {}
+    for v in plan.verdicts:
+        if v.action == Action.NONE:
+            continue
+        shot = next((s for s in plan.shots if s.index == v.shot_index), None)
+        if not shot:
+            continue
+
+        mid = (shot.start_frame + shot.end_frame) // 2
+        # Downscale cap absurdly high: the pair must be full resolution so
+        # the "after" frame is pixel-faithful to a real render.
+        frames = extract_frames(video_path, [mid], 100000, meta=meta)
+        frame = frames.get(mid)
+        if frame is None:
+            console.print(
+                f"[yellow]Shot {v.shot_index}: could not extract frame {mid}, skipping pair.[/yellow]"
+            )
+            continue
+
+        before_path = frames_dir / f"shot_{v.shot_index:03d}_before.png"
+        after_path = frames_dir / f"shot_{v.shot_index:03d}_after.png"
+        cv2.imwrite(str(before_path), frame)
+        cv2.imwrite(str(after_path), overlay(mid, frame.copy()))
+        pairs[v.shot_index] = (before_path, after_path)
+
+    return pairs
 
 
 @app.command()
