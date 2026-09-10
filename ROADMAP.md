@@ -12,11 +12,7 @@ a decision that isn't the code's to make.
 
 ## Now
 
-1. **Cached inference per video.** Key = (content hash, config hash) on top
-   of the verdict store `jobs.db` already keeps; a re-run with the same
-   file and config skips plan inference. `--no-cache` escape. Tests must
-   cover config change → miss, file change → miss, same → hit.
-2. **Nightly slow-suite CI job.** CI runs `-m "not slow"`, so the two
+1. **Nightly slow-suite CI job.** CI runs `-m "not slow"`, so the two
    real-render e2e guards never ran there — they were failing on master
    while 0.2.0 shipped censoring nothing. A scheduled job closes that gap.
 
@@ -141,6 +137,11 @@ a decision that isn't the code's to make.
       last two frames of every track (blur visibly lagged movers at shot
       end); now edge-replicating. Box EMA/hysteresis evaluated and rejected,
       measurements recorded (`tests/test_smoothing_tails.py`)
+- [x] Cached inference per video — checkpoint keys fold a streaming SHA-256
+      of the input (`Config.content_fingerprint`), so unchanged file +
+      config re-runs skip model inference, and replaced files are misses
+      (the old path-only key couldn't see that). `--no-cache` escape with a
+      per-invocation salt; pinned by `tests/test_inference_cache.py`
 
 ### Desktop packaging (every release since v0.2.0 — `release.yml`)
 
