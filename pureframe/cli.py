@@ -27,7 +27,7 @@ from rich.progress import (
 from rich.table import Table
 
 from pureframe.checkpoint import CheckpointStore
-from pureframe.config import Config, ContentType, Strictness
+from pureframe.config import Config, ContentType, Strictness, load_thresholds_file
 from pureframe.eta import (
     estimate_analysis_seconds,
     estimate_render_seconds,
@@ -93,6 +93,29 @@ def get_store() -> CheckpointStore:
     )
     db_path = Path(data_dir) / "jobs.db"
     return CheckpointStore(db_path)
+
+
+def _threshold_overrides(
+    thresholds_file: Path | None,
+    nudity: float | None,
+    clip: float | None,
+    audio: float | None,
+) -> dict[str, float]:
+    """Merge a ``--thresholds`` file with the per-category flags; flags win."""
+    overrides = load_thresholds_file(thresholds_file) if thresholds_file else {}
+    for category, value in (("nudity", nudity), ("clip", clip), ("audio", audio)):
+        if value is not None:
+            overrides[category] = value
+    return overrides
+
+
+def _build_config(**kwargs) -> Config:
+    """``Config.from_cli`` with validation errors reported as CLI errors."""
+    try:
+        return Config.from_cli(**kwargs)
+    except ValueError as e:
+        console.print(f"[red]Invalid configuration:[/red] {e}")
+        raise typer.Exit(2) from e
 
 
 def _extraction_worker(
@@ -207,6 +230,13 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
 
         existing_verdicts = store.load_verdicts(job.id)
         completed_indices = {v.shot_index for v in existing_verdicts}
+
+        # Densify must keep every detection fuse() could have flagged on.
+        # Filtering at the raw CLI value instead (the default 0.55) dropped
+        # the boxes of shots flagged by a lower preset — e.g. a 0.40 score
+        # under --strictness high — leaving BLACK_BOX verdicts with no boxes.
+        eff_nudity, _, _ = config.get_effective_thresholds()
+        densify_threshold = eff_nudity * (0.85 if config.strict else 1.0)
 
         try:
             with Progress(
@@ -397,7 +427,7 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                         config.input_path,
                                         detector,
                                         settings,
-                                        config.nudity_threshold,
+                                        densify_threshold,
                                         meta=meta,
                                     )
                                 smooth_boxes = smooth_detections(
@@ -614,8 +644,40 @@ def plan_cmd(
     profile: HardwareProfile = typer.Option(
         None, "--profile", help="Hardware profile override"
     ),
-    threshold: float = typer.Option(
-        0.55, "--threshold", help="Nudity detection threshold"
+    threshold: float | None = typer.Option(
+        None,
+        "--threshold",
+        min=0.0,
+        max=1.0,
+        help="Nudity detection threshold (alias for --threshold-nudity)",
+    ),
+    threshold_nudity: float | None = typer.Option(
+        None,
+        "--threshold-nudity",
+        min=0.0,
+        max=1.0,
+        help="Nudity threshold; replaces the strictness preset's value",
+    ),
+    threshold_clip: float | None = typer.Option(
+        None,
+        "--threshold-clip",
+        min=0.0,
+        max=1.0,
+        help="CLIP scene threshold; replaces the strictness preset's value",
+    ),
+    threshold_audio: float | None = typer.Option(
+        None,
+        "--threshold-audio",
+        min=0.0,
+        max=1.0,
+        help="Audio threshold; replaces the strictness preset's value",
+    ),
+    thresholds_file: Path | None = typer.Option(
+        None,
+        "--thresholds",
+        exists=True,
+        dir_okay=False,
+        help='JSON file with any of "nudity", "clip", "audio"; flags win over it',
     ),
     strict: bool = typer.Option(
         False, "--strict", help="Lowers thresholds 15% across the board"
@@ -651,13 +713,23 @@ def plan_cmd(
     if output is None:
         output = input.with_name(f"{input.name}.censorplan.json")
 
-    config = Config.from_cli(
+    try:
+        overrides = _threshold_overrides(
+            thresholds_file,
+            threshold_nudity if threshold_nudity is not None else threshold,
+            threshold_clip,
+            threshold_audio,
+        )
+    except ValueError as e:
+        raise typer.BadParameter(str(e), param_hint="--thresholds") from e
+
+    config = _build_config(
         input_path=input,
         output_path=input.with_name(
             f"{input.stem}.pureframe{input.suffix}"
         ),  # Dummy output path for DB tracking
         profile=profile,
-        nudity_threshold=threshold,
+        threshold_overrides=overrides,
         strict=strict,
         no_clip=no_clip,
         no_audio=no_audio,
@@ -793,8 +865,40 @@ def process_cmd(
     profile: HardwareProfile = typer.Option(
         None, "--profile", help="Hardware profile override"
     ),
-    threshold: float = typer.Option(
-        0.55, "--threshold", help="Nudity detection threshold"
+    threshold: float | None = typer.Option(
+        None,
+        "--threshold",
+        min=0.0,
+        max=1.0,
+        help="Nudity detection threshold (alias for --threshold-nudity)",
+    ),
+    threshold_nudity: float | None = typer.Option(
+        None,
+        "--threshold-nudity",
+        min=0.0,
+        max=1.0,
+        help="Nudity threshold; replaces the strictness preset's value",
+    ),
+    threshold_clip: float | None = typer.Option(
+        None,
+        "--threshold-clip",
+        min=0.0,
+        max=1.0,
+        help="CLIP scene threshold; replaces the strictness preset's value",
+    ),
+    threshold_audio: float | None = typer.Option(
+        None,
+        "--threshold-audio",
+        min=0.0,
+        max=1.0,
+        help="Audio threshold; replaces the strictness preset's value",
+    ),
+    thresholds_file: Path | None = typer.Option(
+        None,
+        "--thresholds",
+        exists=True,
+        dir_okay=False,
+        help='JSON file with any of "nudity", "clip", "audio"; flags win over it',
     ),
     strict: bool = typer.Option(
         False, "--strict", help="Lowers thresholds 15% across the board"
@@ -831,15 +935,25 @@ def process_cmd(
     if profile is None:
         profile = detect_profile()
 
+    try:
+        overrides = _threshold_overrides(
+            thresholds_file,
+            threshold_nudity if threshold_nudity is not None else threshold,
+            threshold_clip,
+            threshold_audio,
+        )
+    except ValueError as e:
+        raise typer.BadParameter(str(e), param_hint="--thresholds") from e
+
     if input.is_dir():
         from pureframe.batch import process_folder
 
         with tempfile.NamedTemporaryFile(suffix=".mp4") as f:
             dummy_file = Path(f.name)
-            base_config = Config.from_cli(
+            base_config = _build_config(
                 input_path=dummy_file,
                 profile=profile,
-                nudity_threshold=threshold,
+                threshold_overrides=overrides,
                 strict=strict,
                 no_clip=no_clip,
                 no_audio=no_audio,
@@ -851,11 +965,11 @@ def process_cmd(
             )
         process_folder(input, recursive, parallel, base_config)
     else:
-        config = Config.from_cli(
+        config = _build_config(
             input_path=input,
             output_path=output,
             profile=profile,
-            nudity_threshold=threshold,
+            threshold_overrides=overrides,
             strict=strict,
             no_clip=no_clip,
             no_audio=no_audio,

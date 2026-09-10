@@ -12,20 +12,16 @@ a decision that isn't the code's to make.
 
 ## Now
 
-1. **Per-category threshold controls in the CLI.** `--threshold-nudity`,
-   `--threshold-clip`, `--threshold-audio`, or a `--thresholds file.json`.
-   `Config.get_effective_thresholds()` already does the math; this is
-   surface area plus tests, not pipeline work.
-2. **Temporal tracking: less box jitter.** Hysteresis / box-EMA on top of
+1. **Temporal tracking: less box jitter.** Hysteresis / box-EMA on top of
    the IoU tracker in `pipeline/smooth.py`, with a synthetic wobble test
    (jittery boxes in, stable boxes out). Eval-parity gates detection
    *scores*, not boxes — keep it that way deliberately, and eyeball the
    demo GIF before and after.
-3. **Cached inference per video.** Key = (content hash, config hash) on top
+2. **Cached inference per video.** Key = (content hash, config hash) on top
    of the verdict store `jobs.db` already keeps; a re-run with the same
    file and config skips plan inference. `--no-cache` escape. Tests must
    cover config change → miss, file change → miss, same → hit.
-4. **Nightly slow-suite CI job.** CI runs `-m "not slow"`, so the two
+3. **Nightly slow-suite CI job.** CI runs `-m "not slow"`, so the two
    real-render e2e guards never ran there — they were failing on master
    while 0.2.0 shipped censoring nothing. A scheduled job closes that gap.
 
@@ -131,6 +127,11 @@ a decision that isn't the code's to make.
 
 ### Detection controls
 
+- [x] Per-category thresholds in the CLI — `--threshold-nudity/-clip/-audio`
+      and `--thresholds file.json`, replacing one preset value at a time;
+      `--threshold` now works under any strictness. Also fixed while wiring
+      it: densify filtered boxes at the raw default instead of the effective
+      threshold, so preset-flagged shots could lose their blur boxes
 - [x] Expected-time estimator — `pureframe/eta.py`, calibrated from the
       v0.2.1 bench medians; analysis ETA printed after the probe, render
       ETA once the plan knows the flagged-frame count
