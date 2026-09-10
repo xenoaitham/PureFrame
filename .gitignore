@@ -57,3 +57,6 @@ assets/demo_plan.json
 .gemini/
 .mimosa/
 .v2c/
+
+# Local-only devlogs and artifacts (never shipped)
+devlogs/
