@@ -4,7 +4,7 @@ import numpy as np
 from nudenet import NudeDetector
 from pydantic import BaseModel
 
-from pureframe.hardware import ProfileSettings
+from pureframe.hardware import ProfileSettings, onnx_providers_for
 
 logger = logging.getLogger(__name__)
 
@@ -53,13 +53,16 @@ class NudityDetector:
                         "NudeNet quantization unavailable (%s) — using fp32", e
                     )
             try:
+                providers = onnx_providers_for(
+                    self.settings.onnx_providers, self.settings.cuda_device
+                )
                 if model_path:
                     self.detector = NudeDetector(
-                        providers=self.settings.onnx_providers,
+                        providers=providers,
                         model_path=model_path,
                     )
                 else:
-                    self.detector = NudeDetector(providers=self.settings.onnx_providers)
+                    self.detector = NudeDetector(providers=providers)
             except TypeError:
                 # Older nudenet without provider/model_path kwargs.
                 self.detector = NudeDetector()

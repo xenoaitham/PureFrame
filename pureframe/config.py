@@ -120,6 +120,10 @@ class Config(BaseSettings):
     # detection configuration it describes.
     no_cache: bool = False
     cache_salt: str = ""
+    # CUDA device index for the ML models (--device, 0-based). Excluded from
+    # config_hash: it is a performance knob, not a detection decision — a
+    # cached verdict from GPU 0 is valid on GPU 1.
+    device: int | None = None
 
     model_config = SettingsConfigDict(env_prefix="PUREFRAME_")
 

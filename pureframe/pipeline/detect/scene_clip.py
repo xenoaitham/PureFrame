@@ -69,7 +69,9 @@ class SceneClassifier:
         if settings.profile == HardwareProfile.LOW:
             model_name = "openai/clip-vit-base-patch32"
 
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        from pureframe.hardware import torch_device_str
+
+        self.device = torch_device_str(settings.cuda_device)
         self.model = CLIPModel.from_pretrained(model_name)
         self.processor = CLIPProcessor.from_pretrained(model_name)
 

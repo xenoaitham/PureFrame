@@ -49,7 +49,7 @@ def _dense_sampling(monkeypatch):
 
     original = pureframe.cli.get_settings
 
-    def dense(profile):
+    def dense(profile, **kwargs):
         s = original(profile)
         s.sample_keyframes_per_shot = 10
         return s
