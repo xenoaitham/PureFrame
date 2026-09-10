@@ -125,7 +125,10 @@ class TestCliFlags:
             app, ["process", str(synthetic_video), "--thresholds", str(f)]
         )
         assert result.exit_code == 2
-        assert "Usage" in result.output
+        # Pydantic-level rejects surface through _build_config's plain-text
+        # handler rather than a typer usage panel — still exit 2, no crash.
+        assert "Invalid configuration" in result.output
+        assert "unknown threshold category" in " ".join(result.output.split())
         assert "Traceback" not in result.output
 
     def test_zero_threshold_is_a_clean_cli_error(self, synthetic_video):
@@ -133,7 +136,8 @@ class TestCliFlags:
             app, ["plan", str(synthetic_video), "--threshold-clip", "0"]
         )
         assert result.exit_code == 2
-        assert "Usage" in result.output
+        assert "Invalid configuration" in result.output
+        assert "must be in (0, 1]" in " ".join(result.output.split())
         assert "Traceback" not in result.output
 
 
