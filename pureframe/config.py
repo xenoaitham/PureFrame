@@ -1,6 +1,9 @@
+import hashlib
+import json
 from enum import Enum
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .hardware import HardwareProfile
@@ -43,6 +46,30 @@ STRICTNESS_PRESETS = {
     Strictness.HIGH: (0.35, 0.35, 0.40),
 }
 
+# Per-category threshold names in (nudity, clip, audio) order — the order
+# get_effective_thresholds() returns and the keys a --thresholds file uses.
+THRESHOLD_CATEGORIES = ("nudity", "clip", "audio")
+
+
+def load_thresholds_file(path: Path) -> dict[str, float]:
+    """Parse a ``--thresholds`` JSON file: ``{"nudity": 0.4, "clip": 0.5}``.
+
+    Any subset of :data:`THRESHOLD_CATEGORIES` is allowed; keys and ranges
+    are validated when the dict lands in :class:`Config`.
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"{path}: not valid JSON ({e})") from e
+    if not isinstance(data, dict):
+        raise ValueError(f"{path}: expected a JSON object of category → threshold")
+    overrides: dict[str, float] = {}
+    for key, value in data.items():
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            raise ValueError(f"{path}: threshold for {key!r} must be a number")
+        overrides[str(key)] = float(value)
+    return overrides
+
 
 class Config(BaseSettings):
     input_path: Path
@@ -51,6 +78,12 @@ class Config(BaseSettings):
     nudity_threshold: float = 0.55
     clip_threshold: float = 0.50
     audio_threshold: float = 0.60
+    # Explicit per-category base thresholds (--threshold-nudity/-clip/-audio
+    # or a --thresholds file). A set category replaces the strictness
+    # preset's value for that category; the others keep the preset. The
+    # content-type multiplier and --strict still apply on top, exactly as
+    # they do for the presets.
+    threshold_overrides: dict[str, float] = {}
     box_padding_pct: float = 0.12
     box_color: tuple[int, int, int] = (0, 0, 0)
     blur_mode: BlurMode = BlurMode.BLUR
@@ -79,6 +112,21 @@ class Config(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="PUREFRAME_")
 
+    @field_validator("threshold_overrides")
+    @classmethod
+    def _validate_threshold_overrides(cls, value: dict[str, float]) -> dict:
+        for key, threshold in value.items():
+            if key not in THRESHOLD_CATEGORIES:
+                raise ValueError(
+                    f"unknown threshold category {key!r}; "
+                    f"expected one of {', '.join(THRESHOLD_CATEGORIES)}"
+                )
+            if not 0.0 < threshold <= 1.0:
+                raise ValueError(
+                    f"threshold for {key!r} must be in (0, 1], got {threshold}"
+                )
+        return value
+
     @classmethod
     def from_cli(cls, **kwargs) -> "Config":
         config = cls(**kwargs)
@@ -93,27 +141,29 @@ class Config(BaseSettings):
         return config
 
     def get_effective_thresholds(self) -> tuple[float, float, float]:
-        """Return (nudity, clip, audio) thresholds adjusted for content type and strictness."""
+        """Return (nudity, clip, audio) thresholds adjusted for content type and strictness.
+
+        Base values come from the strictness preset (or the three
+        ``*_threshold`` fields under ``custom``), with any
+        ``threshold_overrides`` replacing their category; the content-type
+        multiplier then scales all three, capped at 0.99.
+        """
         if self.strictness == Strictness.CUSTOM:
-            base_nudity = self.nudity_threshold
-            base_clip = self.clip_threshold
-            base_audio = self.audio_threshold
+            bases = [self.nudity_threshold, self.clip_threshold, self.audio_threshold]
         else:
-            base_nudity, base_clip, base_audio = STRICTNESS_PRESETS[self.strictness]
+            bases = list(STRICTNESS_PRESETS[self.strictness])
+
+        for i, category in enumerate(THRESHOLD_CATEGORIES):
+            if category in self.threshold_overrides:
+                bases[i] = self.threshold_overrides[category]
 
         # Apply content-type multiplier
         mult = CONTENT_TYPE_MULTIPLIERS[self.content_type]
-        return (
-            min(base_nudity * mult, 0.99),
-            min(base_clip * mult, 0.99),
-            min(base_audio * mult, 0.99),
-        )
+        nudity, clip, audio = (min(base * mult, 0.99) for base in bases)
+        return (nudity, clip, audio)
 
     @property
     def config_hash(self) -> str:
-        import hashlib
-        import json
-
         data = {
             "profile": getattr(self.profile, "value", str(self.profile)),
             "nudity_threshold": self.nudity_threshold,
@@ -134,5 +184,8 @@ class Config(BaseSettings):
             "strictness": self.strictness.value,
             "quantize_cpu": self.quantize_cpu,
         }
+        # Only when set, so hashes of existing jobs keep matching.
+        if self.threshold_overrides:
+            data["threshold_overrides"] = dict(sorted(self.threshold_overrides.items()))
         data_str = json.dumps(data, sort_keys=True)
         return hashlib.sha256(data_str.encode("utf-8")).hexdigest()

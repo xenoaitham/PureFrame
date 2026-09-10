@@ -26,7 +26,11 @@ pureframe process <INPUT> [OPTIONS]
 | `INPUT` | path | *required* | Path to input video file |
 | `--output, -o` | path | `<input>.pureframe.<ext>` | Output video path |
 | `--profile` | enum | auto-detected | Hardware profile: `cpu`, `low`, `medium`, `high` |
-| `--threshold` | float | 0.55 | Nudity detection threshold (0.0–1.0) |
+| `--threshold` | float | preset | Nudity threshold (0–1]; alias for `--threshold-nudity` |
+| `--threshold-nudity` | float | preset | Nudity threshold; replaces the strictness preset's value |
+| `--threshold-clip` | float | preset | CLIP scene threshold; replaces the preset's value |
+| `--threshold-audio` | float | preset | Audio threshold; replaces the preset's value |
+| `--thresholds` | path | none | JSON file with any of `"nudity"`, `"clip"`, `"audio"`; flags win over it |
 | `--strict` | flag | false | Enable strict mode (lower thresholds) |
 | `--no-clip` | flag | false | Skip CLIP scene classification |
 | `--no-audio` | flag | false | Skip audio moaning detection |
@@ -47,7 +51,20 @@ pureframe process movie.mp4 --profile cpu --no-audio
 
 # Anime content with high strictness
 pureframe process anime.mkv --content-type anime --strictness high
+
+# Per-category thresholds on top of a preset: only nudity is relaxed,
+# clip/audio keep the high-strictness values (content-type and --strict
+# multipliers still apply on top)
+pureframe process movie.mp4 --strictness high --threshold-nudity 0.3
+
+# Thresholds from a file, e.g. {"nudity": 0.4, "clip": 0.6}
+pureframe process movie.mp4 --thresholds my_thresholds.json
 ```
+
+Per-category thresholds replace the strictness preset's base value for that
+one category; the other categories keep the preset, and the content-type
+multiplier (and `--strict`) still scale the result. Previously `--threshold`
+only had an effect combined with `--strictness custom`.
 
 ---
 
@@ -64,7 +81,11 @@ pureframe plan <INPUT> [OPTIONS]
 | `INPUT` | path | *required* | Path to input video file |
 | `--output, -o` | path | `<input>.censorplan.json` | Output plan path |
 | `--profile` | enum | auto-detected | Hardware profile |
-| `--threshold` | float | 0.55 | Nudity detection threshold |
+| `--threshold` | float | preset | Nudity threshold; alias for `--threshold-nudity` |
+| `--threshold-nudity` | float | preset | Nudity threshold; replaces the preset's value |
+| `--threshold-clip` | float | preset | CLIP scene threshold; replaces the preset's value |
+| `--threshold-audio` | float | preset | Audio threshold; replaces the preset's value |
+| `--thresholds` | path | none | JSON file with any of `"nudity"`, `"clip"`, `"audio"` |
 | `--strict` | flag | false | Enable strict mode |
 | `--no-clip` | flag | false | Skip CLIP classification |
 | `--no-audio` | flag | false | Skip audio detection |

@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Per-category threshold controls in the CLI.** `--threshold-nudity`,
+  `--threshold-clip` and `--threshold-audio` (plus `--thresholds
+  file.json` accepting `{"nudity": …, "clip": …, "audio": …}`) replace the
+  strictness preset's base value for that one category; the others keep the
+  preset, and the content-type/`--strict` multipliers still apply on top.
+  `--threshold` keeps working as the nudity alias — but it now actually has
+  an effect under any strictness (previously it was silently ignored unless
+  `--strictness custom` was also passed).
 - **Expected-time estimates.** `plan`/`process` print "Analysis estimate:
   ≈ …" right after the probe (frame count × the profile's per-frame cost,
   calibrated from the v0.2.1 bench medians in `pureframe/eta.py`), and
@@ -17,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   column.
 
 ### Fixed
+- **Flagged shots could lose their blur boxes.** The plan loop filtered
+  densified detections at the raw CLI threshold (default 0.55) while the
+  fusion flags on the *effective* threshold — so under `--strictness high`
+  (nudity preset 0.35) a 0.45-score detection produced a `BLACK_BOX`
+  verdict with no boxes, and nothing rendered for it. Densify now keeps
+  everything the fusion could have flagged on.
+
 - **Only the first shot of a video was ever analyzed (0.2.0–0.2.1).** The
   plan loop's prefetch worker (added with the pipelined extraction in 0.2.0)
   used a queue helper whose bare `return` read as "stop" to the shot loop,
