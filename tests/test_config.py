@@ -10,6 +10,7 @@ from pureframe.config import (
     Config,
     ContentType,
     Strictness,
+    load_thresholds_file,
 )
 
 
@@ -171,3 +172,95 @@ class TestConfigFromCli:
         assert c.no_clip is False
         assert c.no_audio is False
         assert c.force is False
+
+
+class TestThresholdOverrides:
+    """Per-category overrides replace one preset value; the rest still apply."""
+
+    def test_override_replaces_only_its_category(self, dummy_file):
+        c = Config(input_path=dummy_file, threshold_overrides={"nudity": 0.30})
+        n, cl, a = c.get_effective_thresholds()
+        assert n == pytest.approx(0.30)
+        assert cl == pytest.approx(0.50)  # medium preset untouched
+        assert a == pytest.approx(0.60)
+
+    def test_override_wins_over_preset_for_every_category(self, dummy_file):
+        c = Config(
+            input_path=dummy_file,
+            strictness=Strictness.HIGH,
+            threshold_overrides={"nudity": 0.9, "clip": 0.8, "audio": 0.7},
+        )
+        assert c.get_effective_thresholds() == pytest.approx((0.9, 0.8, 0.7))
+
+    def test_override_wins_over_custom_fields(self, dummy_file):
+        c = Config(
+            input_path=dummy_file,
+            strictness=Strictness.CUSTOM,
+            nudity_threshold=0.42,
+            clip_threshold=0.33,
+            threshold_overrides={"nudity": 0.20},
+        )
+        n, cl, _ = c.get_effective_thresholds()
+        assert n == pytest.approx(0.20)
+        assert cl == pytest.approx(0.33)
+
+    def test_content_type_multiplier_still_applies(self, dummy_file):
+        c = Config(
+            input_path=dummy_file,
+            content_type=ContentType.ANIME,  # 1.4x
+            threshold_overrides={"nudity": 0.50},
+        )
+        n, _, _ = c.get_effective_thresholds()
+        assert n == pytest.approx(0.70)
+
+    def test_unknown_category_rejected(self, dummy_file):
+        with pytest.raises(ValueError, match="unknown threshold category 'kiss'"):
+            Config(input_path=dummy_file, threshold_overrides={"kiss": 0.5})
+
+    @pytest.mark.parametrize("bad", [0.0, -0.1, 1.01])
+    def test_out_of_range_rejected(self, dummy_file, bad):
+        with pytest.raises(ValueError, match="must be in \\(0, 1\\]"):
+            Config(input_path=dummy_file, threshold_overrides={"clip": bad})
+
+    def test_hash_changes_with_overrides_only_when_set(self, dummy_file):
+        plain = Config(input_path=dummy_file)
+        empty = Config(input_path=dummy_file, threshold_overrides={})
+        assert plain.config_hash == empty.config_hash  # old jobs keep matching
+        with_override = Config(
+            input_path=dummy_file, threshold_overrides={"nudity": 0.4}
+        )
+        other_value = Config(input_path=dummy_file, threshold_overrides={"nudity": 0.5})
+        assert with_override.config_hash != plain.config_hash
+        assert with_override.config_hash != other_value.config_hash
+
+    def test_overrides_round_trip_through_json(self, dummy_file):
+        c = Config(input_path=dummy_file, threshold_overrides={"audio": 0.7})
+        again = Config.model_validate_json(c.model_dump_json())
+        assert again.threshold_overrides == {"audio": 0.7}
+        assert again.get_effective_thresholds() == c.get_effective_thresholds()
+
+
+class TestLoadThresholdsFile:
+    def test_reads_any_subset(self, tmp_path):
+        f = tmp_path / "t.json"
+        f.write_text('{"nudity": 0.4, "audio": 1}', encoding="utf-8")
+        assert load_thresholds_file(f) == {"nudity": 0.4, "audio": 1.0}
+
+    def test_rejects_invalid_json(self, tmp_path):
+        f = tmp_path / "t.json"
+        f.write_text("{nudity: 0.4}", encoding="utf-8")
+        with pytest.raises(ValueError, match="not valid JSON"):
+            load_thresholds_file(f)
+
+    def test_rejects_non_object(self, tmp_path):
+        f = tmp_path / "t.json"
+        f.write_text("[0.4, 0.5]", encoding="utf-8")
+        with pytest.raises(ValueError, match="expected a JSON object"):
+            load_thresholds_file(f)
+
+    @pytest.mark.parametrize("value", ['"0.4"', "true", "null"])
+    def test_rejects_non_numbers(self, tmp_path, value):
+        f = tmp_path / "t.json"
+        f.write_text(f'{{"nudity": {value}}}', encoding="utf-8")
+        with pytest.raises(ValueError, match="must be a number"):
+            load_thresholds_file(f)
