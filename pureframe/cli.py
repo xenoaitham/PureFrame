@@ -1347,6 +1347,19 @@ def evaluate(
 
 @app.command("bench")
 def bench_cmd(
+    real: Path | None = typer.Option(
+        None,
+        "--real",
+        exists=True,
+        dir_okay=False,
+        help="Benchmark YOUR OWN video file instead of the synthetic clip; appends one JSON line per run to --jsonl",
+    ),
+    jsonl: Path | None = typer.Option(
+        None,
+        "--jsonl",
+        dir_okay=False,
+        help="JSONL sink for --real records (default: ./pureframe_bench_real.jsonl)",
+    ),
     duration: float = typer.Option(
         30.0, "--duration", help="Synthetic clip length in seconds"
     ),
@@ -1373,8 +1386,18 @@ def bench_cmd(
     densify and blur actually run), then times the full `process` flow per
     profile with per-phase breakdowns. Checkpoint state is isolated; model
     caches are shared between runs.
+
+    With --real, runs against your own file instead (no copyrighted sample
+    is ever shipped or asked for). Records identify the file only by its
+    SHA-256 and resolution — safe to share the JSONL.
     """
-    from pureframe.bench import BENCH_PROFILES, report_to_markdown, run_benchmark
+    from pureframe.bench import (
+        BENCH_PROFILES,
+        report_to_markdown,
+        run_benchmark,
+        run_benchmark_real,
+        summarize_real_records,
+    )
 
     profile_list = [p.strip().upper() for p in profiles.split(",") if p.strip()]
     invalid = [p for p in profile_list if p not in BENCH_PROFILES]
@@ -1384,6 +1407,16 @@ def bench_cmd(
             f"Valid: {', '.join(BENCH_PROFILES)}[/red]"
         )
         raise typer.Exit(1)
+
+    if real is not None:
+        records = run_benchmark_real(
+            real, profiles=profile_list, reps=reps, jsonl_path=jsonl
+        )
+        console.print()
+        console.print(summarize_real_records(records))
+        sink = jsonl if jsonl else Path.cwd() / "pureframe_bench_real.jsonl"
+        console.print(f"\n[green]Records appended to {sink}[/green]")
+        return
 
     keep_path = None
     if keep_clip:

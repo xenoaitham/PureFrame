@@ -277,6 +277,150 @@ def _restore_env(key: str, old_value: str | None) -> None:
         os.environ[key] = old_value
 
 
+def run_benchmark_real(
+    video: Path,
+    profiles: list[str],
+    reps: int = 1,
+    jsonl_path: Path | None = None,
+) -> list[dict]:
+    """Benchmark a user-supplied video, appending one JSON line per run.
+
+    Same flow as the synthetic benchmark (CliRunner `process`, per-phase
+    timers) but on real content, and results stream to a local JSONL so
+    runs accumulate. Records are privacy-safe by construction: the file is
+    identified by its SHA-256 and basic metadata — the path never leaves
+    the machine, so a shared JSONL carries no filenames.
+    """
+    from pureframe.checkpoint import content_fingerprint
+    from pureframe.cli import app
+    from pureframe.pipeline.probe import probe_video
+
+    runner = CliRunner()
+    meta = probe_video(video)
+    file_id = {
+        "sha256": content_fingerprint(video),
+        "duration_seconds": round(meta.duration_seconds, 2),
+        "width": meta.width,
+        "height": meta.height,
+        "fps": float(meta.fps),
+        "container": meta.container,
+        "video_codec": meta.video_codec,
+    }
+
+    workdir = Path(tempfile.mkdtemp(prefix="pureframe_bench_real_"))
+    sink = jsonl_path if jsonl_path else Path.cwd() / "pureframe_bench_real.jsonl"
+
+    old_print_timers = os.environ.get("PUREFRAME_PRINT_TIMERS")
+    os.environ["PUREFRAME_PRINT_TIMERS"] = "1"
+
+    records: list[dict] = []
+    try:
+        for profile in profiles:
+            for rep in range(reps):
+                out_path = workdir / f"out_{profile}_{rep}.mp4"
+                with tempfile.TemporaryDirectory(prefix="pureframe_bench_db_") as td:
+                    old_data_dir = os.environ.get("PUREFRAME_DATA_DIR")
+                    os.environ["PUREFRAME_DATA_DIR"] = td
+                    os.environ.pop("PUREFRAME_TIMERS_FILE", None)
+                    started = time.perf_counter()
+                    try:
+                        result = runner.invoke(
+                            app,
+                            [
+                                "process",
+                                str(video),
+                                "--output",
+                                str(out_path),
+                                "--profile",
+                                profile,
+                                "--force",
+                            ],
+                        )
+                    finally:
+                        elapsed = time.perf_counter() - started
+                        _restore_env("PUREFRAME_DATA_DIR", old_data_dir)
+                        os.environ.pop("PUREFRAME_TIMERS_FILE", None)
+
+                if result.exit_code != 0:
+                    raise SystemExit(
+                        f"bench run failed for profile {profile} (rep {rep}): "
+                        f"{result.exception!r}\n"
+                        f"CLI stdout (tail): {result.stdout[-2000:]}"
+                    )
+
+                payload = _parse_timers_payload(result.stdout)
+                if payload is None:
+                    raise SystemExit(
+                        f"no timer payload emitted for profile {profile} (rep {rep})"
+                    )
+
+                record = {
+                    "kind": "real-bench",
+                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "environment": capture_environment(),
+                    "file": file_id,
+                    "profile": profile,
+                    "rep": rep,
+                    "total_seconds": round(elapsed, 2),
+                    "flagged_shots": _parse_flagged(payload, result.stdout),
+                    "phase_seconds": {
+                        name: round(d["seconds"], 3)
+                        for name, d in payload.get("phases", {}).items()
+                    },
+                }
+                records.append(record)
+                with open(sink, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(record) + "\n")
+                print(
+                    f"[{profile}] rep {rep + 1}/{reps}: {elapsed:.1f}s, "
+                    f"{record['flagged_shots']} shots flagged → {sink}"
+                )
+    finally:
+        _restore_env("PUREFRAME_PRINT_TIMERS", old_print_timers)
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    return records
+
+
+def summarize_real_records(records: list[dict]) -> str:
+    """Markdown summary (per profile medians) from real-bench JSONL records."""
+    if not records:
+        return "No runs recorded."
+    by_profile: dict[str, list[dict]] = {}
+    for r in records:
+        by_profile.setdefault(r["profile"], []).append(r)
+
+    f = records[0]["file"]
+    lines = [
+        f"Real benchmark — {f['width']}x{f['height']} {f['duration_seconds']:.0f}s "
+        f"{f['video_codec']}/{f['container']} (sha256 {f['sha256'][:12]}…)",
+        "",
+        "| Profile | Runs | Total (median) | Flagged | Top phases |",
+        "|---|---|---:|---:|---|",
+    ]
+    for profile, runs in by_profile.items():
+        totals = sorted(r["total_seconds"] for r in runs)
+        median = (
+            totals[len(totals) // 2]
+            if len(totals) % 2
+            else ((totals[len(totals) // 2 - 1] + totals[len(totals) // 2]) / 2)
+        )
+        flagged = statistics.median([r["flagged_shots"] for r in runs])
+        phase_sums: dict[str, list[float]] = {}
+        for r in runs:
+            for name, s in r["phase_seconds"].items():
+                phase_sums.setdefault(name, []).append(s)
+        top = sorted(
+            ((name, statistics.median(vals)) for name, vals in phase_sums.items()),
+            key=lambda kv: -kv[1],
+        )[:3]
+        top_str = ", ".join(f"{n} {s:.1f}s" for n, s in top)
+        lines.append(
+            f"| {profile} | {len(runs)} | {median:.1f}s | {flagged:.0f} | {top_str} |"
+        )
+    return "\n".join(lines)
+
+
 def report_to_markdown(report: dict) -> str:
     """Markdown table rows (for BENCHMARKS.md) from a report dict."""
     env = report["environment"]

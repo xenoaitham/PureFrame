@@ -224,6 +224,33 @@ pureframe jobs resume <JOB_ID>
 
 ---
 
+### `pureframe bench`
+
+**Performance benchmark:** times the full `process` flow per hardware profile with a per-phase breakdown.
+
+```bash
+pureframe bench [OPTIONS]
+pureframe bench --real <YOUR_VIDEO> [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--real` | path | none | Benchmark your own video file instead of the synthetic clip; appends one JSON line per run to `--jsonl` |
+| `--jsonl` | path | `./pureframe_bench_real.jsonl` | Sink for `--real` records |
+| `--duration` | float | 30 | Synthetic clip length in seconds |
+| `--width` | int | 1280 | Synthetic clip width |
+| `--height` | int | 720 | Synthetic clip height |
+| `--profiles` | list | `CPU,LOW,MEDIUM,HIGH` | Hardware profiles to benchmark |
+| `--reps` | int | 1 | Runs per profile (median reported) |
+| `--output, -o` | path | none | JSON report path (synthetic mode) |
+| `--keep-clip` | flag | false | Keep the generated synthetic clip for reuse |
+
+`--real` records identify your file only by its SHA-256 and basic metadata —
+never its path or filename — so the JSONL is safe to share when comparing
+machines.
+
+---
+
 ## Environment Variables
 
 | Variable | Default | Description |

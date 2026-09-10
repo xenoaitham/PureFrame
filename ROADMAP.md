@@ -29,9 +29,6 @@ _Nothing in flight — the next work is queued under Next._
   threshold, registered via entry points; `fuse()` must treat non-nudity
   categories as box providers (the box plumbing exists since #63). Ship with
   one example plugin and a docs page.
-- **Real-world benchmark.** `pureframe bench --real <file>` times a
-  user-supplied file per phase and appends to a local JSONL. Document the
-  workflow; never ship a copyrighted sample.
 - **Emoji / sticker overlay** as a fourth censor style (blur, solid box and
   pixelate exist — `BlurMode` in `config.py`).
 - **Bundled FFmpeg for the macOS and Linux standalones.** The Windows zip
@@ -147,6 +144,10 @@ _Nothing in flight — the next work is queued under Next._
 - [x] Nightly slow-suite CI job — `.github/workflows/nightly.yml`; also
       fixed on the way: flagged plans failed to serialize on py3.13 (numpy
       int64 keys from the keyframe sampler)
+- [x] Real-world benchmark — `pureframe bench --real <file>` times a
+      user-supplied file per profile/phase into an append-only JSONL;
+      records carry only a SHA-256 + metadata (no paths), no copyrighted
+      sample ships, workflow documented in `docs/performance.md`
 
 ### Continuous integration
 
