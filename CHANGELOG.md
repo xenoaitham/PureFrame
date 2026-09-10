@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sync points and dropped frames (148 of 150 on the regression clip). The
   map is now read from packet flags — demux only, no decoding — which is
   codec-independent and faster on long files.
+- **Smart render crashed on Python 3.11.** The renderer receives fps as a
+  `Fraction` from the plan metadata and formatted a derived duration with
+  `:.1f`, which `Fraction` only supports from Python 3.12 — on 3.11 the
+  smart path raised before reaching its fallback. fps is now normalized to
+  a float at the renderer boundary.
 
 ### Changed
 - HEVC sources now re-encode censored segments as HEVC instead of H.264.

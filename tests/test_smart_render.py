@@ -455,6 +455,31 @@ class TestSmartRendering:
 
     @patch(
         "pureframe.pipeline.render.smart._probe_keyframe_times",
+        return_value=[0.0, 2.8, 5.9, 100.0],
+    )
+    def test_accepts_fraction_fps(self, _probe, config, profile_settings):
+        # execute_render passes plan.input_metadata.fps, a Fraction. The
+        # "Smart render: …s" log line formats durations with :.1f, which
+        # Fraction only supports from Python 3.12 — on 3.11 the smart path
+        # crashed before reaching its fallback try-block.
+        from fractions import Fraction
+
+        actions = {i: {"action": "blur"} for i in range(100, 150)}
+        with patch("pureframe.pipeline.render.smart._render_segments") as mock_segments:
+            apply_censoring_smart(
+                config.input_path,
+                config.output_path,
+                actions,
+                config,
+                profile_settings,
+                total_frames=3000,
+                fps=Fraction(30000, 1001),
+            )
+            mock_segments.assert_called_once()
+            assert isinstance(mock_segments.call_args.kwargs["fps"], float)
+
+    @patch(
+        "pureframe.pipeline.render.smart._probe_keyframe_times",
         return_value=[0.0, 2.8, 3.9, 100.0],
     )
     def test_segment_render_failure_falls_back(self, _probe, config, profile_settings):

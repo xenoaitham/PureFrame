@@ -194,6 +194,10 @@ def apply_censoring_smart(
     - The keyframe map cannot be probed (copy cuts would be inexact)
     - ffmpeg concat fails for any reason
     """
+    # Plan metadata carries fps as a Fraction; keep the arithmetic and the
+    # log formatting below in floats (Fraction.__format__ only accepts a
+    # format spec from Python 3.12 — on 3.11 the "%.1fs" log line raised).
+    fps = float(fps)
     padded_ranges = _find_dirty_segments(frame_actions, total_frames, fps)
 
     if not padded_ranges:
