@@ -109,7 +109,9 @@ class TestCliFlags:
             app, ["plan", str(synthetic_video), "--thresholds", str(f)]
         )
         assert result.exit_code == 2
-        assert "expected a JSON object" in result.output
+        # Rich wraps the error panel; macOS's longer /private/var paths move
+        # the wrap point, so match on whitespace-collapsed text.
+        assert "expected a JSON object" in " ".join(result.output.split())
 
     def test_unknown_category_in_file_is_a_clean_cli_error(
         self, synthetic_video, tmp_path
@@ -120,14 +122,14 @@ class TestCliFlags:
             app, ["process", str(synthetic_video), "--thresholds", str(f)]
         )
         assert result.exit_code == 2
-        assert "unknown threshold category" in result.output
+        assert "unknown threshold category" in " ".join(result.output.split())
 
     def test_zero_threshold_is_a_clean_cli_error(self, synthetic_video):
         result = runner.invoke(
             app, ["plan", str(synthetic_video), "--threshold-clip", "0"]
         )
         assert result.exit_code == 2
-        assert "must be in (0, 1]" in result.output
+        assert "must be in (0, 1]" in " ".join(result.output.split())
 
 
 def test_densify_keeps_boxes_flagged_by_a_lower_effective_threshold(
