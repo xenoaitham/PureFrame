@@ -143,3 +143,16 @@ machine and are kept until real post-optimization numbers replace them.
 |---|---:|---:|
 | CPU | ~64+ min (likely far worse with detections — the quadratic decode hid it) | ~10–20 min |
 | MEDIUM | ~124 min | ~30 min |
+
+## Benchmarks on your own files
+
+`pureframe bench --real yourfile.mp4 --profiles LOW,MEDIUM --reps 3` times the
+full process flow on content you own, with a per-phase breakdown, and appends
+one JSON line per run to `pureframe_bench_real.jsonl` so runs accumulate.
+Records identify the file only by its SHA-256 and basic metadata — never a
+path or filename — so the JSONL is safe to share when comparing machines.
+
+No copyrighted sample is shipped with PureFrame and none is requested: run it
+on your own files and, if you want to contribute numbers, submit the JSONL
+with a note about your hardware (CPU/GPU, RAM) via a GitHub discussion or
+issue.
