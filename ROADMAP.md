@@ -16,10 +16,6 @@ _Nothing in flight — the next work is queued under Next._
 
 ## Next
 
-- **GUI timeline scrubbing.** Seekable scrubber over shot thumbnails in the
-  plan editor (`extract_thumbnail` already exists server-side). Iterate in a
-  plain browser via the e2e Tauri shim (`gui/e2e/tauri-shim.ts`); no Rust
-  build needed.
 - **Before/after in the GUI.** The CLI side shipped (`pureframe preview
   --before-after` writes full-resolution PNG pairs per flagged shot, embedded
   in the HTML report); the GUI plan editor still needs to load and display
@@ -157,6 +153,14 @@ _Nothing in flight — the next work is queued under Next._
       slow suite (real-render e2e guards + model classifier tests) daily and
       on demand; the gap where those guards never ran in CI is how the
       v0.2.0 render bugs shipped
+
+### Plan editor (GUI)
+
+- [x] Timeline scrubbing — seekable scrub bar under the shot strip; dragging
+      fetches the frame at the position via the existing `extract_thumbnail`
+      IPC (debounced, latest-wins), selecting a shot moves the bar to its
+      midpoint. Iterated in a plain browser via the e2e shim; Playwright
+      covers the interaction (#78)
 
 ### Desktop packaging (every release since v0.2.0 — `release.yml`)
 
