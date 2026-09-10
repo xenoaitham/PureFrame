@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Nightly slow-suite CI job.** The scheduled job runs the real-render e2e
   guards and model classifier tests daily; regular CI keeps `-m "not slow"`,
   which is how the 0.2.0 render bugs shipped unnoticed.
+- **Real-world benchmark mode.** `pureframe bench --real yourfile.mp4` times
+  the full process flow on your own content per profile with a per-phase
+  breakdown, appending privacy-safe JSON lines to a local JSONL (files are
+  identified by SHA-256 and resolution, never a path) so numbers accumulate
+  and can be shared without leaking filenames.
 
 ### Fixed
 - **Flagged plans failed to serialize on Python 3.13.** `sample_keyframes`
