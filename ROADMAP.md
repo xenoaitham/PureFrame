@@ -12,16 +12,11 @@ a decision that isn't the code's to make.
 
 ## Now
 
-1. **Temporal tracking: less box jitter.** Hysteresis / box-EMA on top of
-   the IoU tracker in `pipeline/smooth.py`, with a synthetic wobble test
-   (jittery boxes in, stable boxes out). Eval-parity gates detection
-   *scores*, not boxes — keep it that way deliberately, and eyeball the
-   demo GIF before and after.
-2. **Cached inference per video.** Key = (content hash, config hash) on top
+1. **Cached inference per video.** Key = (content hash, config hash) on top
    of the verdict store `jobs.db` already keeps; a re-run with the same
    file and config skips plan inference. `--no-cache` escape. Tests must
    cover config change → miss, file change → miss, same → hit.
-3. **Nightly slow-suite CI job.** CI runs `-m "not slow"`, so the two
+2. **Nightly slow-suite CI job.** CI runs `-m "not slow"`, so the two
    real-render e2e guards never ran there — they were failing on master
    while 0.2.0 shipped censoring nothing. A scheduled job closes that gap.
 
@@ -57,6 +52,13 @@ a decision that isn't the code's to make.
   gate exist; a metrics suite on real (user-supplied) footage does not.
 - **AV1 and other codecs re-encoded in their own codec.** Today they fall
   back to H.264, which WebM rejects (see `docs/KNOWN_LIMITATIONS.md`).
+- **Model-based box smoothing (Kalman or spline over anchors).** Box EMA and
+  track hysteresis were evaluated and rejected — the EMA's lag biases every
+  interpolation on sparse anchors (1.4–1.5× worse RMSE on movers) and the
+  median filter already absorbs most dense-anchor jitter; measurements in
+  `pipeline/smooth.py` and `tests/test_smoothing_tails.py`. The one fix that
+  survived evaluation — the zero-padded median filter freezing track tails —
+  shipped.
 - Subtitle-aware detection (don't blur text overlays), smart audio ducking,
   web-based review UI, mobile companion app, community-contributed censor
   plans.
@@ -135,6 +137,10 @@ a decision that isn't the code's to make.
 - [x] Expected-time estimator — `pureframe/eta.py`, calibrated from the
       v0.2.1 bench medians; analysis ETA printed after the probe, render
       ETA once the plan knows the flagged-frame count
+- [x] Temporal smoothing — the median filter's zero-padded edges froze the
+      last two frames of every track (blur visibly lagged movers at shot
+      end); now edge-replicating. Box EMA/hysteresis evaluated and rejected,
+      measurements recorded (`tests/test_smoothing_tails.py`)
 
 ### Desktop packaging (every release since v0.2.0 — `release.yml`)
 

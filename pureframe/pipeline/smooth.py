@@ -12,6 +12,21 @@ def smooth_detections(
     shot: Shot,
     padding_pct: float,
 ) -> dict[int, list[tuple[int, int, int, int]]]:
+    """Track detections across the shot and return stable per-frame boxes.
+
+    Pipeline: IoU tracker (bridges sampling gaps) → linear interpolation
+    across gaps → median filter (kills outliers and detector jitter) → pad.
+
+    Box EMA and track hysteresis were evaluated against this pipeline and
+    rejected (see ``tests/test_box_ema.py``): on realistic sparse anchors
+    (densify stride 2–5) an EMA's steady-state lag adds a systematic bias
+    that outweighs its variance reduction (RMSE 1.4–1.5× *worse* on moving
+    subjects), and on dense detections the median filter already absorbs
+    most of the jitter EMA would remove (≤8 % marginal). Hysteresis would
+    delay the first flagged frame — for a censoring renderer a late blur is
+    worse than a briefly over-eager one. A model-based filter (Kalman or a
+    smoothing spline over the anchors) is the remaining idea worth trying.
+    """
     tracker = IoUTracker(iou_threshold=0.2, max_age=10)  # higher max age to bridge gaps
 
     track_history = defaultdict(list)
@@ -53,15 +68,18 @@ def smooth_detections(
             for i in range(len(full_frames)):
                 interp_boxes.append((x1[i], y1[i], x2[i], y2[i]))
 
-        # apply median filter of size 5
+        # apply median filter of size 5. ndimage's median_filter replicates
+        # edge values; scipy.signal.medfilt zero-pads them, which dragged the
+        # median of the last two frames toward 0 and froze the box there —
+        # visibly lagging anything moving at the end of a shot.
         if len(interp_boxes) >= 5:
-            ib_np = np.array(interp_boxes)
-            from scipy.signal import medfilt
+            from scipy.ndimage import median_filter
 
-            m_x1 = medfilt(ib_np[:, 0], 5)
-            m_y1 = medfilt(ib_np[:, 1], 5)
-            m_x2 = medfilt(ib_np[:, 2], 5)
-            m_y2 = medfilt(ib_np[:, 3], 5)
+            ib_np = np.array(interp_boxes)
+            m_x1 = median_filter(ib_np[:, 0], size=5, mode="nearest")
+            m_y1 = median_filter(ib_np[:, 1], size=5, mode="nearest")
+            m_x2 = median_filter(ib_np[:, 2], size=5, mode="nearest")
+            m_y2 = median_filter(ib_np[:, 3], size=5, mode="nearest")
 
             for i in range(len(full_frames)):
                 interp_boxes[i] = (m_x1[i], m_y1[i], m_x2[i], m_y2[i])

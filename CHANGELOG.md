@@ -61,6 +61,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `:.1f`, which `Fraction` only supports from Python 3.12 — on 3.11 the
   smart path raised before reaching its fallback. fps is now normalized to
   a float at the renderer boundary.
+- **The box smoother froze the last two frames of every track.** The median
+  filter used `scipy.signal.medfilt`, which zero-pads the sequence edges —
+  the median of the final frames was dragged toward 0, so a subject moving
+  at the end of a shot had its blur box visibly lag behind (22 px behind on
+  an 8 px/frame mover, frozen for the final 3 frames). The smoother now
+  uses `scipy.ndimage.median_filter(mode="nearest")`, which replicates edge
+  values. Box EMA and track hysteresis were evaluated against the fixed
+  pipeline and rejected — on realistic sparse anchors the EMA's lag biases
+  every interpolation (1.4–1.5× worse RMSE on movers), and the median
+  filter already absorbs most dense-anchor jitter; the measurements and
+  the remaining idea (Kalman/spline over anchors) are recorded in
+  `pipeline/smooth.py` and `tests/test_smoothing_tails.py`.
 
 ### Changed
 - HEVC sources now re-encode censored segments as HEVC instead of H.264.
