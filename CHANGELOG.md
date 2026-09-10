@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Expected-time estimates.** `plan`/`process` print "Analysis estimate:
+  ≈ …" right after the probe (frame count × the profile's per-frame cost,
+  calibrated from the v0.2.1 bench medians in `pureframe/eta.py`), and
+  `process`/`apply` print "Render estimate: ≈ …" once the plan knows how
+  many frames are flagged (re-encode cost for flagged frames, stream-copy
+  for the rest). The analysis progress bar keeps its live remaining-time
+  column.
+
 ### Fixed
 - **Only the first shot of a video was ever analyzed (0.2.0–0.2.1).** The
   plan loop's prefetch worker (added with the pipelined extraction in 0.2.0)
