@@ -73,8 +73,8 @@ def _run_pipeline(tmp_path, monkeypatch, synthetic_video, blur_mode, out_name):
     # Patch settings so we sample enough frames to definitely hit 100-250
     original_get_settings = pureframe.cli.get_settings
 
-    def mocked_get_settings(profile):
-        s = original_get_settings(profile)
+    def mocked_get_settings(profile, **kwargs):
+        s = original_get_settings(profile, **kwargs)
         s.sample_keyframes_per_shot = 10
         return s
 
