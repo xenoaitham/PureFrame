@@ -16,19 +16,16 @@ a decision that isn't the code's to make.
    `--threshold-clip`, `--threshold-audio`, or a `--thresholds file.json`.
    `Config.get_effective_thresholds()` already does the math; this is
    surface area plus tests, not pipeline work.
-2. **Expected-time estimator.** `process`/`plan` print "≈ N min remaining"
-   from probed fps × frames × the profile's per-frame cost, calibrated from
-   `pureframe bench` medians; printed early, updated per phase.
-3. **Temporal tracking: less box jitter.** Hysteresis / box-EMA on top of
+2. **Temporal tracking: less box jitter.** Hysteresis / box-EMA on top of
    the IoU tracker in `pipeline/smooth.py`, with a synthetic wobble test
    (jittery boxes in, stable boxes out). Eval-parity gates detection
    *scores*, not boxes — keep it that way deliberately, and eyeball the
    demo GIF before and after.
-4. **Cached inference per video.** Key = (content hash, config hash) on top
+3. **Cached inference per video.** Key = (content hash, config hash) on top
    of the verdict store `jobs.db` already keeps; a re-run with the same
    file and config skips plan inference. `--no-cache` escape. Tests must
    cover config change → miss, file change → miss, same → hit.
-5. **Nightly slow-suite CI job.** CI runs `-m "not slow"`, so the two
+4. **Nightly slow-suite CI job.** CI runs `-m "not slow"`, so the two
    real-render e2e guards never ran there — they were failing on master
    while 0.2.0 shipped censoring nothing. A scheduled job closes that gap.
 
@@ -131,6 +128,12 @@ a decision that isn't the code's to make.
       `tests/test_container_formats.py`: MKV/H.264, WebM/VP9, WebM/VP8,
       AVI/MPEG-4, AVI/H.264, through both the smart-segment and the
       full-re-encode paths
+
+### Detection controls
+
+- [x] Expected-time estimator — `pureframe/eta.py`, calibrated from the
+      v0.2.1 bench medians; analysis ETA printed after the probe, render
+      ETA once the plan knows the flagged-frame count
 
 ### Desktop packaging (every release since v0.2.0 — `release.yml`)
 
