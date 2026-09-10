@@ -28,7 +28,9 @@ _Nothing in flight — the next work is queued under Next._
   is `detect_batch(frames) -> [Detection]` + a label→category map + a
   threshold, registered via entry points; `fuse()` must treat non-nudity
   categories as box providers (the box plumbing exists since #63). Ship with
-  one example plugin and a docs page.
+  one example plugin and a docs page. → **Design note written:
+  `docs/plugin-api.md`** — code lands in the four slices it lays out, after
+  a read-through from LO.
 - **Emoji / sticker overlay** as a fourth censor style (blur, solid box and
   pixelate exist — `BlurMode` in `config.py`).
 - **Bundled FFmpeg for the macOS and Linux standalones.** The Windows zip
