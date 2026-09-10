@@ -43,6 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   breakdown, appending privacy-safe JSON lines to a local JSONL (files are
   identified by SHA-256 and resolution, never a path) so numbers accumulate
   and can be shared without leaking filenames.
+- **GUI timeline scrubbing.** The plan editor's timeline gains a seekable
+  scrub bar: dragging updates the timecode immediately and fetches the frame
+  at the position (debounced, latest-wins) through the existing thumbnail
+  IPC; selecting a shot moves the bar to that shot's midpoint.
 
 ### Fixed
 - **Flagged plans failed to serialize on Python 3.13.** `sample_keyframes`
