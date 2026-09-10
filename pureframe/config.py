@@ -110,6 +110,17 @@ class Config(BaseSettings):
     # (2-4x CPU inference; accuracy gated by the eval-parity CI job).
     quantize_cpu: bool = True
 
+    # Checkpoint cache: SHA-256 of the input's bytes, filled in by from_cli.
+    # Folds into config_hash so a replaced file is a cache miss; direct
+    # constructions (tests, programmatic use) leave it empty, which matches
+    # the pre-fingerprint checkpoint keys.
+    content_fingerprint: str = ""
+    # --no-cache escape: bypass cached jobs and verdicts entirely. Excluded
+    # from config_hash on purpose — the flag changes cache *reads*, not the
+    # detection configuration it describes.
+    no_cache: bool = False
+    cache_salt: str = ""
+
     model_config = SettingsConfigDict(env_prefix="PUREFRAME_")
 
     @field_validator("threshold_overrides")
@@ -138,6 +149,10 @@ class Config(BaseSettings):
             config.output_path = config.input_path.with_name(
                 f"{config.input_path.stem}.pureframe{config.input_path.suffix}"
             )
+        if not config.content_fingerprint:
+            from pureframe.checkpoint import content_fingerprint
+
+            config.content_fingerprint = content_fingerprint(config.input_path)
         return config
 
     def get_effective_thresholds(self) -> tuple[float, float, float]:
@@ -184,8 +199,14 @@ class Config(BaseSettings):
             "strictness": self.strictness.value,
             "quantize_cpu": self.quantize_cpu,
         }
-        # Only when set, so hashes of existing jobs keep matching.
+        # Only when set: empty fingerprints (direct constructions,
+        # pre-fingerprint checkpoints) and empty override maps must keep
+        # hashing to the same value as before. no_cache and cache_salt are
+        # deliberately excluded — they bypass cache reads and don't describe
+        # the configuration.
         if self.threshold_overrides:
             data["threshold_overrides"] = dict(sorted(self.threshold_overrides.items()))
+        if self.content_fingerprint:
+            data["content_fingerprint"] = self.content_fingerprint
         data_str = json.dumps(data, sort_keys=True)
         return hashlib.sha256(data_str.encode("utf-8")).hexdigest()

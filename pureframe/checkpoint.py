@@ -1,3 +1,4 @@
+import hashlib
 import sqlite3
 from pathlib import Path
 
@@ -5,6 +6,20 @@ from pydantic import BaseModel
 
 from pureframe.config import Config
 from pureframe.pipeline.shots import ShotVerdict
+
+
+def content_fingerprint(path: Path, chunk_size: int = 1 << 20) -> str:
+    """Streaming SHA-256 of the file's bytes — the "same video?" key.
+
+    A checkpoint keyed only on (path, config) goes stale the moment the file
+    at that path is replaced; the fingerprint makes a changed file a cache
+    miss. Streamed in chunks so multi-GB movies don't load into memory.
+    """
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(chunk_size):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 class Job(BaseModel):
@@ -60,6 +75,13 @@ class CheckpointStore:
         inp_str = str(input_path.absolute())
         out_str = str(output_path.absolute())
         cfg_hash = config.config_hash
+        if config.no_cache:
+            # Cache-bypass escape: a unique key per invocation means no
+            # cached job and no cached verdicts are ever consulted, and the
+            # fresh job is never confused with the real one. The salt lives
+            # on the config so every lookup in one process invocation (plan,
+            # render, status updates) lands on the same job.
+            cfg_hash = f"{cfg_hash}+nocache-{config.cache_salt}"
 
         with self.conn:
             cursor = self.conn.cursor()

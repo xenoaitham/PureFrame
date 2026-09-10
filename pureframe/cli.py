@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from queue import Full, Queue
+from uuid import uuid4
 
 import platformdirs
 import typer
@@ -701,6 +702,11 @@ def plan_cmd(
         "--no-quant",
         help="Disable int8 CPU model quantization (GPU profiles unaffected)",
     ),
+    no_cache: bool = typer.Option(
+        False,
+        "--no-cache",
+        help="Ignore cached plans/verdicts for this run and re-analyze from scratch",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose logging"
     ),
@@ -736,6 +742,8 @@ def plan_cmd(
         content_type=content_type,
         strictness=strictness,
         quantize_cpu=not no_quant,
+        no_cache=no_cache,
+        cache_salt=uuid4().hex if no_cache else "",
         log_level="DEBUG" if verbose else "INFO",
     )
 
@@ -923,6 +931,11 @@ def process_cmd(
         "--no-quant",
         help="Disable int8 CPU model quantization (GPU profiles unaffected)",
     ),
+    no_cache: bool = typer.Option(
+        False,
+        "--no-cache",
+        help="Ignore cached plans/verdicts for this run and re-analyze from scratch",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose logging"
     ),
@@ -945,6 +958,8 @@ def process_cmd(
     except ValueError as e:
         raise typer.BadParameter(str(e), param_hint="--thresholds") from e
 
+    cache_salt = uuid4().hex if no_cache else ""
+
     if input.is_dir():
         from pureframe.batch import process_folder
 
@@ -961,6 +976,8 @@ def process_cmd(
                 strictness=strictness,
                 force=force,
                 quantize_cpu=not no_quant,
+                no_cache=no_cache,
+                cache_salt=cache_salt,
                 log_level="DEBUG" if verbose else "INFO",
             )
         process_folder(input, recursive, parallel, base_config)
@@ -977,6 +994,8 @@ def process_cmd(
             strictness=strictness,
             force=force,
             quantize_cpu=not no_quant,
+            no_cache=no_cache,
+            cache_salt=cache_salt,
             log_level="DEBUG" if verbose else "INFO",
         )
         process_file(config)

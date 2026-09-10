@@ -65,12 +65,17 @@ def process_folder(
         # field (including content_type, strictness, blur_mode, etc.). The
         # previous implementation listed fields by hand and silently dropped
         # ``content_type`` and ``strictness``, causing batch runs to ignore
-        # those settings entirely.
+        # those settings entirely. The content fingerprint is recomputed —
+        # the base config carries the dummy placeholder file's hash, and a
+        # stale one would key every re-run of this file to a fresh job.
+        from pureframe.checkpoint import content_fingerprint
+
         cfg = base_config.model_copy(
             update={
                 "input_path": v,
                 "output_path": out_path,
                 "profile": resolved_profile,
+                "content_fingerprint": content_fingerprint(v),
             },
             deep=True,
         )
