@@ -30,8 +30,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same path (the old key couldn't see that) is a cache miss, as is any
   config change. `--no-cache` forces a from-scratch analysis for one run
   without touching what the cache holds.
+- **Before/after preview.** `pureframe preview --before-after` renders one
+  full-resolution PNG pair per flagged shot — the untouched frame and the
+  same frame with that plan's censoring applied through the same overlay
+  code the real renderer uses — embedded side-by-side in the HTML report,
+  so blur placement can be verified per shot without rendering the video.
+- **Nightly slow-suite CI job.** The scheduled job runs the real-render e2e
+  guards and model classifier tests daily; regular CI keeps `-m "not slow"`,
+  which is how the 0.2.0 render bugs shipped unnoticed.
 
 ### Fixed
+- **Flagged plans failed to serialize on Python 3.13.** `sample_keyframes`
+  returned numpy int64 indices that ended up as `Shot.frames` keys; pydantic's
+  strict JSON serializer rejects numpy scalars, so `pureframe plan` crashed
+  while saving any plan that actually flagged something (the unflagged test
+  fixture never hit the path). The sampler now returns plain ints.
 - **Flagged shots could lose their blur boxes.** The plan loop filtered
   densified detections at the raw CLI threshold (default 0.55) while the
   fusion flags on the *effective* threshold — so under `--strictness high`
