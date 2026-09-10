@@ -16,6 +16,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Every fixture in the suite happened to be single-shot, which is how it
   slipped through; a three-shot regression clip now pins one verdict per
   shot and boxes on the right one.
+- **WebM and AVI inputs failed to render.** Every re-encode was hardcoded
+  to H.264, which WebM refuses outright ("Only VP8 or VP9 or AV1 video …
+  supported") and AVI rejects without an Annex-B bitstream filter — so
+  `process` on either container died at the final mux, despite the README
+  promising both. Censored segments now follow the source codec (VP8/VP9
+  for WebM, MPEG-4 for AVI, HEVC stays HEVC), each with its encoder's own
+  quality flags, and AVI/H.264 gets `h264_mp4toannexb`. Pinned by
+  `tests/test_container_formats.py`: MKV/H.264, WebM/VP9, WebM/VP8,
+  AVI/MPEG-4 and AVI/H.264, through both the smart segment path and the
+  full re-encode path, checking codec, frame count and blur placement.
+- **Smart renderer keyframe map was wrong for VP8/VP9.** The probe relied
+  on the decoder honoring `-skip_frame nokey`; the VP8/VP9 decoders ignore
+  it and reported every frame as a keyframe, so WebM copy cuts landed off
+  sync points and dropped frames (148 of 150 on the regression clip). The
+  map is now read from packet flags — demux only, no decoding — which is
+  codec-independent and faster on long files.
+- **Smart render crashed on Python 3.11.** The renderer receives fps as a
+  `Fraction` from the plan metadata and formatted a derived duration with
+  `:.1f`, which `Fraction` only supports from Python 3.12 — on 3.11 the
+  smart path raised before reaching its fallback. fps is now normalized to
+  a float at the renderer boundary.
+
+### Changed
+- HEVC sources now re-encode censored segments as HEVC instead of H.264.
+  Mixing the two broke the concat step, so every HEVC file silently took the
+  full re-encode path; the smart path now applies to HEVC too. `output_codec`
+  keeps applying to H.264 sources exactly as before.
 
 ## [0.2.1] - 2026-09-08
 

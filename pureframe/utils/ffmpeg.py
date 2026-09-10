@@ -142,6 +142,92 @@ def select_hw_encoder(profile: HardwareProfile, codec: str) -> str:
     return base
 
 
+# Source codecs whose container forbids a codec change: WebM carries only
+# VP8/VP9/AV1 and AVI expects MPEG-4 ASP (or Annex-B H.264). The concat
+# demuxer also needs one codec across stream-copied and re-encoded chunks,
+# so the re-encode must match the source. Software encoders only — these
+# codecs have no reliable hardware paths on consumer machines.
+_SOURCE_MATCHED_ENCODERS = {
+    "vp8": "libvpx",
+    "vp9": "libvpx-vp9",
+    "mpeg4": "mpeg4",
+}
+
+
+def select_render_encoder(
+    profile: HardwareProfile, output_codec: str, input_codec: str | None
+) -> str:
+    """Encoder for the re-encoded (censored) parts of a render.
+
+    Re-encoded chunks are joined to stream-copied chunks of the original and
+    written into the input's own container, so the codec has to follow the
+    source: VP8/VP9 for WebM, MPEG-4 for AVI, and HEVC stays HEVC (mixing it
+    with H.264 broke concat and silently forced a full re-encode). H.264
+    sources — and anything we cannot match — keep honoring ``output_codec``
+    exactly as before.
+    """
+    codec = (input_codec or "").lower()
+    if codec in _SOURCE_MATCHED_ENCODERS:
+        return _SOURCE_MATCHED_ENCODERS[codec]
+    if codec in ("hevc", "h265"):
+        return select_hw_encoder(profile, "hevc")
+    return select_hw_encoder(profile, output_codec)
+
+
+def probe_video_codec(path: Path) -> str | None:
+    """``codec_name`` of the first video stream, or None if it cannot be read.
+
+    Tolerant on purpose: the codec only steers encoder choice. If the probe
+    fails, the render falls back to the configured codec and ffmpeg reports
+    the real problem with the file.
+    """
+    try:
+        return extract_metadata(probe(path)).video_codec
+    except Exception as e:
+        logger.debug(f"video codec probe failed for {path}: {e}")
+        return None
+
+
+def encoder_codec(encoder: str) -> str:
+    """Codec family produced by *encoder* (``libx264`` → ``h264`` …)."""
+    if encoder == "libvpx":
+        return "vp8"
+    if encoder == "libvpx-vp9":
+        return "vp9"
+    if encoder == "mpeg4":
+        return "mpeg4"
+    if encoder == "libx265" or encoder.startswith("hevc_"):
+        return "hevc"
+    return "h264"
+
+
+def container_bsf_args(output_path: Path, video_codec: str | None) -> list[str]:
+    """Bitstream-filter flags a stream copy into *output_path* needs.
+
+    AVI wants Annex-B H.264; ffmpeg refuses the MP4-style stream our MKV
+    intermediates carry ("no startcode found") unless told to convert it.
+    """
+    if output_path.suffix.lower() == ".avi" and (video_codec or "") == "h264":
+        return ["-bsf:v", "h264_mp4toannexb"]
+    return []
+
+
+def _quality_args(encoder: str, crf: int) -> dict:
+    """Constant-quality flags in each encoder's own vocabulary.
+
+    x264/x265 and the hardware encoders take ``crf`` directly; libvpx needs
+    ``b:v`` alongside it (0 = pure constant quality for VP9, a cap for VP8);
+    the MPEG-4 encoder has no ``crf`` at all and uses ``qscale`` (2–31).
+    """
+    if encoder == "libvpx-vp9":
+        return {"crf": min(max(crf, 0), 63), "b:v": 0, "cpu-used": 4, "row-mt": 1}
+    if encoder == "libvpx":
+        return {"crf": min(max(crf, 4), 63), "b:v": "4M", "cpu-used": 4}
+    if encoder == "mpeg4":
+        return {"qscale:v": min(max(round(crf / 2.5), 2), 31)}
+    return {"crf": crf}
+
+
 def frames_iter(
     path: Path, downscale_max_edge: int | None = None
 ) -> Iterator[np.ndarray]:
@@ -203,10 +289,11 @@ def _encoder_preset_arg(encoder: str, preset: str | None) -> str | None:
 
     The profile presets use the x264/x265 scale ("veryfast" etc.), which
     hardware encoders (nvenc/qsv/videotoolbox/amf) reject outright —
-    nvenc: ``Unable to parse option value "veryfast"``. Hardware encoders
-    keep their own defaults, which are already fast.
+    nvenc: ``Unable to parse option value "veryfast"`` — and libvpx/mpeg4
+    do not know at all. Those encoders keep their own defaults (libvpx gets
+    its speed from ``cpu-used`` in :func:`_quality_args`).
     """
-    return preset if preset and encoder.startswith("lib") else None
+    return preset if preset and encoder in ("libx264", "libx265") else None
 
 
 def write_video_with_overlay(
@@ -274,8 +361,8 @@ def write_video_with_overlay(
     # We don't know exact count from the pipe, we just read
     out_kwargs = {
         "vcodec": encoder,
-        "crf": crf,
         "pix_fmt": "yuv420p",  # safe default
+        **_quality_args(encoder, crf),
     }
     # Speed presets from the profile use the x264/x265 scale ("veryfast"
     # etc.), which hardware encoders reject outright (nvenc: "Unable to
@@ -376,6 +463,7 @@ def write_video_with_overlay(
         "1:s?",
         "-c",
         "copy",
+        *container_bsf_args(Path(output_path), encoder_codec(encoder)),
         str(output_path),
     ]
     try:

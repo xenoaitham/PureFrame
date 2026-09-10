@@ -57,6 +57,8 @@ class Config(BaseSettings):
     blur_kernel: int = 51  # odd; bigger = more blur
     blur_sigma: float = 25.0
     pixelate_blocks: int = 16  # number of mosaic blocks across the box's long edge
+    # Applies to H.264 sources; other codecs keep their own so censored
+    # segments concat with the stream-copied ones and fit the input container.
     output_codec: str = "h264"
     output_crf: int = 20
     log_level: str = "INFO"
