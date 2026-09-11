@@ -160,6 +160,53 @@ jobs:
         Copy-Item $probe.FullName -Destination "dist\pureframe\ffprobe.exe"
         Write-Host "Bundled ffmpeg.exe and ffprobe.exe into dist\pureframe\"
 
+    # Static ffmpeg + ffprobe next to the binary, matching the Windows zip.
+    # The CLI prepends its exe dir to PATH when frozen, so a co-bundled
+    # ffmpeg is found without a system install. Pinned sources, both
+    # verified for the runner architecture:
+    #   macOS arm64: ffmpeg-static b6.1.1 (darwin-arm64) + the
+    #     @ffprobe-installer darwin-arm64 npm tarball (static Mach-O)
+    #   Linux x64: johnvansickle 7.0.2 amd64 static (ffmpeg + ffprobe)
+    - name: Bundle ffmpeg into macOS tarball
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        set -euo pipefail
+        tmp="$RUNNER_TEMP/ffmpeg-bundle"
+        mkdir -p "$tmp"
+        curl -sSL --fail -o "$tmp/ffmpeg.gz" \
+          "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-arm64.gz"
+        curl -sSL --fail -o "$tmp/ffprobe.tgz" \
+          "https://registry.npmjs.org/@ffprobe-installer/darwin-arm64/-/darwin-arm64-5.0.1.tgz"
+        gunzip -c "$tmp/ffmpeg.gz" > dist/pureframe/ffmpeg
+        tar -xzf "$tmp/ffprobe.tgz" -C "$tmp"
+        cp "$tmp/package/ffprobe" dist/pureframe/ffprobe
+        chmod +x dist/pureframe/ffmpeg dist/pureframe/ffprobe
+
+    - name: Bundle ffmpeg into Linux tarball
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -euo pipefail
+        tmp="$RUNNER_TEMP/ffmpeg-bundle"
+        mkdir -p "$tmp"
+        curl -sSL --fail -o "$tmp/ffmpeg.tar.xz" \
+          "https://johnvansickle.com/ffmpeg/releases/ffmpeg-7.0.2-amd64-static.tar.xz"
+        tar -xJf "$tmp/ffmpeg.tar.xz" -C "$tmp"
+        cp "$tmp/ffmpeg-7.0.2-amd64-static/ffmpeg" dist/pureframe/ffmpeg
+        cp "$tmp/ffmpeg-7.0.2-amd64-static/ffprobe" dist/pureframe/ffprobe
+        chmod +x dist/pureframe/ffmpeg dist/pureframe/ffprobe
+
+    # The bundling steps above must fail the job if a binary is missing or
+    # not runnable on the runner's own architecture - the archive step
+    # below then ships a proven-working pair.
+    - name: Verify bundled ffmpeg/ffprobe (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        ./dist/pureframe/ffmpeg -version | head -n1
+        ./dist/pureframe/ffprobe -version | head -n1
+
     - name: Archive build
       shell: bash
       run: ${{ matrix.archive-cmd }}
