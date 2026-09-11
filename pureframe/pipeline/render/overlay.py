@@ -7,19 +7,41 @@ The previous implementation used `cv2.rectangle(..., -1)` for ``BLACK_BOX``,
 which painted a solid colour rectangle. The README advertised "smooth,
 localized blur", so this module implements actual localized Gaussian blur
 and pixelation modes, with the solid-colour rectangle kept as an optional
-fallback (``BlurMode.BOX``).
+fallback (``BlurMode.BOX``) plus an emoji overlay (``BlurMode.EMOJI``):
+one character, sized from the box, drawn over its center.
 """
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
+from functools import lru_cache
 
 import cv2
 import numpy as np
 
-from pureframe.config import BlurMode, Config
+from pureframe.config import (
+    DEFAULT_EMOJI,
+    EMOJI_BY_CATEGORY,
+    BlurMode,
+    Config,
+)
 from pureframe.hardware import ProfileSettings
 from pureframe.pipeline.shots import Action
+
+# Color-emoji fonts ship as fixed-size bitmap strikes: NotoColorEmoji only
+# accepts pixel size 109, Apple Color Emoji its own strikes. We render the
+# glyph at a strike size onto a transparent tile and resize that to the box.
+_EMOJI_FONT_CANDIDATES = (
+    "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+    "/usr/share/fonts/noto-color-emoji/NotoColorEmoji.ttf",
+    "/usr/local/share/fonts/NotoColorEmoji.ttf",
+    "/System/Library/Fonts/Apple Color Emoji.ttc",
+    "/System/Library/Fonts/Supplemental/Apple Color Emoji.ttc",
+    "C:\\Windows\\Fonts\\seguiemj.ttf",
+)
+_EMOJI_STRIKE_SIZES = (109, 160, 128)
+_EMOJI_TILE = 256
 
 
 def _scale_to_native(
@@ -98,6 +120,117 @@ def _apply_solid(
     cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness=-1)
 
 
+@lru_cache(maxsize=4)
+def _load_emoji_font():
+    """Return a PIL font able to draw color emoji, or None.
+
+    Only real emoji fonts are probed - a symbol fallback would draw tofu
+    boxes, which is worse than the solid-box fallback the caller applies.
+    """
+    from PIL import ImageFont
+
+    for path in _EMOJI_FONT_CANDIDATES:
+        if not os.path.exists(path):
+            continue
+        for size in _EMOJI_STRIKE_SIZES:
+            try:
+                return ImageFont.truetype(path, size=size)
+            except OSError:
+                continue
+    return None
+
+
+@lru_cache(maxsize=32)
+def _render_emoji_tile(emoji_char: str) -> np.ndarray | None:
+    """Render *emoji_char* centered on a transparent RGBA tile (BGR order).
+
+    Returns None when no emoji font exists or the glyph came out empty;
+    callers must fall back to an opaque censoring in that case so a box
+    never renders as untouched pixels.
+    """
+    from PIL import Image, ImageDraw
+
+    font = _load_emoji_font()
+    if font is None:
+        return None
+    img = Image.new("RGBA", (_EMOJI_TILE, _EMOJI_TILE), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.text(
+        (_EMOJI_TILE / 2, _EMOJI_TILE / 2),
+        emoji_char,
+        font=font,
+        embedded_color=True,
+        anchor="mm",
+    )
+    bbox = img.getbbox()
+    if bbox is None:
+        return None
+    tile = img.crop(bbox)
+    arr = np.array(tile)  # RGBA
+    # RGBA -> BGRA so the alpha survives the cv2 resize and blending.
+    bgra = arr[:, :, [2, 1, 0, 3]]
+    return bgra
+
+
+def _apply_emoji(
+    frame: np.ndarray,
+    box: tuple[int, int, int, int],
+    emoji_char: str,
+) -> None:
+    """Draw *emoji_char* sized to and centered on *box*.
+
+    The glyph is scaled so its larger dimension covers the box's larger
+    dimension, keeping a boxy region visibly claimed even when the emoji
+    itself is round. No font (or an empty glyph) falls back to a solid
+    box: the region must never stay visible because a font was missing.
+    """
+    x1, y1, x2, y2 = box
+    roi = frame[y1:y2, x1:x2]
+    if roi.size == 0:
+        return
+    tile = _render_emoji_tile(emoji_char)
+    if tile is None:
+        _apply_solid(frame, box, (0, 0, 0))
+        return
+
+    box_h, box_w = roi.shape[:2]
+    side = max(box_w, box_h)
+    tile = cv2.resize(tile, (side, side), interpolation=cv2.INTER_AREA)
+    tile_h, tile_w = tile.shape[:2]
+
+    # Center the tile on the ROI, cropping whatever overflows.
+    x_off = (box_w - tile_w) // 2
+    y_off = (box_h - tile_h) // 2
+    src_x1, src_y1 = max(0, -x_off), max(0, -y_off)
+    dst_x1, dst_y1 = max(0, x_off), max(0, y_off)
+    overlap_w = min(tile_w - src_x1, box_w - dst_x1)
+    overlap_h = min(tile_h - src_y1, box_h - dst_y1)
+    if overlap_w <= 0 or overlap_h <= 0:
+        return
+
+    src = tile[src_y1 : src_y1 + overlap_h, src_x1 : src_x1 + overlap_w].astype(
+        np.float32
+    )
+    alpha = src[:, :, 3:4] / 255.0
+    dst = roi[dst_y1 : dst_y1 + overlap_h, dst_x1 : dst_x1 + overlap_w].astype(
+        np.float32
+    )
+    blended = src[:, :, :3] * alpha + dst * (1.0 - alpha)
+    roi[dst_y1 : dst_y1 + overlap_h, dst_x1 : dst_x1 + overlap_w] = blended.astype(
+        roi.dtype
+    )
+
+
+def resolve_emoji(config: Config, category: str | None) -> str:
+    """The emoji for a box: the explicit override, else the category
+    default, else the generic marker."""
+    if config.emoji_char:
+        return config.emoji_char
+    if category:
+        return EMOJI_BY_CATEGORY.get(category, DEFAULT_EMOJI)
+    return DEFAULT_EMOJI
+
+
 def build_overlay_callback(
     frame_actions: dict[int, dict],
     config: Config,
@@ -138,11 +271,14 @@ def build_overlay_callback(
             if not raw_boxes:
                 return frame_bgr
             boxes = _scale_to_native(raw_boxes, frame_bgr.shape, det_res)
+            category = data.get("category")
             for box in boxes:
                 if blur_mode == BlurMode.BLUR:
                     _apply_localized_blur(frame_bgr, box, blur_kernel, blur_sigma)
                 elif blur_mode == BlurMode.PIXELATE:
                     _apply_pixelate(frame_bgr, box, pixelate_blocks)
+                elif blur_mode == BlurMode.EMOJI:
+                    _apply_emoji(frame_bgr, box, resolve_emoji(config, category))
                 else:
                     _apply_solid(frame_bgr, box, box_color)
 
