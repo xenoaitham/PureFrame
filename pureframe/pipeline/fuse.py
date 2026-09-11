@@ -57,6 +57,8 @@ def fuse(
     audio_ctx: AudioContext,
     config: Config,
     strict_mode: bool = False,
+    plugin_detections: dict[str, list[list[Detection]]] | None = None,
+    plugin_threshold_bases: dict[str, float] | None = None,
 ) -> ShotVerdict:
     # Use effective thresholds from config (includes content-type and strictness adjustments)
     eff_nudity, eff_clip, eff_audio = config.get_effective_thresholds()
@@ -128,7 +130,37 @@ def fuse(
             reasoning=f"Implicit sex context: scene={scene_ctx.implied_sex_score:.2f} + audio=(moan={audio_ctx.moaning_score:.2f}, sex={audio_ctx.sexual_audio_score:.2f})",
         )
 
-    # 4. KISS_INTENSE / KISS_LIGHT
+    # 4. Plugin box-provider categories - after the nudity and sexual-
+    # context branches so a plugin can never downgrade a verdict those
+    # paths already made, and before the kiss branches so box-provider
+    # evidence still censors a shot the scene classifier would leave at
+    # KISS_LIGHT (Action.NONE, rendered uncensored). The branch never
+    # consults the audio context: a box provider fires on visual
+    # detections alone, at its category's effective threshold (plugin
+    # override, else the plugin's declared base; content-type multiplier
+    # and the strict-mode factor apply on top, same as the built-ins).
+    if plugin_detections:
+        bases = plugin_threshold_bases or {}
+        eff_plugin = config.get_effective_plugin_thresholds(bases)
+        plugin_t_mod = 0.85 if strict_mode else 1.0
+        for plugin_category, per_frame in plugin_detections.items():
+            threshold = eff_plugin.get(plugin_category, 0.99) * plugin_t_mod
+            best = max((d.score for dets in per_frame for d in dets), default=0.0)
+            if best >= threshold:
+                return ShotVerdict(
+                    shot_index=shot.index,
+                    category=Category.PLUGIN_BOX,
+                    action=Action.BLACK_BOX,
+                    confidence=best,
+                    boxes=None,
+                    plugin_category=plugin_category,
+                    reasoning=(
+                        f"Plugin category {plugin_category} detected "
+                        f"(score: {best:.2f}, threshold: {threshold:.2f})"
+                    ),
+                )
+
+    # 5. KISS_INTENSE / KISS_LIGHT
     kissing_thresh = 0.50 * t_mod * (eff_clip / 0.50)
     if scene_ctx.kissing_score >= kissing_thresh:
         duration_seconds = shot.end_time - shot.start_time
@@ -151,7 +183,7 @@ def fuse(
                 reasoning=f"Light kiss (duration {duration_seconds:.1f}s, score: {scene_ctx.kissing_score:.2f})",
             )
 
-    # 5. SAFE
+    # 6. SAFE
     return ShotVerdict(
         shot_index=shot.index,
         category=Category.SAFE,
