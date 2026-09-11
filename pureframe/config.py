@@ -128,11 +128,22 @@ class Config(BaseSettings):
     @field_validator("threshold_overrides")
     @classmethod
     def _validate_threshold_overrides(cls, value: dict[str, float]) -> dict:
+        if not value:
+            return value
+        # Installed plugins contribute their box-provider category names to
+        # the whitelist, so a --thresholds file keys a plugin category the
+        # same way it keys "nudity". Discovery resolves class objects only;
+        # it never constructs a detector.
+        from pureframe.plugin_api import discover
+
+        valid = set(THRESHOLD_CATEGORIES)
+        for registration in discover().values():
+            valid |= registration.category_names()
         for key, threshold in value.items():
-            if key not in THRESHOLD_CATEGORIES:
+            if key not in valid:
                 raise ValueError(
                     f"unknown threshold category {key!r}; "
-                    f"expected one of {', '.join(THRESHOLD_CATEGORIES)}"
+                    f"expected one of {', '.join(sorted(valid))}"
                 )
             if not 0.0 < threshold <= 1.0:
                 raise ValueError(
@@ -178,6 +189,23 @@ class Config(BaseSettings):
         mult = CONTENT_TYPE_MULTIPLIERS[self.content_type]
         nudity, clip, audio = (min(base * mult, 0.99) for base in bases)
         return (nudity, clip, audio)
+
+    def get_effective_plugin_thresholds(
+        self, plugin_threshold_bases: dict[str, float]
+    ) -> dict[str, float]:
+        """Effective per-category thresholds for plugin box providers.
+
+        Each base (a plugin's declared default for the category) is replaced
+        by a ``threshold_overrides`` entry when present, then scaled by the
+        content-type multiplier and capped at 0.99 - the exact treatment the
+        built-in categories get from :meth:`get_effective_thresholds`. The
+        strict-mode factor is fuse()'s job, as it is for nudity.
+        """
+        mult = CONTENT_TYPE_MULTIPLIERS[self.content_type]
+        return {
+            category: min(self.threshold_overrides.get(category, base) * mult, 0.99)
+            for category, base in plugin_threshold_bases.items()
+        }
 
     @property
     def config_hash(self) -> str:

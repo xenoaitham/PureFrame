@@ -28,6 +28,12 @@ class Category(str, Enum):
     KISS_LIGHT = "KISS_LIGHT"
     SEXUAL_CONTEXT_NO_NUDITY = "SEXUAL_CONTEXT_NO_NUDITY"
     VIOLENCE_GORE = "VIOLENCE_GORE"
+    # Verdict category for plugin box-provider detections. Plugins declare
+    # their own category names (WEAPON_VISIBLE, ...); the plan keeps a single
+    # enum member for all of them and carries the plugin's own name in
+    # ShotVerdict.plugin_category, so a plan renders on a machine without
+    # the plugin (boxes are data, not code).
+    PLUGIN_BOX = "PLUGIN_BOX"
     SAFE = "SAFE"
 
 
@@ -52,6 +58,9 @@ class ShotVerdict(BaseModel):
     confidence: float
     boxes: list[Box] | None = None
     reasoning: str
+    # The plugin's own category name when category == PLUGIN_BOX (e.g.
+    # WEAPON_VISIBLE); None for built-in categories.
+    plugin_category: str | None = None
 
 
 def detect_shots(
