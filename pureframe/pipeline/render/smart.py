@@ -1,4 +1,4 @@
-"""Smart segment renderer — re-encodes only censored regions, copies the rest via stream copy.
+"""Smart segment renderer - re-encodes only censored regions, copies the rest via stream copy.
 
 Strategy:
 1. Build a list of "dirty segments" from frame_actions (contiguous ranges needing overlay).
@@ -93,7 +93,7 @@ def _probe_keyframe_times(path: Path) -> list[float]:
     from there (a single-keyframe clip duplicates the whole video). Segment
     planning therefore needs the real keyframe map.
 
-    The map is read from packet flags — demux only, no decoding — which is
+    The map is read from packet flags - demux only, no decoding - which is
     both faster on long inputs and codec-independent. The earlier
     decode-based probe (``-skip_frame nokey``) relied on decoder support:
     the VP8/VP9 decoders ignore that flag and reported *every* frame as a
@@ -159,7 +159,7 @@ def _snap_to_keyframes(
                 k_end = k
             else:
                 break
-        if k_end < k_start:  # degenerate (zero-duration inputs) — clamp
+        if k_end < k_start:  # degenerate (zero-duration inputs) - clamp
             k_end = k_start
         snapped.append((k_start, k_end))
 
@@ -186,7 +186,7 @@ def apply_censoring_smart(
 
     ``input_codec`` (the source's video codec, probed when omitted) steers
     the re-encode so it matches the stream-copied chunks and the input's
-    container — WebM must stay VP8/VP9, AVI stays MPEG-4/Annex-B H.264.
+    container - WebM must stay VP8/VP9, AVI stays MPEG-4/Annex-B H.264.
 
     Falls back to full re-encode if:
     - More than 60% of video is dirty (not worth the concat overhead)
@@ -196,13 +196,13 @@ def apply_censoring_smart(
     """
     # Plan metadata carries fps as a Fraction; keep the arithmetic and the
     # log formatting below in floats (Fraction.__format__ only accepts a
-    # format spec from Python 3.12 — on 3.11 the "%.1fs" log line raised).
+    # format spec from Python 3.12 - on 3.11 the "%.1fs" log line raised).
     fps = float(fps)
     padded_ranges = _find_dirty_segments(frame_actions, total_frames, fps)
 
     if not padded_ranges:
-        # No censoring needed — just stream copy
-        logger.info("No dirty segments — stream copying entire video")
+        # No censoring needed - just stream copy
+        logger.info("No dirty segments - stream copying entire video")
         _stream_copy(input_path, output_path)
         return
 
@@ -212,7 +212,7 @@ def apply_censoring_smart(
     try:
         keyframes = _probe_keyframe_times(input_path)
     except Exception as e:
-        logger.warning(f"Keyframe probe failed ({e}) — falling back to full re-encode")
+        logger.warning(f"Keyframe probe failed ({e}) - falling back to full re-encode")
         from pureframe.pipeline.render.apply import apply_censoring
 
         apply_censoring(
@@ -235,7 +235,7 @@ def apply_censoring_smart(
 
     if dirty_ratio > 0.6:
         logger.info(
-            f"Dirty ratio {dirty_ratio:.0%} > 60% — falling back to full re-encode"
+            f"Dirty ratio {dirty_ratio:.0%} > 60% - falling back to full re-encode"
         )
         from pureframe.pipeline.render.apply import apply_censoring
 
@@ -256,7 +256,7 @@ def apply_censoring_smart(
 
     try:
         # Encoder selection and fps probing are per-RENDER facts, not
-        # per-segment facts — resolve once and thread through the segments
+        # per-segment facts - resolve once and thread through the segments
         # instead of re-running `ffmpeg -encoders` + ffprobe N times.
         encoder = select_render_encoder(
             profile_settings.profile, config.output_codec, input_codec
@@ -324,8 +324,8 @@ def _render_segments(
     Copy cuts cannot be made with ``-ss``/``-to`` on a plain ``-c copy``:
     the demuxer cuts in decode order, so B-frame tails truncate or shift the
     boundary (observed as a 9.1s render of a 5s clip). Instead the input is
-    split at the keyframe-aligned dirty boundaries with the segment muxer —
-    which cuts losslessly on keyframes — and only chunks inside dirty
+    split at the keyframe-aligned dirty boundaries with the segment muxer -
+    which cuts losslessly on keyframes - and only chunks inside dirty
     ranges are replaced by re-encoded overlay renders before concat.
     """
     tmpdir = Path(tempfile.mkdtemp(prefix="pureframe_smart_"))
@@ -467,7 +467,7 @@ def _extract_and_render_segment(
 def _ensure_within(base: Path, candidate: Path) -> Path:
     """Return ``candidate`` resolved, refusing paths that escape ``base``.
 
-    Every path written into the concat file is one ffmpeg then reads back —
+    Every path written into the concat file is one ffmpeg then reads back -
     a resolved path outside the working dir would let a corrupted segment
     name point ffmpeg at arbitrary files.
     """
@@ -486,7 +486,7 @@ def _concat_segments(
     """Concatenate segments using ffmpeg concat demuxer.
 
     ``video_codec`` (the stream's codec) lets the copy add any bitstream
-    filter the output container demands — AVI needs Annex-B H.264.
+    filter the output container demands - AVI needs Annex-B H.264.
     """
     tmpdir = tmpdir.resolve()
     concat_file = _ensure_within(tmpdir, tmpdir / "concat.txt")

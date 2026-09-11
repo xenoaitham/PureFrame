@@ -1,7 +1,7 @@
 """Temporal smoothing: the median filter must not corrupt track tails.
 
 ``scipy.signal.medfilt`` zero-pads the sequence edges, so the last two
-frames of every track had their median dragged toward 0 and frozen there —
+frames of every track had their median dragged toward 0 and frozen there -
 on a subject moving at shot's end the blur box visibly lagged behind (22 px
 on a 8 px/frame mover, and frozen for the final 3 frames). The smoother now
 uses ``scipy.ndimage.median_filter(mode="nearest")``, which replicates edge
@@ -93,7 +93,7 @@ def test_dense_anchors_median_absorbs_iid_jitter():
     With detections on every frame, per-frame iid jitter of ±8 px (raw RMSE
     ≈ 4.6) comes out around ≈ 3.4 after the median filter. An EMA stacked on
     top measured ≤8 % better (and 1.4–1.5× *worse* on sparse anchors, where
-    its lag biases every interpolation) — not worth the complexity; numbers
+    its lag biases every interpolation) - not worth the complexity; numbers
     recorded in the smoother's docstring.
     """
     frames = 60

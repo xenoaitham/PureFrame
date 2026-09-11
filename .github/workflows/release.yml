@@ -57,7 +57,7 @@ jobs:
       uses: tauri-apps/tauri-action@v0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # macOS code signing + notarization + Tauri updater signing — all
+        # macOS code signing + notarization + Tauri updater signing - all
         # optional. tauri-action silently skips signing/notarization when the
         # corresponding env vars are absent, so we deliberately do not export
         # empty strings here (empty APPLE_CERTIFICATE makes `security import`

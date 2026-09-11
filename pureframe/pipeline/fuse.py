@@ -4,7 +4,7 @@ from pureframe.pipeline.detect.nudity import Detection
 from pureframe.pipeline.detect.scene_clip import ShotContext
 from pureframe.pipeline.shots import Action, Category, Shot, ShotVerdict
 
-# Primary explicit nudity labels — always flagged
+# Primary explicit nudity labels - always flagged
 NUDITY_EXPLICIT_LABELS = {
     "FEMALE_GENITALIA_EXPOSED",
     "MALE_GENITALIA_EXPOSED",
@@ -13,7 +13,7 @@ NUDITY_EXPLICIT_LABELS = {
     "ANUS_EXPOSED",
 }
 
-# Partial nudity labels — flagged at higher strictness
+# Partial nudity labels - flagged at higher strictness
 NUDITY_PARTIAL_LABELS = {
     "FEMALE_BREAST_COVERED",
     "BELLY_EXPOSED",
@@ -30,7 +30,7 @@ def context_audio_needed(
     """True when the audio classifier's score can change the fused verdict.
 
     fuse() consults audio only in the two sexual-act branches, and both
-    require the CLIP scene signal to already be at/above its own threshold —
+    require the CLIP scene signal to already be at/above its own threshold -
     audio alone can never push a verdict over. When the scene scores sit
     below those thresholds, the (expensive, per-shot) PANNs run is provably
     irrelevant: skipping it and passing a neutral AudioContext yields the
@@ -91,7 +91,7 @@ def fuse(
             reasoning=f"Explicit nudity detected (score: {max_nudity_score:.2f}, threshold: {nudity_thresh:.2f})",
         )
 
-    # 2. SEXUAL_ACT_VISIBLE — requires both visual and audio signals
+    # 2. SEXUAL_ACT_VISIBLE - requires both visual and audio signals
     explicit_act_thresh = (
         0.40 * t_mod * (eff_clip / 0.50)
     )  # Scale by effective clip threshold
@@ -111,7 +111,7 @@ def fuse(
             reasoning=f"Explicit sexual act: scene={scene_ctx.explicit_act_score:.2f} + audio={audio_ctx.sexual_audio_score:.2f}",
         )
 
-    # 3. SEXUAL_CONTEXT_NO_NUDITY — implied sex with audio cues
+    # 3. SEXUAL_CONTEXT_NO_NUDITY - implied sex with audio cues
     implied_sex_thresh = 0.45 * t_mod * (eff_clip / 0.50)
     moaning_thresh = 0.35 * t_mod * (eff_audio / 0.60)
 

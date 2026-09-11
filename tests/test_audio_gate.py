@@ -2,7 +2,7 @@
 scene signal is at/above the thresholds that make its score matter.
 
 fuse() consults audio only in the two sexual-act branches, both of which
-require the scene signal to clear its own threshold first — so below them,
+require the scene signal to clear its own threshold first - so below them,
 skipping the expensive per-shot PANNs run is provably verdict-neutral.
 """
 
@@ -16,7 +16,7 @@ from pureframe.pipeline.fuse import context_audio_needed, fuse
 
 
 def _cfg(**kwargs) -> Config:
-    # from_cli validates that the input exists — provide throwaway files.
+    # from_cli validates that the input exists - provide throwaway files.
     tmp = tempfile.mkdtemp(prefix="audio_gate_")
     input_path = Path(tmp) / "in.mp4"
     input_path.write_bytes(b"fake")

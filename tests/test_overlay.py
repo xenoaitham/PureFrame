@@ -1,4 +1,4 @@
-"""Tests for render overlay callback — direct unit tests on the apply_censoring callback logic."""
+"""Tests for render overlay callback - direct unit tests on the apply_censoring callback logic."""
 
 import cv2
 import numpy as np

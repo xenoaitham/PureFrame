@@ -29,7 +29,7 @@ def quantized_model_path(
     """Return the cached int8 model path, quantizing on first call.
 
     The cache key embeds a digest of the source weights so a nudenet upgrade
-    invalidates stale quantized artifacts. Raises on quantization failure —
+    invalidates stale quantized artifacts. Raises on quantization failure -
     callers are expected to fall back to the fp32 model.
     """
     src = source or _nudenet_model_path()

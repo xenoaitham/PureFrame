@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   file.json` accepting `{"nudity": …, "clip": …, "audio": …}`) replace the
   strictness preset's base value for that one category; the others keep the
   preset, and the content-type/`--strict` multipliers still apply on top.
-  `--threshold` keeps working as the nudity alias — but it now actually has
+  `--threshold` keeps working as the nudity alias - but it now actually has
   an effect under any strictness (previously it was silently ignored unless
   `--strictness custom` was also passed).
 - **Expected-time estimates.** `plan`/`process` print "Analysis estimate:
@@ -25,15 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   column.
 - **Inference cache keyed on the file's content.** Re-running `process`/`plan`
   on an unchanged file with the same settings skips model inference
-  entirely — verdicts come from the checkpoint store, which now folds a
+  entirely - verdicts come from the checkpoint store, which now folds a
   streaming SHA-256 of the input into its key. Replacing the file at the
   same path (the old key couldn't see that) is a cache miss, as is any
   config change. `--no-cache` forces a from-scratch analysis for one run
   without touching what the cache holds.
 - **Before/after preview.** `pureframe preview --before-after` renders one
-  full-resolution PNG pair per flagged shot — the untouched frame and the
+  full-resolution PNG pair per flagged shot - the untouched frame and the
   same frame with that plan's censoring applied through the same overlay
-  code the real renderer uses — embedded side-by-side in the HTML report,
+  code the real renderer uses - embedded side-by-side in the HTML report,
   so blur placement can be verified per shot without rendering the video.
 - **Nightly slow-suite CI job.** The scheduled job runs the real-render e2e
   guards and model classifier tests daily; regular CI keeps `-m "not slow"`,
@@ -51,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   use GPU 0. `--device 1` pins NudeNet (ONNX CUDA EP provider options), CLIP
   and PANNs to the chosen GPU, and auto-profiling reads that device's VRAM
   so a smaller second GPU picks a fitting profile. Excluded from the
-  checkpoint hash — a cached verdict from GPU 0 is valid on GPU 1. Full
+  checkpoint hash - a cached verdict from GPU 0 is valid on GPU 1. Full
   multi-GPU sharding is analyzed and descoped in `docs/multi-gpu.md`.
 
 ### Fixed
@@ -62,7 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fixture never hit the path). The sampler now returns plain ints.
 - **Flagged shots could lose their blur boxes.** The plan loop filtered
   densified detections at the raw CLI threshold (default 0.55) while the
-  fusion flags on the *effective* threshold — so under `--strictness high`
+  fusion flags on the *effective* threshold - so under `--strictness high`
   (nudity preset 0.35) a 0.45-score detection produced a `BLACK_BOX`
   verdict with no boxes, and nothing rendered for it. Densify now keeps
   everything the fusion could have flagged on.
@@ -70,14 +70,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Only the first shot of a video was ever analyzed (0.2.0–0.2.1).** The
   plan loop's prefetch worker (added with the pipelined extraction in 0.2.0)
   used a queue helper whose bare `return` read as "stop" to the shot loop,
-  so extraction quit after shot 0 and the plan ended with one verdict — on a
+  so extraction quit after shot 0 and the plan ended with one verdict - on a
   real movie, nothing past the first cut was ever inspected or censored.
   Every fixture in the suite happened to be single-shot, which is how it
   slipped through; a three-shot regression clip now pins one verdict per
   shot and boxes on the right one.
 - **WebM and AVI inputs failed to render.** Every re-encode was hardcoded
   to H.264, which WebM refuses outright ("Only VP8 or VP9 or AV1 video …
-  supported") and AVI rejects without an Annex-B bitstream filter — so
+  supported") and AVI rejects without an Annex-B bitstream filter - so
   `process` on either container died at the final mux, despite the README
   promising both. Censored segments now follow the source codec (VP8/VP9
   for WebM, MPEG-4 for AVI, HEVC stays HEVC), each with its encoder's own
@@ -89,21 +89,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on the decoder honoring `-skip_frame nokey`; the VP8/VP9 decoders ignore
   it and reported every frame as a keyframe, so WebM copy cuts landed off
   sync points and dropped frames (148 of 150 on the regression clip). The
-  map is now read from packet flags — demux only, no decoding — which is
+  map is now read from packet flags - demux only, no decoding - which is
   codec-independent and faster on long files.
 - **Smart render crashed on Python 3.11.** The renderer receives fps as a
   `Fraction` from the plan metadata and formatted a derived duration with
-  `:.1f`, which `Fraction` only supports from Python 3.12 — on 3.11 the
+  `:.1f`, which `Fraction` only supports from Python 3.12 - on 3.11 the
   smart path raised before reaching its fallback. fps is now normalized to
   a float at the renderer boundary.
 - **The box smoother froze the last two frames of every track.** The median
-  filter used `scipy.signal.medfilt`, which zero-pads the sequence edges —
+  filter used `scipy.signal.medfilt`, which zero-pads the sequence edges -
   the median of the final frames was dragged toward 0, so a subject moving
   at the end of a shot had its blur box visibly lag behind (22 px behind on
   an 8 px/frame mover, frozen for the final 3 frames). The smoother now
   uses `scipy.ndimage.median_filter(mode="nearest")`, which replicates edge
   values. Box EMA and track hysteresis were evaluated against the fixed
-  pipeline and rejected — on realistic sparse anchors the EMA's lag biases
+  pipeline and rejected - on realistic sparse anchors the EMA's lag biases
   every interpolation (1.4–1.5× worse RMSE on movers), and the median
   filter already absorbs most dense-anchor jitter; the measurements and
   the remaining idea (Kalman/spline over anchors) are recorded in
@@ -118,7 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.1] - 2026-09-08
 
 Urgent follow-up to 0.2.0: **0.2.0's render path censored almost nothing.**
-Two defects shipped together and masked each other — nudity verdicts carried
+Two defects shipped together and masked each other - nudity verdicts carried
 no boxes (so flagged shots were re-encoded without blur), and the smart
 renderer's keyframe-unaware segment cuts duplicated content after the first
 flagged segment. Upgrading from 0.2.0 is strongly recommended; from ≤0.1.0b16
@@ -128,8 +128,8 @@ it is the same upgrade path as 0.2.0 plus these fixes.
 - **Nudity detections were never censored: every `NUDITY_EXPLICIT` verdict
   shipped with `boxes=None`.** The plan loop only attached tracked boxes for
   kiss-flagged shots (mouth boxes) and `FULL_FRAME_BLUR` verdicts; the
-  primary category — nudity, a `BLACK_BOX` action that renders per-frame
-  boxes — fell through both paths, so the renderer re-encoded flagged shots
+  primary category - nudity, a `BLACK_BOX` action that renders per-frame
+  boxes - fell through both paths, so the renderer re-encoded flagged shots
   **without applying any blur**. Only the sexual-context full-frame branches
   and hand-edited plans ever censored anything. Nudity-flagged shots now run
   the same densify + IoU-tracking pass, attaching per-frame boxes to the
@@ -138,14 +138,14 @@ it is the same upgrade path as 0.2.0 plus these fixes.
   (`-m "not slow"`); both now pass.
 - **Smart renderer duplicated content after the first flagged segment.**
   Clean segments were cut with input-side `-ss`/`-to` under `-c copy`, which
-  snaps back to the previous keyframe in decode order — on a clip whose only
+  snaps back to the previous keyframe in decode order - on a clip whose only
   keyframe is frame 0, the final clean segment re-copied the entire video
   (a 5 s clip rendered 9.1 s, and the README demo GIF visibly "played the
   original, unblurred" after the censored section). The renderer now probes
   the keyframe map, snaps segment boundaries outward to keyframes, and splits
   with the segment muxer (lossless, B-frame-safe); single-keyframe inputs
   correctly take the full-re-encode fallback. Output frame count now matches
-  the input exactly — pinned by a real-clip regression test.
+  the input exactly - pinned by a real-clip regression test.
 - GUI plan editor: `SEXUAL_CONTEXT_NO_NUDITY` timeline segments rendered red
   instead of orange (the category check matched "NUDITY" inside
   "NO_NUDITY" before the sexual-context check).
@@ -165,7 +165,7 @@ it is the same upgrade path as 0.2.0 plus these fixes.
 First stable release. Headline: the speed offensive.
 
 ### Added
-- **Speed offensive** — algorithmic + model-level optimizations targeting ~10–20 min for a 90-min movie on CPU-only hardware (see `docs/performance.md` for the full narrative):
+- **Speed offensive** - algorithmic + model-level optimizations targeting ~10–20 min for a 90-min movie on CPU-only hardware (see `docs/performance.md` for the full narrative):
   - `pureframe bench`: repeatable benchmark with a detection-exercising synthetic clip, per-phase timers, checkpoint isolation, JSON/Markdown reports.
   - Per-phase timers (`--verbose`) and the `PUREFRAME_TIMERS_FILE` machine hook.
   - Seek-based frame extraction (was: re-decode from frame 0 per shot); probed metadata reused across calls.
@@ -179,7 +179,7 @@ First stable release. Headline: the speed offensive.
 ### Changed
 - README publish pass: the demo GIF is now a cinematic synthetic scene with a
   tracked censor blur (the old one was a raw test pattern *and* placed the
-  blur in the wrong corner — plan boxes must be authored in detection space);
+  blur in the wrong corner - plan boxes must be authored in detection space);
   measured post-offensive bench numbers replaced the stale pre-offensive
   table; GUI screenshots added; stale version pins removed.
 
@@ -200,13 +200,13 @@ Python 3.11–3.13. Also ships the unreleased work from the previous cycle
 - Regression tests: checkpoint trust semantics, NudeNet `xywh→xyxy` box contract, BLUR-mode e2e with Laplacian-variance assertions.
 - Dynamic release badge and demo caption in README; demo GIF regenerated web-optimized (~1 MB).
 - Playwright E2E smoke harness for the desktop GUI (`gui/e2e/`) with a `window.__TAURI_INTERNALS__` shim so the React tree boots outside the Tauri runtime; CI runs the suite on every push/PR via the `gui-e2e` job.
-- `BlurMode` enum in `config.py` (BLUR / BOX / PIXELATE) with shared overlay callback in `pipeline/render/overlay.py` — render path now applies real localized Gaussian blur or pixelation instead of solid boxes.
+- `BlurMode` enum in `config.py` (BLUR / BOX / PIXELATE) with shared overlay callback in `pipeline/render/overlay.py` - render path now applies real localized Gaussian blur or pixelation instead of solid boxes.
 - GPU-aware PANNs audio classifier with label-name lookup (falls back to known indices when `panns_inference.labels` unavailable).
 - Per-category max-cosine CLIP scene scoring (categories no longer compete based on prompt count).
 - Cross-platform CI matrix (`ubuntu-latest`, `macos-latest`, `windows-latest`).
 
 ### Fixed
-- transformers 5.x compatibility: `CLIPModel.get_text_features/get_image_features` return a `BaseModelOutputWithPooling` (projected features in `pooler_output`) instead of a bare tensor. Both 4.x (>=4.30) and 5.x supported — un-breaks `SceneClassifier` init.
+- transformers 5.x compatibility: `CLIPModel.get_text_features/get_image_features` return a `BaseModelOutputWithPooling` (projected features in `pooler_output`) instead of a bare tensor. Both 4.x (>=4.30) and 5.x supported - un-breaks `SceneClassifier` init.
 - OpenCV 5 compatibility: both `opencv-python` flavors pinned `<5` (the unpinned GUI-flavor dragged in by scenedetect clobbers the pinned headless one via the shared `cv2` namespace, and 5.x removed the Caffe DNN importer). `FaceDetector` degrades with a logged warning instead of crashing when the importer is absent.
 - ffmpeg 7+ compatibility: `-vsync` was removed; frame selection now uses `-fps_mode passthrough` with a legacy fallback. Failed decodes raise with the real ffmpeg stderr instead of silently returning no frames.
 - Checkpoint trust: DONE jobs no longer skip processing when the output file is missing/empty or keyed to a different output path; renders that produce nothing are never recorded DONE.
@@ -222,7 +222,7 @@ Python 3.11–3.13. Also ships the unreleased work from the previous cycle
 - `config_hash` incorporates render settings (`blur_mode`, `blur_kernel`, `blur_sigma`, `pixelate_blocks`, `output_codec`, `output_crf`, `clip_threshold`, `audio_threshold`, `box_color`) so checkpoints invalidate correctly on render-related config changes.
 - Checkpoint store derives `completed_shots` via `COUNT(*) FROM shot_verdicts` (eliminates inflation on resume).
 - `batch.py` clones the base config via `model_copy(update=..., deep=True)` so all CLI flags propagate to per-file runs.
-- `cli.execute_render` catches `Exception` (not `BaseException`) — no more accidental `KeyboardInterrupt` swallowing.
+- `cli.execute_render` catches `Exception` (not `BaseException`) - no more accidental `KeyboardInterrupt` swallowing.
 
 ### Security
 - Tauri desktop CSP locked down: explicit `default-src 'self'`, `script-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`.
@@ -239,11 +239,11 @@ Python 3.11–3.13. Also ships the unreleased work from the previous cycle
 ## [0.1.0b7] - 2026-05-07
 
 ### Added
-- **Smart segment rendering** (`pureframe/pipeline/render/smart.py`) — only re-encodes dirty frames, stream-copies clean segments. 2-5x faster on typical content.
-- **Evaluation benchmark** (`pureframe evaluate`) — 50 synthetic test scenarios across 8 content genres with precision/recall/F1 metrics and threshold sweep analysis.
-- **Confidence calibration guide** (`docs/CALIBRATION.md`) — threshold presets, content-type multipliers, and step-by-step tuning workflow.
-- **Known limitations doc** (`docs/KNOWN_LIMITATIONS.md`) — comprehensive FP/FN categories, animation-specific issues, rendering and audio detection gaps.
-- **Desktop packaging** (`packaging/build_desktop.py`) — PyInstaller build script for standalone executables on Linux/macOS/Windows.
+- **Smart segment rendering** (`pureframe/pipeline/render/smart.py`) - only re-encodes dirty frames, stream-copies clean segments. 2-5x faster on typical content.
+- **Evaluation benchmark** (`pureframe evaluate`) - 50 synthetic test scenarios across 8 content genres with precision/recall/F1 metrics and threshold sweep analysis.
+- **Confidence calibration guide** (`docs/CALIBRATION.md`) - threshold presets, content-type multipliers, and step-by-step tuning workflow.
+- **Known limitations doc** (`docs/KNOWN_LIMITATIONS.md`) - comprehensive FP/FN categories, animation-specific issues, rendering and audio detection gaps.
+- **Desktop packaging** (`packaging/build_desktop.py`) - PyInstaller build script for standalone executables on Linux/macOS/Windows.
 - **Codecov integration** in CI workflow for automated coverage badge.
 - Tests for smart rendering (segment detection, fallback logic, stream copy).
 - Tests for evaluation benchmark (SceneResult classification, metrics computation, 50-scenario validation, synthetic frame generation).
@@ -313,7 +313,7 @@ Python 3.11–3.13. Also ships the unreleased work from the previous cycle
 ### Fixed
 - **Root cause CI fix:** `select_hw_encoder` was receiving `ProfileSettings` object instead of `HardwareProfile` enum, causing it to skip the CPU guard and select `h264_nvenc` on CI runners without a GPU. Fixed by passing `profile_settings.profile`.
 - Removed deprecated `-vsync 0` ffmpeg argument that caused warnings on newer ffmpeg versions.
-- Removed colorspace pass-through kwargs — let ffmpeg autodetect input colorspace.
+- Removed colorspace pass-through kwargs - let ffmpeg autodetect input colorspace.
 - Added even-dimension enforcement for yuv420p encoding compatibility.
 - Added `BrokenPipeError` handler with stderr tail capture for better diagnostics.
 

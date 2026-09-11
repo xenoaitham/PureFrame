@@ -247,8 +247,8 @@ pureframe bench --real <YOUR_VIDEO> [OPTIONS]
 | `--output, -o` | path | none | JSON report path (synthetic mode) |
 | `--keep-clip` | flag | false | Keep the generated synthetic clip for reuse |
 
-`--real` records identify your file only by its SHA-256 and basic metadata —
-never its path or filename — so the JSONL is safe to share when comparing
+`--real` records identify your file only by its SHA-256 and basic metadata -
+never its path or filename - so the JSONL is safe to share when comparing
 machines.
 
 ---

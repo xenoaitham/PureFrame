@@ -132,6 +132,6 @@ pureframe plan-whitelist plan.json 5
 
 ## Sharing Plans
 
-Censor plans are portable. You can share a plan with others who have the same video file. The plan does not contain any video data — only metadata and censoring decisions.
+Censor plans are portable. You can share a plan with others who have the same video file. The plan does not contain any video data - only metadata and censoring decisions.
 
 See [Plan Sharing Guide](plan-sharing.md) for details.

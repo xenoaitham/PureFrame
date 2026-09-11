@@ -9,7 +9,7 @@ winning. Before this, ``--threshold`` was silently ignored unless
 The plan loop must also filter densified boxes at the *effective* nudity
 threshold fuse() flags on. It used the raw default (0.55) instead, so a
 shot flagged at 0.45 under ``--strictness high`` (preset 0.35) came out as
-a BLACK_BOX verdict with no boxes — nothing rendered.
+a BLACK_BOX verdict with no boxes - nothing rendered.
 """
 
 from unittest.mock import MagicMock, patch
@@ -110,7 +110,7 @@ class TestCliFlags:
         )
         assert result.exit_code == 2
         # Clean usage error, not a traceback. The message itself is pinned at
-        # the unit level (tests/test_config.py::TestLoadThresholdsFile) — the
+        # the unit level (tests/test_config.py::TestLoadThresholdsFile) - the
         # rendered panel clips long messages on narrow consoles, so its text
         # is not assertable here.
         assert "Usage" in result.output
@@ -126,7 +126,7 @@ class TestCliFlags:
         )
         assert result.exit_code == 2
         # Pydantic-level rejects surface through _build_config's plain-text
-        # handler rather than a typer usage panel — still exit 2, no crash.
+        # handler rather than a typer usage panel - still exit 2, no crash.
         assert "Invalid configuration" in result.output
         assert "unknown threshold category" in " ".join(result.output.split())
         assert "Traceback" not in result.output

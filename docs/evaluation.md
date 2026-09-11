@@ -4,9 +4,9 @@
 
 PureFrame's detection pipeline combines three independent classifiers:
 
-1. **NudeNet** (ONNX) — localized nudity/explicit region detection
-2. **CLIP** (ViT-B/32) — scene-level semantic classification
-3. **PANNs** (CNN14) — audio event classification (moaning detection)
+1. **NudeNet** (ONNX) - localized nudity/explicit region detection
+2. **CLIP** (ViT-B/32) - scene-level semantic classification
+3. **PANNs** (CNN14) - audio event classification (moaning detection)
 
 Results are fused via a weighted voting system with configurable thresholds.
 
@@ -16,12 +16,12 @@ Results are fused via a weighted voting system with configurable thresholds.
 
 | Category | Detector | Default Threshold | Labels |
 |----------|----------|-------------------|--------|
-| Nudity — exposed breasts | NudeNet | 0.55 | `FEMALE_BREAST_EXPOSED` |
-| Nudity — exposed genitalia | NudeNet | 0.55 | `FEMALE_GENITALIA_EXPOSED`, `MALE_GENITALIA_EXPOSED` |
-| Nudity — exposed buttocks | NudeNet | 0.55 | `BUTTOCKS_EXPOSED` |
-| Nudity — exposed anus | NudeNet | 0.55 | `ANUS_EXPOSED` |
+| Nudity - exposed breasts | NudeNet | 0.55 | `FEMALE_BREAST_EXPOSED` |
+| Nudity - exposed genitalia | NudeNet | 0.55 | `FEMALE_GENITALIA_EXPOSED`, `MALE_GENITALIA_EXPOSED` |
+| Nudity - exposed buttocks | NudeNet | 0.55 | `BUTTOCKS_EXPOSED` |
+| Nudity - exposed anus | NudeNet | 0.55 | `ANUS_EXPOSED` |
 | Sexual activity | CLIP | 0.50 | Scene-level semantic match |
-| Audio — moaning | PANNs | 0.60 | Audio event classification |
+| Audio - moaning | PANNs | 0.60 | Audio event classification |
 
 ---
 
@@ -39,7 +39,7 @@ Results are fused via a weighted voting system with configurable thresholds.
 ### Choosing a Threshold
 
 ```
-More false positives ←——————————→ More missed detections
+More false positives ←----------→ More missed detections
 
   0.25    0.35    0.45    0.55    0.65    0.75    0.85
    |       |       |       |       |       |       |
@@ -124,7 +124,7 @@ Dark scenes reduce detection confidence. We compensate by lowering thresholds sl
 
 - PureFrame is a **tool**, not a guarantee. Always review censor plans before sharing output.
 - Detection accuracy depends heavily on video quality, lighting, and content type.
-- The plan/apply workflow exists specifically for human review — use it.
+- The plan/apply workflow exists specifically for human review - use it.
 - No automated system achieves 100% accuracy on content moderation.
 
 ---

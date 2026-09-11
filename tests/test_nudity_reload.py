@@ -2,7 +2,7 @@
 
 The CPU/LOW profiles used to unload the detector after every detect_batch
 call. Since densify_shot calls detect_batch once per frame, every densified
-frame paid a full ONNX session re-initialization — minutes per shot on a
+frame paid a full ONNX session re-initialization - minutes per shot on a
 low-end machine.
 """
 
@@ -43,7 +43,7 @@ def test_detector_loaded_once_across_calls():
 
 def test_detect_batch_no_reload_after_explicit_unload_cycle():
     """After cli's end-of-plan unload(), the next plan's first call reloads
-    exactly once — not once per frame."""
+    exactly once - not once per frame."""
     settings = get_settings(HardwareProfile.CPU)
 
     with patch(

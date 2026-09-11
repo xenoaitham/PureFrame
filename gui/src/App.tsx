@@ -374,7 +374,7 @@ export default function App() {
     [loadPlan, startJob],
   );
 
-  // Native drag-and-drop from the OS — only the webview event exposes real paths.
+  // Native drag-and-drop from the OS - only the webview event exposes real paths.
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     void getCurrentWebview()
@@ -475,7 +475,7 @@ export default function App() {
 
   const updateVerdictAction = (action: string) => {
     if (!selectedShot || !currentPlan) return;
-    // Immutable update — replace verdicts array rather than mutating in place.
+    // Immutable update - replace verdicts array rather than mutating in place.
     const verdicts = currentPlan.verdicts.map((v) =>
       v.shot_index === selectedShot.shot_index ? { ...v, action } : v,
     );
@@ -490,7 +490,7 @@ export default function App() {
       </div>
       <h1 className="text-4xl font-bold mb-4 text-slate-100">Welcome to PureFrame</h1>
       <p className="text-lg text-slate-400 max-w-2xl mb-10 leading-relaxed">
-        PureFrame blurs explicit visuals in your own movie files — locally, offline,
+        PureFrame blurs explicit visuals in your own movie files - locally, offline,
         without cutting a single second. By using this software, you confirm that you
         are modifying your own legal copies of media and are responsible for the
         output.
@@ -649,7 +649,7 @@ export default function App() {
               const width = ((shot.end_time - shot.start_time) / duration) * 100;
 
               let color = "bg-sky-500";
-              // SEXUAL_CONTEXT_NO_NUDITY contains "NUDITY" — the sexual
+              // SEXUAL_CONTEXT_NO_NUDITY contains "NUDITY" - the sexual
               // check must come first or that category renders red.
               if (v.category.includes("SEXUAL")) color = "bg-orange-500";
               else if (v.category.includes("NUDITY")) color = "bg-red-500";

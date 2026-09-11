@@ -6,7 +6,7 @@
  * app at first render. The shim returns sensible empty responses so the
  * UI can boot for smoke tests.
  *
- * Add new command shims here as the surface grows — keep responses
+ * Add new command shims here as the surface grows - keep responses
  * minimal and deterministic.
  */
 export const tauriShimScript = `
@@ -21,7 +21,7 @@ export const tauriShimScript = `
         exit_code: null,
         mode: "process",
         output: null,
-        log_tail: ["Densifying shot 3 — 42%|██████ | 1337/3180"],
+        log_tail: ["Densifying shot 3 - 42%|██████ | 1337/3180"],
       }),
       // load_plan -> small plan with three shots (safe / flagged / safe) so
       // the plan editor's timeline and scrubber have something to render.
@@ -80,7 +80,7 @@ export const tauriShimScript = `
         if (cmd.startsWith("plugin:")) {
           return Promise.resolve(0);
         }
-        // Unknown app-level command — log but don't reject, so a single
+        // Unknown app-level command - log but don't reject, so a single
         // missing shim entry doesn't cascade into render failure.
         console.warn("[e2e shim] unhandled command:", cmd);
         return Promise.resolve(null);

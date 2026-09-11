@@ -24,7 +24,7 @@ def apply_censoring(
     user-configured censor style (blur / pixelate / solid box) instead of
     the previous hardcoded solid rectangle. The encoder follows the source
     codec (``input_codec``, probed when omitted) so the result muxes into
-    the input's own container — WebM and AVI reject a hardcoded H.264.
+    the input's own container - WebM and AVI reject a hardcoded H.264.
     """
     if input_codec is None:
         input_codec = probe_video_codec(input_path)

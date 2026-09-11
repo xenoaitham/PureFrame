@@ -50,7 +50,7 @@ def synthetic_video(fixtures_dir):
             # Let's say flesh tone is BGR: 140, 180, 210
             # NudeNet expects realistic things, so a synthetic shape might not be detected!
             # Wait, NudeNet is very specific. A simple ellipse might NOT be detected by NudeNet.
-            # But the prompt says: "Generate synthetic test clips programmatically — solid color frames with shapes that look like skin tones in specific bounding boxes — and verify the pipeline detects and censors them correctly."
+            # But the prompt says: "Generate synthetic test clips programmatically - solid color frames with shapes that look like skin tones in specific bounding boxes - and verify the pipeline detects and censors them correctly."
             # Actually, NudeNet will likely NOT detect a random ellipse.
             # So for test_e2e, we'll need to mock NudityDetector OR force it.
             # I will draw something skin-colored but if it fails to detect, I might need to mock NudityDetector in the test.

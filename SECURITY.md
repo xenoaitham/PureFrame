@@ -34,8 +34,8 @@ PureFrame processes potentially sensitive media files. Our security model addres
 
 PureFrame makes **zero** network requests during video processing. The only network activity occurs during:
 
-1. **First-time model download** (NudeNet, CLIP, PANNs) — uses HTTPS from trusted sources
-2. **pip install** — standard PyPI package installation
+1. **First-time model download** (NudeNet, CLIP, PANNs) - uses HTTPS from trusted sources
+2. **pip install** - standard PyPI package installation
 
 After installation and first run, PureFrame works **completely offline**.
 
@@ -110,9 +110,9 @@ pipdeptree --packages pureframe --json > sbom.json
 ## Safe Usage Guidelines
 
 1. **Process your own legal copies** of media only
-2. **Review censor plans** before applying — use the `plan` + `plan-edit` workflow
+2. **Review censor plans** before applying - use the `plan` + `plan-edit` workflow
 3. **Keep PureFrame updated** to receive security fixes
-4. **Store output files securely** — the censored video is still your responsibility
+4. **Store output files securely** - the censored video is still your responsibility
 5. **Delete model caches** if you want to remove all traces of PureFrame from your system
 
 ---

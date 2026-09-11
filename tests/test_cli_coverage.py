@@ -1,4 +1,4 @@
-"""Additional CLI coverage tests — version, edge cases, error paths."""
+"""Additional CLI coverage tests - version, edge cases, error paths."""
 
 from typer.testing import CliRunner
 

@@ -1,8 +1,8 @@
 """`pureframe preview --before-after`: paired original/censored PNGs.
 
-Each flagged shot gets a full-resolution pair — the untouched frame and the
+Each flagged shot gets a full-resolution pair - the untouched frame and the
 same frame with the plan's censoring applied through the same overlay
-callback the real renderer uses — embedded side-by-side in the HTML report.
+callback the real renderer uses - embedded side-by-side in the HTML report.
 Lets a user verify blur placement per shot without rendering the video, and
 gives the GUI loadable images for its before/after view.
 """

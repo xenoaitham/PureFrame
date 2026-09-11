@@ -101,7 +101,7 @@ class TestProbeKeyframeTimes:
 
     @patch("pureframe.pipeline.render.smart.subprocess.run")
     def test_skips_packets_without_pts(self, mock_run):
-        # AVI/H.264 carries no presentation timestamps — no usable map.
+        # AVI/H.264 carries no presentation timestamps - no usable map.
         mock_run.return_value = MagicMock(
             stdout="N/A,K__\nN/A,___\nN/A,K__\n", returncode=0
         )
@@ -460,7 +460,7 @@ class TestSmartRendering:
     def test_accepts_fraction_fps(self, _probe, config, profile_settings):
         # execute_render passes plan.input_metadata.fps, a Fraction. The
         # "Smart render: …s" log line formats durations with :.1f, which
-        # Fraction only supports from Python 3.12 — on 3.11 the smart path
+        # Fraction only supports from Python 3.12 - on 3.11 the smart path
         # crashed before reaching its fallback try-block.
         from fractions import Fraction
 
@@ -528,7 +528,7 @@ class TestSmartRenderKeyframeAlignment:
     """End-to-end guard for the keyframe-snap contract.
 
     A stream-copy cut that is not on a keyframe snaps back to the previous
-    sync point and duplicates everything from there — the output grows and
+    sync point and duplicates everything from there - the output grows and
     replayed content shows up after the censored section (observed as a
     9.1s render of a 5s clip whose demo GIF then "played the original"
     after the blur). With ``-g 15`` there are keyframes every second, so

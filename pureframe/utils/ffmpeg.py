@@ -145,7 +145,7 @@ def select_hw_encoder(profile: HardwareProfile, codec: str) -> str:
 # Source codecs whose container forbids a codec change: WebM carries only
 # VP8/VP9/AV1 and AVI expects MPEG-4 ASP (or Annex-B H.264). The concat
 # demuxer also needs one codec across stream-copied and re-encoded chunks,
-# so the re-encode must match the source. Software encoders only — these
+# so the re-encode must match the source. Software encoders only - these
 # codecs have no reliable hardware paths on consumer machines.
 _SOURCE_MATCHED_ENCODERS = {
     "vp8": "libvpx",
@@ -163,7 +163,7 @@ def select_render_encoder(
     written into the input's own container, so the codec has to follow the
     source: VP8/VP9 for WebM, MPEG-4 for AVI, and HEVC stays HEVC (mixing it
     with H.264 broke concat and silently forced a full re-encode). H.264
-    sources — and anything we cannot match — keep honoring ``output_codec``
+    sources - and anything we cannot match - keep honoring ``output_codec``
     exactly as before.
     """
     codec = (input_codec or "").lower()
@@ -256,7 +256,7 @@ def frames_iter(
         pipe_stdout=True, pipe_stderr=True
     )
 
-    # Drain stderr in background — Windows pipe buffers are ~4KB and ffmpeg
+    # Drain stderr in background - Windows pipe buffers are ~4KB and ffmpeg
     # blocks writing stderr if we never read it, deadlocking process.wait().
     import threading
 
@@ -288,8 +288,8 @@ def _encoder_preset_arg(encoder: str, preset: str | None) -> str | None:
     """Map the profile's speed preset onto the encoder, or drop it.
 
     The profile presets use the x264/x265 scale ("veryfast" etc.), which
-    hardware encoders (nvenc/qsv/videotoolbox/amf) reject outright —
-    nvenc: ``Unable to parse option value "veryfast"`` — and libvpx/mpeg4
+    hardware encoders (nvenc/qsv/videotoolbox/amf) reject outright -
+    nvenc: ``Unable to parse option value "veryfast"`` - and libvpx/mpeg4
     do not know at all. Those encoders keep their own defaults (libvpx gets
     its speed from ``cpu-used`` in :func:`_quality_args`).
     """
@@ -311,7 +311,7 @@ def write_video_with_overlay(
 
     Optional ``ss``/``to`` (seconds) restrict decoding to a sub-range, used by
     the smart segment renderer to re-encode only dirty segments. ``preset``
-    sets the encoder speed/quality preset — ffmpeg's default ``medium`` costs
+    sets the encoder speed/quality preset - ffmpeg's default ``medium`` costs
     2-3x encode time on software encoders, so profiles ship a faster one.
     """
     import os
@@ -367,7 +367,7 @@ def write_video_with_overlay(
     # Speed presets from the profile use the x264/x265 scale ("veryfast"
     # etc.), which hardware encoders reject outright (nvenc: "Unable to
     # parse option value"). Software encoders get the preset; hardware
-    # encoders keep their defaults — they don't need it.
+    # encoders keep their defaults - they don't need it.
     preset_arg = _encoder_preset_arg(encoder, preset)
     if preset_arg:
         out_kwargs["preset"] = preset_arg

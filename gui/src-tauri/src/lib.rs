@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 /// Maximum size we will read for a single censor-plan JSON blob.
-/// Plans are small JSON documents — anything larger almost certainly
+/// Plans are small JSON documents - anything larger almost certainly
 /// indicates the wrong file or an attempt to exhaust memory.
 const MAX_PLAN_BYTES: u64 = 16 * 1024 * 1024; // 16 MiB
 
@@ -23,7 +23,7 @@ const ALLOWED_VIDEO_EXTS: &[&str] = &[
 /// the buffer must hold the last full redraws to make the tail readable.
 const LOG_TAIL_LINES: usize = 400;
 
-/// Log lines returned by `job_status` — enough for the UI to show the
+/// Log lines returned by `job_status` - enough for the UI to show the
 /// active progress line plus recent context without shipping the world.
 const LOG_TAIL_REPORT: usize = 24;
 

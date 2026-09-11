@@ -82,7 +82,7 @@ def detect_profile(cuda_device: int = 0) -> HardwareProfile:
             device_count = None
         if isinstance(device_count, int) and cuda_device >= device_count:
             logger.warning(
-                "CUDA device %s does not exist (%s GPU(s) found) — profiling device 0.",
+                "CUDA device %s does not exist (%s GPU(s) found) - profiling device 0.",
                 cuda_device,
                 device_count,
             )

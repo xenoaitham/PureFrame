@@ -1,6 +1,6 @@
 name: Nightly slow suite
 
-# The regular CI runs `-m "not slow"` — which is exactly how the v0.2.0
+# The regular CI runs `-m "not slow"` - which is exactly how the v0.2.0
 # render bugs shipped: the real-render e2e guards existed, were failing on
 # master, and nothing noticed because the slow marker kept them out of CI.
 # This scheduled job runs the full slow suite (real renders plus the

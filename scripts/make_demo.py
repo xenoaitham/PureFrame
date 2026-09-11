@@ -2,15 +2,15 @@
 """Regenerate the README demo assets (assets/demo.gif).
 
 The demo must be shippable without licensing concerns, so it is fully
-synthetic — but it should look like a film frame, not a test pattern.
+synthetic - but it should look like a film frame, not a test pattern.
 This script renders a cinematic dusk scene with numpy (animated gradient,
 drifting bokeh, film grain, vignette) and a soft skin-tone figure crossing
 the frame, fabricates a censor plan whose per-frame boxes track the
 figure's torso, renders the censored output with ``pureframe apply``
 (default Gaussian-blur mode), and encodes a labelled side-by-side GIF.
 
-Plan boxes are authored in the CPU profile's detection space (480 px) —
-the same space real NudeNet detections occupy — so the renderer's
+Plan boxes are authored in the CPU profile's detection space (480 px) -
+the same space real NudeNet detections occupy - so the renderer's
 detection→native rescale lands the blur exactly on the figure. (The
 previous demo authored boxes in native coordinates and the blur drifted
 into the bottom-right corner as a result.)
@@ -46,7 +46,7 @@ N_FRAMES = int(FPS * DURATION_S)  # 150
 
 # The figure crosses the frame during this window; the flagged middle shot
 # (1.5 s – 3.5 s) covers it almost exactly, so the blur appears as the
-# figure enters and clears as it leaves — shot-level flagging, honestly.
+# figure enters and clears as it leaves - shot-level flagging, honestly.
 ENTER_S, EXIT_S = 1.35, 3.65
 
 # CPU profile detection resolution; the plan snapshot pins this profile.
@@ -106,7 +106,7 @@ class SceneRenderer:
 
         # Moonlit window, top right: soft bleed first, then the hard pane
         # with dark cross bars. The hard edges give the blur rectangle
-        # something to smear — without structure the whole soft scene
+        # something to smear - without structure the whole soft scene
         # hides where the censor blur actually is.
         wx1, wy1, wx2, wy2 = 560.0, 40.0, 810.0, 300.0
         d2 = (self.xx - (wx1 + wx2) / 2) ** 2 + (self.yy - (wy1 + wy2) / 2) ** 2

@@ -141,7 +141,7 @@ def _extraction_worker(
 
         The caller uses the result to bail out of the shot loop, so a bare
         ``return`` here (v0.2.0–v0.2.1) read as "stop" after the very first
-        shot — every later shot went unanalyzed and uncensored.
+        shot - every later shot went unanalyzed and uncensored.
         """
         while not stop_event.is_set():
             try:
@@ -234,8 +234,8 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
 
         # Densify must keep every detection fuse() could have flagged on.
         # Filtering at the raw CLI value instead (the default 0.55) dropped
-        # the boxes of shots flagged by a lower preset — e.g. a 0.40 score
-        # under --strictness high — leaving BLACK_BOX verdicts with no boxes.
+        # the boxes of shots flagged by a lower preset - e.g. a 0.40 score
+        # under --strictness high - leaving BLACK_BOX verdicts with no boxes.
         eff_nudity, _, _ = config.get_effective_thresholds()
         densify_threshold = eff_nudity * (0.85 if config.strict else 1.0)
 
@@ -327,7 +327,7 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                 )
                         else:
                             # The audio score cannot change the verdict when the
-                            # CLIP scene signal is below its thresholds — skip the
+                            # CLIP scene signal is below its thresholds - skip the
                             # PANNs run entirely and fuse with a neutral context.
                             audio_ctx = AudioContext(
                                 moaning_score=0.0,
@@ -407,7 +407,7 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                     for b in boxes
                                 ]
                             else:
-                                # Every other flagged verdict lands here —
+                                # Every other flagged verdict lands here -
                                 # nudity BLACK_BOX included. Without this the
                                 # verdict carries boxes=None and the renderer
                                 # re-encodes the shot without censoring it
@@ -552,7 +552,7 @@ def execute_render(
                     )
 
         # A render that silently produced nothing must never be recorded as
-        # DONE — that is exactly how stale checkpoints went on to skip every
+        # DONE - that is exactly how stale checkpoints went on to skip every
         # future attempt ("already DONE. Skipping.") while no output existed.
         out_file = Path(config.output_path) if config.output_path else None
         if out_file is None or not out_file.exists() or out_file.stat().st_size == 0:
@@ -818,7 +818,7 @@ def plan_edit_cmd(
     import shlex
 
     while True:
-        # On Windows we must keep backslashes literal — shlex POSIX mode would
+        # On Windows we must keep backslashes literal - shlex POSIX mode would
         # treat them as escape characters and mangle paths like
         # ``C:\Python311\python.exe``.
         editor_cmd = shlex.split(editor, posix=(os.name != "nt"))
@@ -1117,8 +1117,8 @@ def preview_cmd(
     """Export flagged frame thumbnails as an HTML contact sheet for safe review.
 
     With ``--before-after`` each flagged shot also gets a side-by-side pair
-    of full-resolution PNGs — the untouched frame and the same frame with
-    this plan's censoring applied — so you can check blur placement without
+    of full-resolution PNGs - the untouched frame and the same frame with
+    this plan's censoring applied - so you can check blur placement without
     rendering the whole video.
     """
     plan = CensorPlan.load(plan_path)
@@ -1404,7 +1404,7 @@ def bench_cmd(
 
     With --real, runs against your own file instead (no copyrighted sample
     is ever shipped or asked for). Records identify the file only by its
-    SHA-256 and resolution — safe to share the JSONL.
+    SHA-256 and resolution - safe to share the JSONL.
     """
     from pureframe.bench import (
         BENCH_PROFILES,

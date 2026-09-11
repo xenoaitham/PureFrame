@@ -4,12 +4,12 @@ Constants are calibrated from the published v0.2.1 bench run
 (`BENCHMARKS.md`, 30 s @ 30 fps = 900 frames on the RTX 3060 reference
 machine, `bench-report.json`):
 
-- analysis per frame = (total − render) / 900 per profile — the whole plan
+- analysis per frame = (total − render) / 900 per profile - the whole plan
   stage minus the render phase;
-- full re-encode per frame ≈ 4.1 s / 900 — the bench clip is a single
+- full re-encode per frame ≈ 4.1 s / 900 - the bench clip is a single
   flagged shot, so its render phase re-encodes every frame (nvenc on the
   reference GPU);
-- stream copy per frame ≈ 0.07 s / 900 — the CPU-profile bench clip flagged
+- stream copy per frame ≈ 0.07 s / 900 - the CPU-profile bench clip flagged
   nothing, so its render phase is a pure copy (dominated by ffmpeg startup).
 
 These are order-of-magnitude calibrations, not guarantees: real content
@@ -28,7 +28,7 @@ ANALYSIS_SPF = {
 }
 
 # Full re-encode, seconds per frame. nvenc number from the bench render
-# phase; libx264 (CPU profile) calibrated to ~50 fps 720p veryfast — the
+# phase; libx264 (CPU profile) calibrated to ~50 fps 720p veryfast - the
 # bench has no CPU-profile re-encode data point.
 REENCODE_SPF = {
     HardwareProfile.CPU: 0.020,
