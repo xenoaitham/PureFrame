@@ -122,6 +122,11 @@ class Config(BaseSettings):
     # config_hash: it is a performance knob, not a detection decision - a
     # cached verdict from GPU 0 is valid on GPU 1.
     device: int | None = None
+    # Entry-point names of enabled detector plugins (--enable-plugin,
+    # repeatable). No auto-enable: plugins change verdicts, so enabling is
+    # explicit. Folds into config_hash only when non-empty, so pre-plugin
+    # checkpoints keep hashing to their old values.
+    enabled_plugins: list[str] = []
 
     model_config = SettingsConfigDict(env_prefix="PUREFRAME_")
 
@@ -236,6 +241,8 @@ class Config(BaseSettings):
         # the configuration.
         if self.threshold_overrides:
             data["threshold_overrides"] = dict(sorted(self.threshold_overrides.items()))
+        if self.enabled_plugins:
+            data["enabled_plugins"] = sorted(self.enabled_plugins)
         if self.content_fingerprint:
             data["content_fingerprint"] = self.content_fingerprint
         data_str = json.dumps(data, sort_keys=True)
