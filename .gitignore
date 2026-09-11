@@ -64,6 +64,6 @@ devlogs/
 # local AI-tool session artifacts (never shipped)
 .zcode/
 
-# LO local-only files (drafts, prompts) - never shipped
+# local-only files (drafts, prompts) - never shipped
 DRAFT_*.md
 PROMPT_*.md
