@@ -1,8 +1,8 @@
 # Roadmap
 
-Last reconciled 2026-09-10, against v0.2.1 plus the two fixes that followed
-it (#66, #67). Every tick below carries its evidence - a PR, a workflow, a
-file - so nobody has to guess again.
+Last reconciled 2026-09-11, after v0.2.2 and the plugin API session. Every
+tick below carries its evidence - a PR, a workflow, a file - so nobody has
+to guess again.
 
 Version-number buckets stopped matching reality (desktop installers, a
 "v0.3.0" item, shipped before half of the "v0.2.0" list), so this is now one
@@ -16,22 +16,12 @@ _Nothing in flight - the next work is queued under Next._
 
 ## Next
 
-- **Before/after in the GUI.** The CLI side shipped (`pureframe preview
-  --before-after` writes full-resolution PNG pairs per flagged shot, embedded
-  in the HTML report); the GUI plan editor still needs to load and display
-  them via `load_plan`-style IPC.
-- **Plugin API for custom detectors.** Design note before code: a detector
-  is `detect_batch(frames) -> [Detection]` + a label→category map + a
-  threshold, registered via entry points; `fuse()` must treat non-nudity
-  categories as box providers (the box plumbing exists since #63). Ship with
-  one example plugin and a docs page. → **Design note written:
-  `docs/plugin-api.md`** - code lands in the four slices it lays out, after
-  a read-through from me.
-- **Emoji / sticker overlay** as a fourth censor style (blur, solid box and
-  pixelate exist - `BlurMode` in `config.py`).
-- **Bundled FFmpeg for the macOS and Linux standalones.** The Windows zip
-  already carries `ffmpeg.exe` + `ffprobe.exe`; the others still need a
-  system ffmpeg.
+- **Dependabot follow-ups, done deliberately.** The safe patch/minor bumps
+  merged as batches (#94, #95); the risky majors were closed with reasons
+  (tailwind 4, eslint 10, action-gh-release 3, upload/download-artifact,
+  codecov 7, checkout 7). Each major gets a dedicated PR in a maintenance
+  window - checkout first, since CI already shows the Node 20 deprecation
+  warnings it would fix.
 
 ## Later
 
@@ -163,20 +153,48 @@ _Nothing in flight - the next work is queued under Next._
       IPC (debounced, latest-wins), selecting a shot moves the bar to its
       midpoint. Iterated in a plain browser via the e2e shim; Playwright
       covers the interaction (#78)
+- [x] Before/after pane - selecting a shot shows the pair
+      `pureframe preview --before-after` wrote, through a new
+      `read_preview_pair` command that derives the file names itself and
+      canonicalizes through the same path gate as the other commands (#91)
+
+### Plugin API (all four slices from docs/plugin-api.md)
+
+- [x] Discovery - `pureframe.plugin_api.discover()` over the
+      `pureframe.plugins` entry-point group, contract validation, broken
+      plugins skipped with a warning (#87)
+- [x] Box-provider fusion - plugin categories flag BLACK_BOX on visual
+      evidence alone, never downgrade nudity, outrank the kiss branches,
+      and ride the per-category threshold controls (#88)
+- [x] CLI - `pureframe plugins list`, repeatable `--enable-plugin` on
+      plan/process, enabled set in config_hash only when non-empty so
+      pre-plugin checkpoints stay valid (#89)
+- [x] Reference plugin - `examples/pureframe-plugins-examples` ships the
+      motionblob motion-blob detector; `docs/plugins.md` is the user page
+      (landed inside #91's merge)
+
+### Censor styles
+
+- [x] Emoji overlay - `--blur-mode emoji` draws one emoji per box center,
+      per-category defaults, `--emoji-char` override, solid-box fallback
+      when no emoji font exists; `--blur-mode` now exists on the CLI at all
+      (#93)
 
 ### Desktop packaging (every release since v0.2.0 - `release.yml`)
 
 - [x] Windows installer (`.exe`, `.msi`) and PyInstaller zip
 - [x] macOS `.app` / `.dmg` (arm64 and x64) and PyInstaller tarball
 - [x] Linux AppImage, `.deb`, `.rpm` and PyInstaller tarball
-- [x] Bundled FFmpeg - Windows zip only (`ffmpeg.exe` + `ffprobe.exe`);
-      macOS/Linux standalones use the system ffmpeg → tracked under Next
+- [x] Bundled FFmpeg - all standalones: Windows zip since v0.2.0; the macOS
+      tarball (arm64, ffmpeg-static b6.1.1 + @ffprobe-installer) and Linux
+      tarball (johnvansickle 7.0.2 static) since #92, with a run-the-binary
+      check in the packaging job itself
 - [x] Bundled models - NudeNet ships inside the standalones (it lives in the
       `nudenet` wheel); CLIP and PANNs download on first run
 - [x] First-run onboarding wizard - the GUI's onboarding page (`gui/src/App.tsx`)
 - [x] `SHA256SUMS.txt` attached to every release (`release.yml`). Code
       signing is a separate, paid item - see Blocked on me
-- [x] 13 assets on v0.2.1: `gh release view v0.2.1 --json assets`
+- [x] 13 assets on v0.2.1 and v0.2.2: `gh release view v0.2.2 --json assets`
 
 ### Incidents that shaped this board
 

@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Plugin API for custom detectors.** Register a detector class through
+  the `pureframe.plugins` entry-point group and it shows up in
+  `pureframe plugins list`; opt in per run with a repeatable
+  `--enable-plugin name` on `plan`/`process`. Plugin categories are box
+  providers: they flag per-frame blur boxes on visual evidence alone
+  (never gated on audio), can never downgrade a nudity verdict, densify
+  and smooth through the same pipeline as nudity boxes, and their
+  categories join the per-category threshold controls
+  (`--thresholds file.json` keys them like `nudity`). Plans stay
+  portable - boxes are data, so a plan renders on machines without the
+  plugin. Ships with `pureframe-plugins-examples`, a motion-blob
+  reference plugin, and `docs/plugins.md` (user page);
+  `docs/plugin-api.md` is the developer reference.
+- **Emoji censor style.** `--blur-mode emoji` draws one emoji over each
+  box center, sized from the box; the default character is per category
+  (kisses get a kiss mark) and `--emoji-char` overrides it. Without a
+  system emoji font it falls back to a solid box, so a flagged region
+  never renders as untouched pixels. `--blur-mode` now exists on
+  `plan`/`process`/`apply` at all (the render style was previously
+  settable only from code), and `apply` can override the plan's snapshot.
+- **Before/after in the GUI.** The plan editor's shot view shows the
+  original/censored PNG pair for the selected shot (as written by
+  `pureframe preview --before-after`) side by side under the frame
+  thumbnail, through a new path-safe `read_preview_pair` command;
+  without a preview run it shows the command hint instead.
+- **Bundled FFmpeg on every standalone.** The macOS tarball and Linux
+  tarball now ship static `ffmpeg` + `ffprobe` next to the binary, like
+  the Windows zip already did - the standalones no longer require a
+  system ffmpeg. Each packaging job runs both bundled binaries before
+  archiving.
+
 ## [0.2.2] - 2026-09-11
 
 ### Added

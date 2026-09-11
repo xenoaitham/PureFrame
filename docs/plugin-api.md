@@ -119,10 +119,13 @@ later via the same discovery call.
 2. **Per-shot inference** - plugin `detect_batch` runs on the same sampled
    keyframes the nudity detector already extracted (no extra decodes);
    results merge into `batch_dets` per frame.
-3. **Fusion** - `fuse()` keeps its existing nudity branches untouched and
-   appends one branch per box-provider category: any detection ≥ that
-   category's effective threshold flags the shot `BLACK_BOX` with boxes.
-   A plugin must never *downgrade* a verdict the nudity path already made.
+3. **Fusion** - `fuse()` keeps its nudity and sexual-context branches
+   untouched and adds one shared plugin branch after them: any detection at
+   or above the category's effective threshold flags the shot `BLACK_BOX`
+   with boxes. Placement is deliberate - after the nudity/sexual-context
+   branches so a plugin can never *downgrade* a verdict those paths made,
+   and before the kiss branches so plugin evidence still censors a shot
+   that would otherwise render at `KISS_LIGHT` with no censoring.
 4. **Densify + tracking** - the existing densify pass extends to plugin
    detections whose shot was flagged by that plugin; boxes flow through the
    unchanged `smooth_detections` pipeline.
