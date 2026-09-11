@@ -29,6 +29,23 @@ class BlurMode(str, Enum):
     BLUR = "blur"
     BOX = "box"
     PIXELATE = "pixelate"
+    EMOJI = "emoji"
+
+
+# Default overlay character per verdict category when blur_mode is EMOJI
+# and no explicit ``emoji_char`` override is set. One emoji is drawn over
+# the box center, sized from the box, so the censoring reads as an
+# intentional marker instead of a glitch.
+EMOJI_BY_CATEGORY = {
+    "NUDITY_EXPLICIT": "🚫",
+    "SEXUAL_ACT_VISIBLE": "🚫",
+    "SEXUAL_CONTEXT_NO_NUDITY": "🚫",
+    "KISS_INTENSE": "💋",
+    "KISS_LIGHT": "💋",
+    "VIOLENCE_GORE": "💥",
+    "PLUGIN_BOX": "🚫",
+}
+DEFAULT_EMOJI = "🚫"
 
 
 # Threshold multipliers per content type
@@ -90,6 +107,10 @@ class Config(BaseSettings):
     blur_kernel: int = 51  # odd; bigger = more blur
     blur_sigma: float = 25.0
     pixelate_blocks: int = 16  # number of mosaic blocks across the box's long edge
+    # Emoji overlay character for BlurMode.EMOJI. Empty means "pick the
+    # per-category default" (EMOJI_BY_CATEGORY); a non-empty value pins one
+    # character for every box.
+    emoji_char: str = ""
     # Applies to H.264 sources; other codecs keep their own so censored
     # segments concat with the stream-copied ones and fit the input container.
     output_codec: str = "h264"
@@ -225,6 +246,7 @@ class Config(BaseSettings):
             "blur_kernel": self.blur_kernel,
             "blur_sigma": self.blur_sigma,
             "pixelate_blocks": self.pixelate_blocks,
+            "emoji_char": self.emoji_char,
             "output_codec": self.output_codec,
             "output_crf": self.output_crf,
             "strict": self.strict,

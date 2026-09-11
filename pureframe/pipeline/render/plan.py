@@ -60,4 +60,11 @@ class CensorPlan(BaseModel):
                     curr["action"] = Action.BLACK_BOX
                     if f in boxes_by_frame:
                         curr["boxes"].extend(boxes_by_frame[f])
+                    if not curr.get("category"):
+                        # First verdict to claim the frame names the
+                        # category; the emoji overlay picks its character
+                        # from this. Hand-edited plans may carry a plain
+                        # string, so read .value only when it exists.
+                        category = verdict.category
+                        curr["category"] = getattr(category, "value", category)
         return frame_actions
