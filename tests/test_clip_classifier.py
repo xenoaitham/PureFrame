@@ -21,7 +21,7 @@ def test_clip_classifier_synthetic():
     ctx = classifier.classify_shot(frame)
 
     # Per-category max-cosine maps each category independently to [0, 1]
-    # (no cross-category softmax — categories with more prompts should not
+    # (no cross-category softmax - categories with more prompts should not
     # automatically dominate). Each score is a bounded confidence, so we
     # assert ranges rather than a partition-of-unity.
     for score in (

@@ -1,4 +1,4 @@
-"""PureFrame Desktop Packaging — PyInstaller spec and build script.
+"""PureFrame Desktop Packaging - PyInstaller spec and build script.
 
 Usage:
     python packaging/build_desktop.py [--platform linux|windows|macos]

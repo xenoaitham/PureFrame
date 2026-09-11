@@ -18,7 +18,7 @@ Follow this battle-tested sequence to maximize visibility and adoption for PureF
 - **Hook:** "I'm working on a Plex plugin for this next, but the standalone CLI/GUI is ready now."
 
 ### 4. Hacker News (Show HN)
-- **Title:** `Show HN: PureFrame — Censor explicit visuals in any video locally, without cutting a frame`
+- **Title:** `Show HN: PureFrame - Censor explicit visuals in any video locally, without cutting a frame`
 - **First Comment:** Write a detailed comment explaining the technical challenges (YOLOv8, Audio Zero-shot classification, temporal smoothing algorithm) to engage the HN crowd.
 
 ### 5. Product Hunt

@@ -2,7 +2,7 @@
 
 NudeDetector.detect() returns ``box`` as ``[x, y, w, h]`` (verified against
 nudenet 3.4.2 source: nudenet.py appends ``[int(x), int(y), int(w), int(h)]``).
-NudityDetector must convert to ``(x1, y1, x2, y2)`` — getting this wrong
+NudityDetector must convert to ``(x1, y1, x2, y2)`` - getting this wrong
 either inflates boxes to cover half the frame or shifts them off-target.
 """
 

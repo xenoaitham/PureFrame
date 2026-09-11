@@ -96,7 +96,7 @@ class AudioClassifier:
         """Resolve PANNs label indices by name with safe fallback.
 
         The previous implementation used hardcoded integer indices for the
-        AudioSet 527-class label set. Those indices are fragile — they were
+        AudioSet 527-class label set. Those indices are fragile - they were
         likely copied without verification and ``smack: 467`` in particular
         does not correspond to a kiss/smack sound in the canonical AudioSet
         label order. We now look the labels up by name at startup, logging

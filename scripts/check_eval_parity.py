@@ -3,12 +3,12 @@
 
 Compares a fresh `pureframe evaluate` report against `eval-baseline.json`:
 
-1. Detection signature — per-scenario label sets must match exactly and per
+1. Detection signature - per-scenario label sets must match exactly and per
    label scores within SCORE_TOLERANCE. This is sensitive to ANY model
    behavior change (quantization, version bumps, preprocessing drift), which
    matters because synthetic scenarios may legitimately score zero on
    explicit-label F1.
-2. Aggregate precision/recall/F1 — compared within ±TOLERANCE whenever the
+2. Aggregate precision/recall/F1 - compared within ±TOLERANCE whenever the
    baseline metric is non-zero.
 
 Bootstrap mode: if the baseline file is missing, the check passes with a
@@ -79,7 +79,7 @@ def main() -> int:
 
     if not baseline_path.exists():
         print(
-            "WARNING: eval-baseline.json not found — parity check skipped "
+            "WARNING: eval-baseline.json not found - parity check skipped "
             "(bootstrap mode).\n"
             "To create the baseline, commit the freshly generated report:\n"
             f"  cp {report_path} {baseline_path}",

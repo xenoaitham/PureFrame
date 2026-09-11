@@ -16,7 +16,7 @@ from pureframe.config import Config
 @pytest.fixture
 def store(tmp_path):
     """cli.get_store is monkeypatched by conftest's autouse fixture to a fresh
-    tmp DB per test — always go through it so we seed the same store that
+    tmp DB per test - always go through it so we seed the same store that
     process_file consults."""
     return cli.get_store()
 
@@ -56,7 +56,7 @@ def test_done_job_with_deleted_output_reruns(store, tmp_path, monkeypatch):
 
     job = store.find_or_create_job(cfg.input_path, cfg.output_path, cfg)
     store.update_status(job.id, "DONE")
-    # Output was never written (or has been deleted) — the checkpoint lies.
+    # Output was never written (or has been deleted) - the checkpoint lies.
 
     rendered = []
     monkeypatch.setattr(

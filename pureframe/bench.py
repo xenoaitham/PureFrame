@@ -1,4 +1,4 @@
-"""`pureframe bench` — repeatable performance benchmark.
+"""`pureframe bench` - repeatable performance benchmark.
 
 Generates a synthetic clip that actually exercises the pipeline (moving
 skin-tone regions trigger detections; a silent audio track exercises the
@@ -10,7 +10,7 @@ The inner runs invoke the Typer app in-process (CliRunner) rather than
 spawning a subprocess: no binary discovery, deterministic capture, and the
 only environment switch needed is `PUREFRAME_DATA_DIR`, which
 `cli.get_store()` honors for checkpoint isolation. Model caches are shared
-across runs on purpose — wiping them would benchmark downloads, not
+across runs on purpose - wiping them would benchmark downloads, not
 PureFrame.
 """
 
@@ -293,7 +293,7 @@ def run_benchmark_real(
     Same flow as the synthetic benchmark (CliRunner `process`, per-phase
     timers) but on real content, and results stream to a local JSONL so
     runs accumulate. Records are privacy-safe by construction: the file is
-    identified by its SHA-256 and basic metadata — the path never leaves
+    identified by its SHA-256 and basic metadata - the path never leaves
     the machine, so a shared JSONL carries no filenames.
     """
     from pureframe.checkpoint import content_fingerprint
@@ -397,7 +397,7 @@ def summarize_real_records(records: list[dict]) -> str:
 
     f = records[0]["file"]
     lines = [
-        f"Real benchmark — {f['width']}x{f['height']} {f['duration_seconds']:.0f}s "
+        f"Real benchmark - {f['width']}x{f['height']} {f['duration_seconds']:.0f}s "
         f"{f['video_codec']}/{f['container']} (sha256 {f['sha256'][:12]}…)",
         "",
         "| Profile | Runs | Total (median) | Flagged | Top phases |",

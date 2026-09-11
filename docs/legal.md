@@ -22,13 +22,13 @@ PureFrame is designed for **private, personal use** on video files you legally o
 ## User Responsibility
 
 - You are responsible for ensuring you have the legal right to process and modify the video files
-- Modified output files are your responsibility — do not redistribute copyrighted content
+- Modified output files are your responsibility - do not redistribute copyrighted content
 - PureFrame's detections are AI-based and not guaranteed to catch all explicit content
 - PureFrame is a tool, not a replacement for parental judgment or legal compliance
 
 ## Copyright Notice
 
-PureFrame does not claim any ownership or modification rights over the content it processes. The software is a tool — the legal responsibility for how it is used rests with the user.
+PureFrame does not claim any ownership or modification rights over the content it processes. The software is a tool - the legal responsibility for how it is used rests with the user.
 
 ## Jurisdiction
 

@@ -14,7 +14,7 @@
 | **Medical content** | Surgical footage, anatomy lessons | Exposed skin triggers detection | Use `--content-type live-action --strictness low` |
 | **Breastfeeding** | Nursing scenes | Exposed breast detected regardless of context | Whitelist manually after preview |
 | **Male shirtless** | Gym, sports, beach | Large skin area at high strictness | Usually only triggers at `--strictness high` |
-| **Mannequins/Statues** | Store displays, museums | Realistic body shapes trigger detection | Low confidence — usually filtered at medium strictness |
+| **Mannequins/Statues** | Store displays, museums | Realistic body shapes trigger detection | Low confidence - usually filtered at medium strictness |
 
 ### False Negatives (Missed explicit content)
 
@@ -22,7 +22,7 @@
 |----------|---------|---------------|------------|
 | **Very dark scenes** | Dimly lit bedroom, candlelight | Low contrast reduces detector confidence | Use `--content-type low-light` |
 | **Flash frames** | Single-frame nudity (1/24s) | May fall between keyframe samples | Use `--strictness high` with denser sampling |
-| **Extreme close-ups** | Partial body parts filling the frame | Detector trained on body-scale views | Limited mitigation — being improved |
+| **Extreme close-ups** | Partial body parts filling the frame | Detector trained on body-scale views | Limited mitigation - being improved |
 | **Small/distant nudity** | Background nudity, crowd scenes | Small regions below detection threshold | Lower `--threshold` to 0.3 |
 | **Non-standard skin tones** | Very dark or very pale skin in extreme lighting | Color-based features less reliable at extremes | Being improved in v0.2.0 |
 | **Artistic nudity** | Black & white, heavy post-processing | Color distortion affects skin detection | Use `--strictness high` |
@@ -33,9 +33,9 @@
 | Issue | Description | Mitigation |
 |-------|-------------|------------|
 | **Anime fanservice** | Ecchi content with steam/light censoring | Use `--content-type anime --strictness high` |
-| **Transformation sequences** | Magical girl style — brief silhouette nudity | Usually flagged correctly at medium+ |
+| **Transformation sequences** | Magical girl style - brief silhouette nudity | Usually flagged correctly at medium+ |
 | **Chibi/super-deformed** | Non-realistic body proportions | Generally not flagged (correct behavior) |
-| **Cel-shaded realism** | Photo-realistic anime/CG | Works well — similar to live-action detection |
+| **Cel-shaded realism** | Photo-realistic anime/CG | Works well - similar to live-action detection |
 
 ## Rendering Limitations
 
@@ -44,9 +44,9 @@
 | **HDR tone mapping** | HDR10/HLG content may have slightly different colors after re-encode | Preserved via codec passthrough when possible |
 | **Subtitle burn-in** | Burned-in subtitles may shift slightly on segment boundaries | Use external subtitle tracks when possible |
 | **Variable frame rate** | VFR content (screen recordings) may have timing issues | Convert to CFR first: `ffmpeg -i input.mp4 -vsync cfr output.mp4` |
-| **Multi-audio tracks** | All audio tracks are preserved but may lose channel layout metadata | Lossless audio copy — metadata only |
+| **Multi-audio tracks** | All audio tracks are preserved but may lose channel layout metadata | Lossless audio copy - metadata only |
 | **DRM content** | Protected streams cannot be processed | PureFrame only works on unprotected files |
-| **Containers & codecs** | Output keeps the input's container and video codec: MP4/MKV (H.264, HEVC), WebM (VP8, VP9) and AVI (MPEG-4, H.264) are covered by tests. Censored segments are re-encoded with the matching software encoder — VP9 re-encodes are CPU-bound and noticeably slower than H.264. | AVI/H.264 files carry no presentation timestamps, so they always take the full re-encode path (correct, just slower). AV1 and other codecs re-encode to H.264, which WebM rejects: transcode AV1 WebM first, e.g. `ffmpeg -i in.webm -c:v libvpx-vp9 -c:a copy in.vp9.webm` |
+| **Containers & codecs** | Output keeps the input's container and video codec: MP4/MKV (H.264, HEVC), WebM (VP8, VP9) and AVI (MPEG-4, H.264) are covered by tests. Censored segments are re-encoded with the matching software encoder - VP9 re-encodes are CPU-bound and noticeably slower than H.264. | AVI/H.264 files carry no presentation timestamps, so they always take the full re-encode path (correct, just slower). AV1 and other codecs re-encode to H.264, which WebM rejects: transcode AV1 WebM first, e.g. `ffmpeg -i in.webm -c:v libvpx-vp9 -c:a copy in.vp9.webm` |
 
 ## Performance Limitations
 

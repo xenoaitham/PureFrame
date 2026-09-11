@@ -9,7 +9,7 @@ from pureframe.pipeline.shots import ShotVerdict
 
 
 def content_fingerprint(path: Path, chunk_size: int = 1 << 20) -> str:
-    """Streaming SHA-256 of the file's bytes — the "same video?" key.
+    """Streaming SHA-256 of the file's bytes - the "same video?" key.
 
     A checkpoint keyed only on (path, config) goes stale the moment the file
     at that path is replaced; the fingerprint makes a changed file a cache

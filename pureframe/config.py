@@ -46,7 +46,7 @@ STRICTNESS_PRESETS = {
     Strictness.HIGH: (0.35, 0.35, 0.40),
 }
 
-# Per-category threshold names in (nudity, clip, audio) order — the order
+# Per-category threshold names in (nudity, clip, audio) order - the order
 # get_effective_thresholds() returns and the keys a --thresholds file uses.
 THRESHOLD_CATEGORIES = ("nudity", "clip", "audio")
 
@@ -96,12 +96,10 @@ class Config(BaseSettings):
     output_crf: int = 20
     log_level: str = "INFO"
 
-    # Phase 2 additions
     strict: bool = False
     no_clip: bool = False
     no_audio: bool = False
 
-    # Phase 3 additions
     content_type: ContentType = ContentType.LIVE_ACTION
     strictness: Strictness = Strictness.MEDIUM
     force: bool = False
@@ -116,12 +114,12 @@ class Config(BaseSettings):
     # the pre-fingerprint checkpoint keys.
     content_fingerprint: str = ""
     # --no-cache escape: bypass cached jobs and verdicts entirely. Excluded
-    # from config_hash on purpose — the flag changes cache *reads*, not the
+    # from config_hash on purpose - the flag changes cache *reads*, not the
     # detection configuration it describes.
     no_cache: bool = False
     cache_salt: str = ""
     # CUDA device index for the ML models (--device, 0-based). Excluded from
-    # config_hash: it is a performance knob, not a detection decision — a
+    # config_hash: it is a performance knob, not a detection decision - a
     # cached verdict from GPU 0 is valid on GPU 1.
     device: int | None = None
 
@@ -206,7 +204,7 @@ class Config(BaseSettings):
         # Only when set: empty fingerprints (direct constructions,
         # pre-fingerprint checkpoints) and empty override maps must keep
         # hashing to the same value as before. no_cache and cache_salt are
-        # deliberately excluded — they bypass cache reads and don't describe
+        # deliberately excluded - they bypass cache reads and don't describe
         # the configuration.
         if self.threshold_overrides:
             data["threshold_overrides"] = dict(sorted(self.threshold_overrides.items()))

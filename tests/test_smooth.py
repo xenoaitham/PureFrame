@@ -1,4 +1,4 @@
-"""Tests for smooth detections — interpolation, padding, median filtering."""
+"""Tests for smooth detections - interpolation, padding, median filtering."""
 
 from pureframe.pipeline.detect.nudity import Detection
 from pureframe.pipeline.shots import Shot

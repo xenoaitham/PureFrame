@@ -51,7 +51,7 @@ def process_folder(
 
     report = BatchReport()
 
-    # Resolve profile once here — don't pass None into subprocesses
+    # Resolve profile once here - don't pass None into subprocesses
     from pureframe.hardware import detect_profile
 
     resolved_profile = base_config.profile or detect_profile()
@@ -65,7 +65,7 @@ def process_folder(
         # field (including content_type, strictness, blur_mode, etc.). The
         # previous implementation listed fields by hand and silently dropped
         # ``content_type`` and ``strictness``, causing batch runs to ignore
-        # those settings entirely. The content fingerprint is recomputed —
+        # those settings entirely. The content fingerprint is recomputed -
         # the base config carries the dummy placeholder file's hash, and a
         # stale one would key every re-run of this file to a fresh job.
         from pureframe.checkpoint import content_fingerprint
@@ -107,7 +107,7 @@ def process_folder(
             t.add_row(k, v)
         return t
 
-    # Use 'spawn' start method — CUDA cannot be re-initialized in forked subprocesses
+    # Use 'spawn' start method - CUDA cannot be re-initialized in forked subprocesses
     mp_ctx = multiprocessing.get_context("spawn")
     with Live(render_table(), refresh_per_second=2) as live:
         with ProcessPoolExecutor(max_workers=parallel, mp_context=mp_ctx) as executor:

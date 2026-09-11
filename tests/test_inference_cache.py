@@ -1,6 +1,6 @@
 """Inference cache: verdicts are keyed on (content hash, config hash).
 
-The checkpoint store keyed jobs on (path, config) only — replace the file at
+The checkpoint store keyed jobs on (path, config) only - replace the file at
 that path and every later run silently reused the stale verdicts. Jobs now
 also fold a streaming SHA-256 of the file's bytes into the key, so:
 
@@ -141,7 +141,7 @@ def test_changed_file_is_a_cache_miss(three_shot_video, tmp_path, monkeypatch):
     pureframe.cli.process_file(cfg)
     assert calls[0] > 0
 
-    # Same path, different bytes: re-mux with a comment atom — valid MP4,
+    # Same path, different bytes: re-mux with a comment atom - valid MP4,
     # changed SHA-256.
     bumped = tmp_path / "bumped.mp4"
     subprocess.run(

@@ -3,7 +3,7 @@
 ``detect_profile`` imports torch inside the function, so patching
 ``sys.modules["torch"]`` is enough to drive it. The reload dance this file
 once used re-executed the module and replaced its classes (HardwareProfile,
-ProfileSettings) — every later ``isinstance`` against the originals failed
+ProfileSettings) - every later ``isinstance`` against the originals failed
 depending on test order. Compare by ``.value`` here instead.
 """
 

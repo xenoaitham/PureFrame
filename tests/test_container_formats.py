@@ -8,9 +8,9 @@ the mock fires exactly on marker frames.
 
 Two clips per container/codec pair:
 
-* a single-shot clip — the whole shot is flagged, so the render takes the
+* a single-shot clip - the whole shot is flagged, so the render takes the
   full re-encode path and the final mux into the input's container;
-* the shared three-shot clip (grey | pattern+marker | grey) — only the
+* the shared three-shot clip (grey | pattern+marker | grey) - only the
   middle shot is flagged, so the smart renderer stream-copies the outer
   shots, re-encodes the middle one and concatenates, all inside the input's
   container.
@@ -19,7 +19,7 @@ Before the source-matched encoder landed, every re-encode was H.264: WebM
 refused it outright ("Only VP8 or VP9 or AV1 video … supported") and AVI
 rejected the MP4-style bitstream ("no startcode found"), so ``process``
 failed on both containers. The keyframe probe also trusted the decoder's
-``-skip_frame nokey``, which VP8/VP9 ignore — every frame came back as a
+``-skip_frame nokey``, which VP8/VP9 ignore - every frame came back as a
 keyframe, so WebM copy cuts would have landed off-keyframe.
 """
 
@@ -41,7 +41,7 @@ from tests.conftest import (
     generate_three_shot_clip,
 )
 
-# Censor region in native pixel coords — what the mocked detector returns.
+# Censor region in native pixel coords - what the mocked detector returns.
 BOX = (60, 40, 260, 200)
 # The 40×40 marker sits in the middle of BOX; the band above it (inside
 # BOX, outside the marker) keeps testsrc2 detail for the blur check.

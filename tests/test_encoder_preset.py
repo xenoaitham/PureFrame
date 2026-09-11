@@ -9,7 +9,7 @@ def test_software_encoders_get_the_preset():
 
 
 def test_hardware_encoders_reject_x264_presets():
-    # nvenc errors with 'Unable to parse option value "veryfast"' — the
+    # nvenc errors with 'Unable to parse option value "veryfast"' - the
     # regression that failed the first full bench run on GPU profiles.
     assert _encoder_preset_arg("h264_nvenc", "veryfast") is None
     assert _encoder_preset_arg("hevc_nvenc", "medium") is None

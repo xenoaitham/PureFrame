@@ -38,7 +38,7 @@ def _spawn_decode(
 
     ``seek_time`` (when set) becomes an input seek so ffmpeg only decodes
     from the keyframe before the requested window instead of the start of
-    the file — without it, every per-shot extraction re-decoded the whole
+    the file - without it, every per-shot extraction re-decoded the whole
     video from frame 0, a near-quadratic cost across a movie's shots.
     """
     out_kwargs = {"format": "rawvideo", "pix_fmt": "bgr24"}

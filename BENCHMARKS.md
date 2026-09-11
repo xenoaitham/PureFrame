@@ -1,9 +1,9 @@
 # Performance Benchmarks
 
-## September 2026 — Speed offensive validation (`pureframe bench`)
+## September 2026 - Speed offensive validation (`pureframe bench`)
 
 Measured with `pureframe bench --duration 30 --reps 3` (medians) on the
-author's machine, **after** the low-end-PC speed offensive — see
+author's machine, **after** the low-end-PC speed offensive - see
 [docs/performance.md](docs/performance.md) for what changed:
 
 | | |
@@ -30,7 +30,7 @@ disabled on the CPU profile by design. Reproduce with
 
 > Measurements below are **real, on the machine indicated**. Other tiers are estimated from community contributions. To add your hardware, run `scripts/run_benchmarks.sh` and open a PR.
 
-> **Note on these numbers:** The benchmark clip is a 30s synthetic 1080p video (solid colours, test patterns) with **zero detections**. Real movie content with actual detections will take longer — blurring adds per-frame overhead, and complex scenes trigger more model inference. Use these numbers as a floor, not a ceiling.
+> **Note on these numbers:** The benchmark clip is a 30s synthetic 1080p video (solid colours, test patterns) with **zero detections**. Real movie content with actual detections will take longer - blurring adds per-frame overhead, and complex scenes trigger more model inference. Use these numbers as a floor, not a ceiling.
 
 ## Measured: Author's Machine
 
@@ -109,7 +109,7 @@ Community contributions welcome. Run `scripts/run_benchmarks.sh` and open a PR t
 
 ### Methodology notes
 
-- The synthetic clip is intentionally detection-light. **Do not** interpret the extrapolated 90-min movie figure as a guarantee — real content typically lands 2-10× slower due to per-frame inference on dense scenes plus localized blur encode cost.
+- The synthetic clip is intentionally detection-light. **Do not** interpret the extrapolated 90-min movie figure as a guarantee - real content typically lands 2-10× slower due to per-frame inference on dense scenes plus localized blur encode cost.
 - HIGH profile runs FP16 on CUDA; CPU profile runs FP32 on a single thread per model.
-- Smart segment renderer is enabled by default — figures already reflect stream-copy of clean segments.
+- Smart segment renderer is enabled by default - figures already reflect stream-copy of clean segments.
 - Audio classifier runs on GPU when available; PANNs adds ~3-5% to wall-clock on 90-min content.

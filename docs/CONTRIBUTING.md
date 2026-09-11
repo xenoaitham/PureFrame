@@ -17,17 +17,17 @@ cd gui && npm install
 
 ## Architecture
 
-- **`pureframe/pipeline/`** — Detection, scene analysis, confidence fusion, rendering. The core processing loop.
-- **`pureframe/pipeline/render/`** — Plan serialization and frame-by-frame apply logic.
-- **`gui/`** — Tauri desktop app (React + Rust). Calls the Python CLI via subprocess — keep it thin.
-- **`tests/`** — pytest suite. Run with `pytest`.
+- **`pureframe/pipeline/`** - Detection, scene analysis, confidence fusion, rendering. The core processing loop.
+- **`pureframe/pipeline/render/`** - Plan serialization and frame-by-frame apply logic.
+- **`gui/`** - Tauri desktop app (React + Rust). Calls the Python CLI via subprocess - keep it thin.
+- **`tests/`** - pytest suite. Run with `pytest`.
 
 ## Pull Requests
 
 1. Run `pytest` locally before pushing.
 2. Run `ruff check pureframe tests` for linting.
 3. If your change touches the CLI interface or plan schema, update the docs.
-4. Keep PRs focused — one feature or fix per PR.
+4. Keep PRs focused - one feature or fix per PR.
 
 ## Code Style
 

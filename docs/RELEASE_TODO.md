@@ -1,4 +1,4 @@
-# Release Roadmap — Known Limitations
+# Release Roadmap - Known Limitations
 
 Tracks the gaps that remain in the shipped binaries. Each item lists the
 blocker so future maintainers can pick up where this stopped.
@@ -16,7 +16,7 @@ blocker so future maintainers can pick up where this stopped.
 - Code-signing limitations and Gatekeeper/SmartScreen workarounds are
   documented in `README.md`.
 
-## Deferred — Big Restructure
+## Deferred - Big Restructure
 
 ### Tauri sidecar (bundle the backend in the GUI installer)
 
@@ -39,7 +39,7 @@ fail.
 
 This is one PR's worth of work and should be done in isolation.
 
-## Deferred — Costs Money
+## Deferred - Costs Money
 
 ### Code signing
 
@@ -59,7 +59,7 @@ and the public counterpart embedded in `tauri.conf.json`. We have neither
 generated nor hosted an update endpoint. Adding this is straightforward
 once signing exists.
 
-## Deferred — Smaller Polish
+## Deferred - Smaller Polish
 
 ### E2E test for the Tauri ↔ backend wiring
 
@@ -76,7 +76,7 @@ tree boots without the Rust runtime, and asserts:
 actually spawns the `pureframe` process. That requires either
 `tauri-driver` (WebDriver against the packaged app) or running the
 bundled binary as a sidecar (see "Tauri sidecar" below). The current
-shim covers UI regressions only — it does **not** validate IPC wiring.
+shim covers UI regressions only - it does **not** validate IPC wiring.
 
 ### ESLint configuration
 

@@ -23,7 +23,7 @@ def smooth_detections(
     that outweighs its variance reduction (RMSE 1.4–1.5× *worse* on moving
     subjects), and on dense detections the median filter already absorbs
     most of the jitter EMA would remove (≤8 % marginal). Hysteresis would
-    delay the first flagged frame — for a censoring renderer a late blur is
+    delay the first flagged frame - for a censoring renderer a late blur is
     worse than a briefly over-eager one. A model-based filter (Kalman or a
     smoothing spline over the anchors) is the remaining idea worth trying.
     """
@@ -70,7 +70,7 @@ def smooth_detections(
 
         # apply median filter of size 5. ndimage's median_filter replicates
         # edge values; scipy.signal.medfilt zero-pads them, which dragged the
-        # median of the last two frames toward 0 and froze the box there —
+        # median of the last two frames toward 0 and froze the box there -
         # visibly lagging anything moving at the end of a shot.
         if len(interp_boxes) >= 5:
             from scipy.ndimage import median_filter

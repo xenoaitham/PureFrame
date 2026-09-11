@@ -1,4 +1,4 @@
-"""Tests for FFmpeg utility functions — metadata extraction, encoder selection, probe."""
+"""Tests for FFmpeg utility functions - metadata extraction, encoder selection, probe."""
 
 from fractions import Fraction
 
@@ -136,7 +136,7 @@ class TestSelectHwEncoder:
         assert encoder == "libx265"
 
     def test_high_returns_valid_encoder(self):
-        """High profile should return some encoder — hw or sw fallback."""
+        """High profile should return some encoder - hw or sw fallback."""
         encoder = select_hw_encoder(HardwareProfile.HIGH, "h264")
         assert encoder in [
             "libx264",

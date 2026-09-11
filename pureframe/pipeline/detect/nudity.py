@@ -50,7 +50,7 @@ class NudityDetector:
                     model_path = str(quantized_model_path())
                 except Exception as e:
                     logger.warning(
-                        "NudeNet quantization unavailable (%s) — using fp32", e
+                        "NudeNet quantization unavailable (%s) - using fp32", e
                     )
             try:
                 providers = onnx_providers_for(

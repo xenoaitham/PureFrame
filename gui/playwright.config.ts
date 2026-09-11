@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * Smoke E2E for the Tauri webview UI.
  *
- * The Tauri runtime is NOT present in this environment — tests inject a
+ * The Tauri runtime is NOT present in this environment - tests inject a
  * minimal `window.__TAURI_INTERNALS__` shim before app scripts run so
  * `invoke(...)` resolves without a real backend. This catches regressions
  * in render, routing, and the React mount lifecycle without requiring
@@ -28,7 +28,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    // `vite preview` serves the production build — closer to the bundle
+    // `vite preview` serves the production build - closer to the bundle
     // that actually ships inside the Tauri webview than `vite dev`.
     command: "npm run build && npx vite preview --port 4173 --strictPort",
     url: "http://localhost:4173",

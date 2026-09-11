@@ -22,7 +22,7 @@ class TestCLIHelpAndVersion:
             app, ["plan", "--help"], env={"COLUMNS": "200", "NO_COLOR": "1"}
         )
         assert result.exit_code == 0
-        # Strip ANSI escape codes — Rich/Typer help rendering varies by terminal width.
+        # Strip ANSI escape codes - Rich/Typer help rendering varies by terminal width.
         import re
 
         clean = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
@@ -180,7 +180,7 @@ class TestCLIPlanEdit:
         )
         assert result.exit_code == 0
 
-        # Use 'true' as editor (no-op — doesn't modify file)
+        # Use 'true' as editor (no-op - doesn't modify file)
         monkeypatch.setenv("EDITOR", "true")
         if CensorPlan.load(plan_json).verdicts:
             result = runner.invoke(

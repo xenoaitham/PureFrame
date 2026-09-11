@@ -2,7 +2,7 @@
   <img src="assets/logo.svg" alt="PureFrame" width="180" />
   <h1>PureFrame</h1>
   <p><strong>Watch any movie with your family. Without cutting a single second.</strong></p>
-  <p>PureFrame applies smart, localized blurs over explicit visuals — no cuts, no audio edits, no streaming, no subscription.</p>
+  <p>PureFrame applies smart, localized blurs over explicit visuals - no cuts, no audio edits, no streaming, no subscription.</p>
 
   <a href="#install"><img src="https://img.shields.io/pypi/v/pureframe?color=%2334D058&label=PyPI" alt="PyPI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
@@ -14,12 +14,12 @@
 
   <br /><br />
   <img src="assets/demo.gif" alt="PureFrame in action" width="640" />
-  <p><em>Synthetic demo — left: original, right: PureFrame output. The flagged region is Gaussian-blurred and smoothly tracked as the figure crosses the frame; everything else is untouched. Regenerate with <code>scripts/make_demo.py</code>.</em></p>
+  <p><em>Synthetic demo - left: original, right: PureFrame output. The flagged region is Gaussian-blurred and smoothly tracked as the figure crosses the frame; everything else is untouched. Regenerate with <code>scripts/make_demo.py</code>.</em></p>
 </div>
 
 ---
 
-PureFrame is a local AI tool that finds explicit visuals in common video files — nudity, sexual activity, intense kissing — and applies a localized, smoothly-tracked blur over the flagged regions. No scene skipping. No audio cuts. No streaming, no cloud, no subscription. The full movie plays normally; you just don't see the parts you'd rather not.
+PureFrame is a local AI tool that finds explicit visuals in common video files - nudity, sexual activity, intense kissing - and applies a localized, smoothly-tracked blur over the flagged regions. No scene skipping. No audio cuts. No streaming, no cloud, no subscription. The full movie plays normally; you just don't see the parts you'd rather not.
 
 ## Downloads
 
@@ -29,24 +29,24 @@ Pre-built binaries. Grab the latest release.
 
 Native installer with the graphical UI:
 
-- **Windows** — [PureFrame_x64-setup.exe](https://github.com/xenoaitham/PureFrame/releases/latest) or `.msi`
-- **macOS (Apple Silicon)** — `PureFrame_aarch64.dmg`
-- **macOS (Intel)** — `PureFrame_x64.dmg`
-- **Linux** — `.AppImage`, `.deb`, or `.rpm`
+- **Windows** - [PureFrame_x64-setup.exe](https://github.com/xenoaitham/PureFrame/releases/latest) or `.msi`
+- **macOS (Apple Silicon)** - `PureFrame_aarch64.dmg`
+- **macOS (Intel)** - `PureFrame_x64.dmg`
+- **Linux** - `.AppImage`, `.deb`, or `.rpm`
 
 ### CLI / standalone (PyInstaller)
 
 No Python needed:
 
-- **Windows** — [pureframe-windows-x86_64.zip](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-windows-x86_64.zip)
-- **macOS (Apple Silicon)** — [pureframe-macos-arm64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-macos-arm64.tar.gz)
-- **Linux (x86_64)** — [pureframe-linux-x86_64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-linux-x86_64.tar.gz)
+- **Windows** - [pureframe-windows-x86_64.zip](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-windows-x86_64.zip)
+- **macOS (Apple Silicon)** - [pureframe-macos-arm64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-macos-arm64.tar.gz)
+- **Linux (x86_64)** - [pureframe-linux-x86_64.tar.gz](https://github.com/xenoaitham/PureFrame/releases/latest/download/pureframe-linux-x86_64.tar.gz)
 
 > **Intel mac users:** no standalone PyInstaller build (GitHub-hosted `macos-13` runners are EOL'd and perpetually backlogged). Use `pip install pureframe` or the Tauri `PureFrame_x64.dmg` from the [latest release](https://github.com/xenoaitham/PureFrame/releases/latest).
 
 Extract anywhere, then run `pureframe --help` (Windows: `pureframe.exe --help`).
 
-- **Windows zip is fully self-contained** — bundled `ffmpeg.exe` + `ffprobe.exe`, no install required.
+- **Windows zip is fully self-contained** - bundled `ffmpeg.exe` + `ffprobe.exe`, no install required.
 - macOS / Linux tarballs require ffmpeg on PATH (`brew install ffmpeg` / `apt install ffmpeg`).
 
 ### Code signing
@@ -101,7 +101,7 @@ pureframe apply movie.mp4 movie.censorplan.json        # Render final output
 pureframe preview movie.censorplan.json                # → HTML contact sheet
 ```
 
-The plan file is plain JSON — open it, review every flagged shot, whitelist anything you disagree with, then apply. Nothing renders until you say so.
+The plan file is plain JSON - open it, review every flagged shot, whitelist anything you disagree with, then apply. Nothing renders until you say so.
 
 ## Content-Type Profiles
 
@@ -136,13 +136,13 @@ See [Evaluation Report](docs/evaluation.md) for threshold calibration guide.
 
 ## Why PureFrame?
 
-**No scene skipping.** Most "family-friendly" tools just fast-forward through flagged scenes. You lose dialog, plot, pacing. PureFrame applies a localized Gaussian blur tracked to bounding boxes — the scene plays normally, you just can't see what's behind the blur.
+**No scene skipping.** Most "family-friendly" tools just fast-forward through flagged scenes. You lose dialog, plot, pacing. PureFrame applies a localized Gaussian blur tracked to bounding boxes - the scene plays normally, you just can't see what's behind the blur.
 
 **No cloud, no subscription.** Everything runs on your machine. Your videos never leave your disk. Once the AI models download on first run (~400–500MB), PureFrame works fully offline. Zero telemetry.
 
-**Works on any local video file.** VidAngel and ClearPlay only support a curated list of popular titles. PureFrame uses computer vision — it works on any MP4, MKV, AVI, or WebM you throw at it. Foreign films, indie movies, decades-old DVDs.
+**Works on any local video file.** VidAngel and ClearPlay only support a curated list of popular titles. PureFrame uses computer vision - it works on any MP4, MKV, AVI, or WebM you throw at it. Foreign films, indie movies, decades-old DVDs.
 
-**Audio-aware detection — only when it matters.** An audio classifier runs alongside the visual pipeline to disambiguate ambiguous scenes. A verdict-preserving gate means it only runs on shots where the scene signal could actually change the outcome — most shots skip it entirely, which is a large part of why detection got an order of magnitude faster in the September 2026 speed offensive ([details](docs/performance.md)).
+**Audio-aware detection - only when it matters.** An audio classifier runs alongside the visual pipeline to disambiguate ambiguous scenes. A verdict-preserving gate means it only runs on shots where the scene signal could actually change the outcome - most shots skip it entirely, which is a large part of why detection got an order of magnitude faster in the September 2026 speed offensive ([details](docs/performance.md)).
 
 **Review before rendering.** The `plan` command generates a JSON file with every detection, bounding box, confidence score, and reasoning. Inspect it, whitelist false positives, or adjust thresholds before committing to the render.
 
@@ -167,20 +167,20 @@ flowchart TD
 1. **Scene detection** splits the video into shots using adaptive threshold detection (PySceneDetect).
 2. **NudeNet** analyzes sampled frames for nudity with localized bounding boxes.
 3. **CLIP** provides scene-level semantic classification for sexual activity detection.
-4. **PANNs** classifies audio events (moaning detection) for context disambiguation — behind a verdict-preserving gate, so it only runs on shots where the scene signal makes audio relevant.
+4. **PANNs** classifies audio events (moaning detection) for context disambiguation - behind a verdict-preserving gate, so it only runs on shots where the scene signal makes audio relevant.
 5. A **confidence fusion engine** combines all signals with configurable per-category thresholds.
-6. Results are written to a **censor plan** (`.censorplan.json`) — fully editable before rendering.
+6. Results are written to a **censor plan** (`.censorplan.json`) - fully editable before rendering.
 7. The **renderer** applies tracked bounding-box blurs frame-by-frame and re-encodes with FFmpeg.
 
 ## Comparison
 
 | Feature | PureFrame | VidAngel / ClearPlay | Manual Editing |
 |---|---|---|---|
-| Cuts video length? | No — localized blur | Yes — skips scenes | Optional |
+| Cuts video length? | No - localized blur | Yes - skips scenes | Optional |
 | Cost | Free & open source | $9.99/mo subscription | Expensive software |
 | Requires internet? | No | Yes | No |
-| Works on local files? | Yes | No — curated list only | Yes |
-| Reviewable before apply? | Yes — JSON plan | No | N/A |
+| Works on local files? | Yes | No - curated list only | Yes |
+| Reviewable before apply? | Yes - JSON plan | No | N/A |
 | Content-type profiles? | Yes | Limited | No |
 | Audio-aware detection? | Yes | Varies | No |
 | 100% offline? | Yes (after model download) | No | Yes |
@@ -188,7 +188,7 @@ flowchart TD
 ## Performance
 
 Measured with `pureframe bench --duration 30 --reps 3` (medians) on the
-author's machine — i5-10400F (12 threads), RTX 3060, Pop!_OS — after the
+author's machine - i5-10400F (12 threads), RTX 3060, Pop!_OS - after the
 **September 2026 speed offensive**: seek-based frame extraction, resident
 ONNX sessions, lazy audio classification, pipelined decode/inference, int8
 CPU quantization (on by default, `--no-quant` to disable), and per-profile
@@ -203,7 +203,7 @@ encoder presets.
 
 The offensive targets **~10–20 minutes for a 90-minute movie on CPU-only
 hardware**. Honest caveats: this is a 30 s synthetic clip with 1–2 shots,
-not a movie — real films amortize per-shot work differently, and the CPU
+not a movie - real films amortize per-shot work differently, and the CPU
 run's zero detections under-represents real content. Full tables, per-phase
 breakdowns, the "before" numbers, and the engineering narrative:
 [docs/performance.md](docs/performance.md) · [BENCHMARKS.md](BENCHMARKS.md).
@@ -216,11 +216,11 @@ pureframe bench --duration 30 --reps 3 -o bench-report.json
 
 ## Desktop App (Experimental)
 
-PureFrame includes an experimental [Tauri](https://tauri.app/) desktop GUI — dark theme, live job progress, and shot-level plan review:
+PureFrame includes an experimental [Tauri](https://tauri.app/) desktop GUI - dark theme, live job progress, and shot-level plan review:
 
 | Job queue | Plan editor |
 |---|---|
-| <img src="assets/gui_queue.png" alt="PureFrame desktop GUI — job queue with live progress" width="400" /> | <img src="assets/gui_plan_editor.png" alt="PureFrame desktop GUI — plan editor with color-coded timeline" width="400" /> |
+| <img src="assets/gui_queue.png" alt="PureFrame desktop GUI - job queue with live progress" width="400" /> | <img src="assets/gui_plan_editor.png" alt="PureFrame desktop GUI - plan editor with color-coded timeline" width="400" /> |
 
 - ✅ File drag-and-drop queue
 - ✅ Plan editor with color-coded timeline
@@ -242,7 +242,7 @@ PureFrame is honest about what it can and can't do. See [KNOWN_LIMITATIONS.md](d
 Briefly:
 - **False positives** happen on swimwear, skin-tone backgrounds, and stylized animation.
 - **Dark scenes** reduce detection confidence. Use `--content-type low-light`.
-- **Not perfect.** Some explicit content may slip through. PureFrame is a tool — not a replacement for parental judgment.
+- **Not perfect.** Some explicit content may slip through. PureFrame is a tool - not a replacement for parental judgment.
 
 ## FAQ
 

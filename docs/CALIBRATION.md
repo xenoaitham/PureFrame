@@ -10,9 +10,9 @@ PureFrame uses confidence thresholds to decide when a detection is "real" enough
 
 | Strictness | Nudity | Genitalia | Buttocks | Use Case |
 |-----------|--------|-----------|----------|----------|
-| **High** | 0.30 | 0.25 | 0.35 | Family movie night — catches everything, may flag swimwear |
-| **Medium** | 0.45 | 0.40 | 0.50 | General use — balanced precision/recall |
-| **Low** | 0.60 | 0.55 | 0.65 | Minimal intervention — only flags obvious nudity |
+| **High** | 0.30 | 0.25 | 0.35 | Family movie night - catches everything, may flag swimwear |
+| **Medium** | 0.45 | 0.40 | 0.50 | General use - balanced precision/recall |
+| **Low** | 0.60 | 0.55 | 0.65 | Minimal intervention - only flags obvious nudity |
 | **Custom** | User-defined via `--threshold` | | | Full control |
 
 ### Content-Type Modifiers
@@ -105,11 +105,11 @@ pureframe plan video.mp4 --threshold 0.35
 
 | Score Range | Interpretation | Action |
 |-------------|---------------|--------|
-| **0.90+** | Model is very confident — almost certainly explicit | Always censor |
-| **0.70-0.89** | Strong signal — very likely explicit | Censor at medium/high strictness |
-| **0.50-0.69** | Moderate signal — possible explicit content | Censor at high strictness; review at medium |
-| **0.30-0.49** | Weak signal — could be skin, swimwear, or artistic nudity | Only censor at high strictness |
-| **<0.30** | Background noise — very unlikely to be explicit | Almost never censor |
+| **0.90+** | Model is very confident - almost certainly explicit | Always censor |
+| **0.70-0.89** | Strong signal - very likely explicit | Censor at medium/high strictness |
+| **0.50-0.69** | Moderate signal - possible explicit content | Censor at high strictness; review at medium |
+| **0.30-0.49** | Weak signal - could be skin, swimwear, or artistic nudity | Only censor at high strictness |
+| **<0.30** | Background noise - very unlikely to be explicit | Almost never censor |
 
 ## Running the Benchmark
 

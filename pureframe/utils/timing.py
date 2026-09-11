@@ -3,7 +3,7 @@
 Used by `--verbose` output and the `pureframe bench` command to attribute
 processing time to phases (probe, scene detection, frame sampling, NudeNet,
 context models, fusion, densify, render). Overhead is a dict update per
-phase exit — negligible next to the work being measured.
+phase exit - negligible next to the work being measured.
 """
 
 import threading

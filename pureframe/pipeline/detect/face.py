@@ -22,7 +22,7 @@ class FaceDetector:
             # degradation gates on `net is None` (not a separate flag) so a
             # test may still inject a stand-in net.
             logger.warning(
-                "Face detector unavailable (%s) — mouth-region assist disabled", e
+                "Face detector unavailable (%s) - mouth-region assist disabled", e
             )
             self.net = None
 

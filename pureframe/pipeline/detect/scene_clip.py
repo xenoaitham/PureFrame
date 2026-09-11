@@ -93,7 +93,7 @@ class SceneClassifier:
             text=self.text_inputs, return_tensors="pt", padding=True
         ).to(self.device)
         with torch.no_grad():
-            # Public API instead of poking at model internals —
+            # Public API instead of poking at model internals -
             # text_model()/vision_model() output layouts have shifted across
             # transformers releases; get_*_features() is the stable contract
             # and already applies the projection heads.

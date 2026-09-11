@@ -184,7 +184,7 @@ class TestSyntheticFrameGeneration:
         frame = _generate_synthetic_frame("totally_unknown")
         assert frame.shape == (480, 640, 3)
         # Unknown type paints no layout, but the deterministic photographic
-        # texture pass (noise + gradient) still applies — keep it near-black.
+        # texture pass (noise + gradient) still applies - keep it near-black.
         assert int(frame.max()) <= 60
         assert int(frame.mean()) < 40
 

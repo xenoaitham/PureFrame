@@ -1,4 +1,4 @@
-# CODEOWNERS — auto-request reviews from these owners when PRs touch matching paths.
+# CODEOWNERS - auto-request reviews from these owners when PRs touch matching paths.
 # Syntax: <pattern> <owner1> <owner2> ...
 # Reference: https://docs.github.com/en/repositories/managing-your-repositories-settings-and-features/customizing-your-repository/about-code-owners
 
@@ -13,7 +13,7 @@
 /gui/                      @xenoaitham
 /gui/src-tauri/            @xenoaitham
 
-# CI / release automation — restrict to maintainers.
+# CI / release automation - restrict to maintainers.
 /.github/                  @xenoaitham
 /.github/workflows/        @xenoaitham
 

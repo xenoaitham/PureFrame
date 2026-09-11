@@ -1,4 +1,4 @@
-"""PureFrame Evaluation Benchmark — synthetic + real-world quality metrics.
+"""PureFrame Evaluation Benchmark - synthetic + real-world quality metrics.
 
 This module generates a comprehensive evaluation report by testing PureFrame's
 detection pipeline against synthetic test scenarios and (when available) annotated
@@ -9,9 +9,9 @@ Usage:
     pureframe evaluate [--output report.json]
 
 Metrics computed:
-    - Precision: TP / (TP + FP) — how many flagged frames were actually explicit
-    - Recall: TP / (TP + FN) — how many explicit frames were correctly flagged
-    - F1 Score: 2 * (P * R) / (P + R) — harmonic mean
+    - Precision: TP / (TP + FP) - how many flagged frames were actually explicit
+    - Recall: TP / (TP + FN) - how many explicit frames were correctly flagged
+    - F1 Score: 2 * (P * R) / (P + R) - harmonic mean
     - False Positive Rate: FP / (FP + TN)
     - Processing Speed: frames/second on CPU vs GPU
 """
@@ -44,7 +44,7 @@ class SceneResult:
     false_negative: bool = False
     # Detection signature: every label -> max score the model emitted for
     # this scenario, explicit or not. This is the fingerprint the eval-parity
-    # gate compares — sensitive to ANY model-behavior change (quantization,
+    # gate compares - sensitive to ANY model-behavior change (quantization,
     # version bumps, preprocessing drift), not just explicit-label hits.
     labels: dict[str, float] = field(default_factory=dict)
 
@@ -383,7 +383,7 @@ SYNTHETIC_SCENARIOS = [
     {
         "id": "DC-001",
         "genre": "documentary",
-        "desc": "Nature documentary — animals",
+        "desc": "Nature documentary - animals",
         "explicit": False,
         "frame_type": "no_skin",
     },
@@ -433,7 +433,7 @@ SYNTHETIC_SCENARIOS = [
     {
         "id": "FM-004",
         "genre": "family",
-        "desc": "Animated movie — Finding Nemo type",
+        "desc": "Animated movie - Finding Nemo type",
         "explicit": False,
         "frame_type": "cartoon_safe",
     },
@@ -490,7 +490,7 @@ SYNTHETIC_SCENARIOS = [
     {
         "id": "EC-008",
         "genre": "edge-case",
-        "desc": "Sports scene — wrestling",
+        "desc": "Sports scene - wrestling",
         "explicit": False,
         "frame_type": "high_skin_ratio",
     },
@@ -516,7 +516,7 @@ def _generate_synthetic_frame(frame_type: str) -> np.ndarray:
 
     The layout pass paints the per-type regions; a photographic-texture pass
     (blur + seeded noise + gradient) follows so the frames resemble camera
-    output — real NudeNet barely responds to flat color patches. The seed is
+    output - real NudeNet barely responds to flat color patches. The seed is
     derived from the frame type so every run produces identical inputs, a
     requirement for the eval-parity gate.
     """
@@ -592,7 +592,7 @@ def _generate_synthetic_frame(frame_type: str) -> np.ndarray:
         frame[:] = [gray, gray, gray]
         frame[100:350, 150:450] = [200, 200, 200]
 
-    # Photographic texture pass — identical for every frame type.
+    # Photographic texture pass - identical for every frame type.
     frame = cv2.GaussianBlur(frame, (7, 7), 0)
     rng = np.random.default_rng(zlib.crc32(frame_type.encode("utf-8")))
     noise = rng.integers(-10, 11, frame.shape, dtype=np.int16)
@@ -638,7 +638,7 @@ def run_synthetic_benchmark(
         # the numbers this gate compares.
         detector = NudityDetector(get_settings(HardwareProfile.CPU))
 
-    # Explicit labels that should trigger censoring — the canonical set from
+    # Explicit labels that should trigger censoring - the canonical set from
     # the detector module (NudeNet 3.x names; the old 2.x names here made
     # every scenario score as safe).
     from pureframe.pipeline.detect.nudity import EXPLICIT_LABELS

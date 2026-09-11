@@ -1,6 +1,6 @@
 # Plan Sharing (Roadmap, v0.2+)
 
-Censor plans are tiny JSON files with no copyrighted data — just timestamps, bounding box coordinates, and detection metadata. The community can share them safely.
+Censor plans are tiny JSON files with no copyrighted data - just timestamps, bounding box coordinates, and detection metadata. The community can share them safely.
 
 ## Why this matters
 

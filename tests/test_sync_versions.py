@@ -64,7 +64,7 @@ def test_tauri_rc_outranks_beta_for_same_release() -> None:
 
 
 def test_unsupported_version_raises() -> None:
-    """Dev/local/postN suffixes are rejected — releases must be canonical."""
+    """Dev/local/postN suffixes are rejected - releases must be canonical."""
     with pytest.raises(SystemExit):
         sync_versions.npm_version("0.1.0.dev1")
 

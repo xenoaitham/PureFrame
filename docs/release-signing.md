@@ -2,7 +2,7 @@
 
 What it takes to ship signed installers and a self-updating desktop app.
 Everything here is prepared; the only missing pieces are the paid
-certificates and a "go" from LO. Nothing in this doc is wired into CI yet —
+certificates and a "go" from me. Nothing in this doc is wired into CI yet -
 `release.yml` deliberately leaves the signing env vars unset, because
 `tauri-action` skips signing when they're absent but fails the build when
 they're empty strings.
@@ -22,16 +22,16 @@ is missing is *identity* (who built this) and the updater.
 
 ## 1. macOS: code signing + notarization
 
-**Cost:** Apple Developer Program, $99/year. **Owner:** LO (the Apple ID
+**Cost:** Apple Developer Program, $99/year. **Owner:** me (the Apple ID
 that enrolls becomes the legal publisher).
 
-### One-time setup (LO, ~30 min once the enrollment is approved)
+### One-time setup (~30 min once the enrollment is approved)
 
 1. Enroll at <https://developer.apple.com/programs/enroll/>. Enrollment
    review takes 1–2 days.
 2. In Xcode (or at <https://developer.apple.com/account/resources/certificates>)
    create a **Developer ID Application** certificate. That is the one for
-   apps distributed outside the App Store — not "Apple Distribution".
+   apps distributed outside the App Store - not "Apple Distribution".
 3. Export it from Keychain Access as a `.p12` with a password, then
    base64-encode it:
    ```bash
@@ -42,7 +42,7 @@ that enrolls becomes the legal publisher).
    Passwords. Notarization uses it instead of the account password.
 5. Note the **Team ID** (10 characters, shown on the developer account page)
    and the exact certificate name, e.g.
-   `Developer ID Application: LO Name (ABCDE12345)`.
+   `Developer ID Application: My Name (ABCDE12345)`.
 
 ### GitHub secrets to add (repo → Settings → Secrets → Actions)
 
@@ -50,7 +50,7 @@ that enrolls becomes the legal publisher).
 |---|---|
 | `APPLE_CERTIFICATE` | base64 of the `.p12` (step 3) |
 | `APPLE_CERTIFICATE_PASSWORD` | the `.p12` export password |
-| `APPLE_SIGNING_IDENTITY` | `Developer ID Application: LO Name (TEAMID)` |
+| `APPLE_SIGNING_IDENTITY` | `Developer ID Application: My Name (TEAMID)` |
 | `APPLE_ID` | the enrolled Apple ID email |
 | `APPLE_PASSWORD` | the app-specific password (step 4) |
 | `APPLE_TEAM_ID` | the 10-character Team ID |
@@ -58,7 +58,7 @@ that enrolls becomes the legal publisher).
 ### Workflow change (me, after the secrets exist)
 
 In `.github/workflows/release.yml`, `Build Tauri App` step, export the six
-variables under `env:` — `tauri-action` picks them up by name, signs the
+variables under `env:` - `tauri-action` picks them up by name, signs the
 `.app`, submits it to Apple's notary service, waits, and staples the
 ticket:
 
@@ -74,7 +74,7 @@ ticket:
 ```
 
 Add them for the macOS matrix entries only, or guard with
-`if: matrix.os == 'macos-latest'` per variable — an unset secret on Linux
+`if: matrix.os == 'macos-latest'` per variable - an unset secret on Linux
 resolves to an empty string, which is the "makes `security import` fail"
 case the workflow comment warns about.
 
@@ -93,17 +93,17 @@ it.
 
 ## 2. Tauri auto-updater with signed manifests
 
-**Cost:** none. **Owner:** LO generates and holds the private key.
+**Cost:** none. **Owner:** I generate and hold the private key.
 
 The updater verifies every download against a public key baked into the
 app, so the private key is the root of trust for every future update: keep
 it out of the repo, back it up, and treat losing it like losing the
 signing certificate (an app built with the old public key can never accept
-an update signed by a new one — every user would have to reinstall).
+an update signed by a new one - every user would have to reinstall).
 
 ### One-time setup
 
-1. Generate the keypair (LO, on his machine):
+1. Generate the keypair (on my machine):
    ```bash
    cd gui
    npm run tauri signer generate -- -w ~/.tauri/pureframe.key
@@ -148,14 +148,14 @@ why Windows should be signed anyway.
 
 ## 3. Windows: Authenticode signing
 
-**Cost:** paid, and the landscape changed in 2023 — OV certificates must
+**Cost:** paid, and the landscape changed in 2023 - OV certificates must
 now live on hardware or a cloud HSM, so a plain `.pfx` in a GitHub secret
 is no longer possible. The practical route for a CI pipeline is
 **Azure Trusted Signing** (subscription, identity validation, keys never
 leave Azure); a classic EV certificate on a USB token is the alternative
 and cannot run unattended in GitHub Actions.
 
-Decision for LO: whether Windows signing is worth a monthly Azure line
+Decision: whether Windows signing is worth a monthly Azure line
 item. SmartScreen reputation also builds over time with download volume
 even for OV/Trusted Signing certificates; EV starts with reputation.
 
@@ -166,13 +166,13 @@ even for OV/Trusted Signing certificates; EV starts with reputation.
 2. A service principal (or OIDC federation with GitHub) with the
    "Trusted Signing Certificate Profile Signer" role.
 3. Secrets: `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`
-   (or OIDC — no secret), plus the account/profile names.
+   (or OIDC - no secret), plus the account/profile names.
 4. `tauri.conf.json` → `bundle.windows.signCommand` invoking
    `trusted-signing-cli` (or `AzureSignTool`) with `%1` as the file, and
    the Windows matrix entry installs the CLI before `tauri-action` runs.
    Tauri v2 runs that command for every `.exe`/`.msi` it produces.
 
-## 4. What I need from LO
+## 4. What I still need (decisions)
 
 1. Apple Developer Program: yes/no. If yes, enroll, then do section 1's
    one-time setup and add the six secrets.

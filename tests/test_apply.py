@@ -1,4 +1,4 @@
-"""Tests for apply_censoring — end-to-end render with overlay callback."""
+"""Tests for apply_censoring - end-to-end render with overlay callback."""
 
 from pureframe.config import Config
 from pureframe.hardware import HardwareProfile, get_settings

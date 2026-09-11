@@ -2,7 +2,7 @@
 
 Regression guard for the plan loop's prefetch worker (v0.2.0–v0.2.1): its
 queue helper returned ``None`` on success, the shot loop read that as
-"stop", and so only the *first* shot of any video was ever analyzed — a
+"stop", and so only the *first* shot of any video was ever analyzed - a
 movie with hundreds of shots came back with a single verdict and nothing
 censored past it. Every fixture the suite had was single-shot, so nothing
 caught it.
@@ -63,7 +63,7 @@ def test_generate_plan_analyzes_every_shot(three_shot_video, tmp_path, monkeypat
     plan = generate_plan(config)
 
     assert len(plan.shots) == 3
-    # One verdict per shot — not just the first.
+    # One verdict per shot - not just the first.
     assert sorted(v.shot_index for v in plan.verdicts) == [0, 1, 2]
 
     flagged = [v for v in plan.verdicts if v.action != Action.NONE]
@@ -127,6 +127,6 @@ def test_extraction_worker_stops_when_asked(three_shot_video):
 
     items = _run_worker(shots, set(), three_shot_video, stop_event=stop, maxsize=1)
 
-    # Nothing may be queued once the consumer has signalled shutdown — not
-    # even the sentinel — so a torn-down plan loop never blocks on a full queue.
+    # Nothing may be queued once the consumer has signalled shutdown - not
+    # even the sentinel - so a torn-down plan loop never blocks on a full queue.
     assert items == []
