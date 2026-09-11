@@ -9,6 +9,7 @@ just because a font was missing.
 
 import cv2
 import numpy as np
+import pytest
 
 from pureframe.config import (
     DEFAULT_EMOJI,
@@ -242,7 +243,14 @@ class TestCallbackEmojiMode:
 
 class TestEmojiRenderVideo:
     """One e2e-style render check: the emoji style lands in a real render
-    through the shared overlay path, and the container stays intact."""
+    through the shared overlay path, and the container stays intact.
+
+    Slow-marked like the rest of the real-render guards in test_e2e (the
+    full pipeline constructs the audio model, whose first-time setup
+    cannot run on CI's offline fast lane).
+    """
+
+    pytestmark = pytest.mark.slow
 
     def test_emoji_render_changes_the_flagged_region(
         self, synthetic_video, tmp_path, monkeypatch
