@@ -60,3 +60,6 @@ assets/demo_plan.json
 
 # Local-only devlogs and artifacts (never shipped)
 devlogs/
+
+# local AI-tool session artifacts (never shipped)
+.zcode/

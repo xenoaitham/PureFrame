@@ -7,7 +7,7 @@ file - so nobody has to guess again.
 Version-number buckets stopped matching reality (desktop installers, a
 "v0.3.0" item, shipped before half of the "v0.2.0" list), so this is now one
 board: **Now** is being worked in order, **Next** is queued and scoped,
-**Later** is wanted but not scoped, and **Blocked on LO** needs a purchase or
+**Later** is wanted but not scoped, and **Blocked on me** needs a purchase or
 a decision that isn't the code's to make.
 
 ## Now
@@ -26,7 +26,7 @@ _Nothing in flight - the next work is queued under Next._
   categories as box providers (the box plumbing exists since #63). Ship with
   one example plugin and a docs page. → **Design note written:
   `docs/plugin-api.md`** - code lands in the four slices it lays out, after
-  a read-through from LO.
+  a read-through from me.
 - **Emoji / sticker overlay** as a fourth censor style (blur, solid box and
   pixelate exist - `BlurMode` in `config.py`).
 - **Bundled FFmpeg for the macOS and Linux standalones.** The Windows zip
@@ -54,10 +54,10 @@ _Nothing in flight - the next work is queued under Next._
 - Subtitle-aware detection (don't blur text overlays), smart audio ducking,
   web-based review UI, mobile companion app, community-contributed censor
   plans.
-- Comparison page vs VidAngel/ClearPlay and a demo video - see Blocked on LO
+- Comparison page vs VidAngel/ClearPlay and a demo video - see Blocked on me
   for the parts that aren't engineering.
 
-## Blocked on LO
+## Blocked on me
 
 - **macOS code-signing + notarization** and the **Tauri auto-updater with
   signed manifests.** Both need a paid Apple Developer certificate ($99/yr)
@@ -66,7 +66,7 @@ _Nothing in flight - the next work is queued under Next._
 - **Windows Authenticode signing.** Same doc, separate (paid) certificate.
   Until then Windows shows the SmartScreen warning on the installer.
 - **Demo video and the comparison page.** Asset and messaging decisions;
-  drafts can be prepared, the framing is LO's call.
+  drafts can be prepared, the framing is my call.
 
 ## Shipped
 
@@ -175,7 +175,7 @@ _Nothing in flight - the next work is queued under Next._
       `nudenet` wheel); CLIP and PANNs download on first run
 - [x] First-run onboarding wizard - the GUI's onboarding page (`gui/src/App.tsx`)
 - [x] `SHA256SUMS.txt` attached to every release (`release.yml`). Code
-      signing is a separate, paid item - see Blocked on LO
+      signing is a separate, paid item - see Blocked on me
 - [x] 13 assets on v0.2.1: `gh release view v0.2.1 --json assets`
 
 ### Incidents that shaped this board

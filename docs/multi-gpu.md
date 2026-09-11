@@ -55,7 +55,7 @@ move to batch-across-shots inference. The `--device` plumbing (pinned
 providers, torch strings, per-device VRAM profiling) is the foundation
 that work would build on.
 
-## If LO ever wants sharding
+## If sharding is ever wanted
 
 The least-surgery shape would be process-level: N worker processes, each
 pinned to one device via the existing `--device`, each handling a

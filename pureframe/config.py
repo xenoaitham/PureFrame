@@ -96,12 +96,10 @@ class Config(BaseSettings):
     output_crf: int = 20
     log_level: str = "INFO"
 
-    # Phase 2 additions
     strict: bool = False
     no_clip: bool = False
     no_audio: bool = False
 
-    # Phase 3 additions
     content_type: ContentType = ContentType.LIVE_ACTION
     strictness: Strictness = Strictness.MEDIUM
     force: bool = False
