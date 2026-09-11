@@ -14,6 +14,11 @@ use tauri::State;
 /// indicates the wrong file or an attempt to exhaust memory.
 const MAX_PLAN_BYTES: u64 = 16 * 1024 * 1024; // 16 MiB
 
+/// Maximum size we will read for one before/after preview PNG.
+/// Full-resolution movie frames compress far below this; the cap only
+/// exists so a planted file cannot exhaust memory through the IPC call.
+const MAX_PREVIEW_BYTES: u64 = 64 * 1024 * 1024; // 64 MiB
+
 /// Video file extensions the desktop app is willing to thumbnail.
 const ALLOWED_VIDEO_EXTS: &[&str] = &[
     "mkv", "mp4", "mov", "avi", "webm", "m4v", "ts", "wmv",
@@ -396,6 +401,48 @@ async fn extract_thumbnail(video_path: String, frame_idx: usize) -> Result<Strin
     Ok(format!("data:image/jpeg;base64,{}", b64))
 }
 
+#[tauri::command]
+async fn read_preview_pair(
+    video_path: String,
+    shot_index: usize,
+) -> Result<(String, String), String> {
+    // Same shape the CLI's `pureframe preview --before-after` writes:
+    // <video>.preview_frames/shot_NNN_before.png and ..._after.png. The
+    // frontend only supplies the video path and shot number - the file
+    // names are built here, so there is no arbitrary-read surface.
+    let resolved = validated_path(&video_path, ALLOWED_VIDEO_EXTS, true)?;
+
+    tauri::async_runtime::spawn_blocking(move || -> Result<(String, String), String> {
+        let file_name = resolved
+            .file_name()
+            .ok_or_else(|| "missing file name".to_string())?;
+        let frames_dir = resolved.with_file_name(format!(
+            "{}.preview_frames",
+            file_name.to_string_lossy()
+        ));
+
+        let read_png = |name: String| -> Result<String, String> {
+            let path = frames_dir.join(&name);
+            let metadata = std::fs::metadata(&path)
+                .map_err(|_| format!("{} not found - run 'pureframe preview --before-after' first", name))?;
+            if metadata.len() > MAX_PREVIEW_BYTES {
+                return Err(format!("{} exceeds size cap", name));
+            }
+            let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+            Ok(format!(
+                "data:image/png;base64,{}",
+                general_purpose::STANDARD.encode(&bytes)
+            ))
+        };
+
+        let before = read_png(format!("shot_{:03}_before.png", shot_index))?;
+        let after = read_png(format!("shot_{:03}_after.png", shot_index))?;
+        Ok((before, after))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 struct AppState {
     jobs: Mutex<HashMap<String, Job>>,
 }
@@ -414,7 +461,8 @@ pub fn run() {
             job_status,
             load_plan,
             save_plan,
-            extract_thumbnail
+            extract_thumbnail,
+            read_preview_pair
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

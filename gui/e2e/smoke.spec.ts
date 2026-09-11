@@ -86,3 +86,45 @@ test("plan editor timeline scrubber fetches the frame at the new position", asyn
   // The shim resolves extract_thumbnail with a deterministic image.
   await expect(page.getByAltText(/scrub preview/i)).toBeVisible();
 });
+
+test("selecting a flagged shot shows the before/after comparison", async ({
+  page,
+}) => {
+  // Same seeded DONE plan job; the shim's read_preview_pair serves the
+  // original/censored pair for the selected shot.
+  await page.addInitScript(() => {
+    window.localStorage.setItem("onboarding_done", "1");
+    window.localStorage.setItem(
+      "pureframe_jobs",
+      JSON.stringify([
+        {
+          id: "job-e2e-2",
+          path: "/videos/movie.mkv",
+          status: "DONE",
+          mode: "plan",
+          progress: 100,
+          lastLine: null,
+          output: "/videos/movie.censorplan.json",
+          exitCode: 0,
+        },
+      ]),
+    );
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: /review plan/i }).click();
+
+  // Select the flagged middle shot from the timeline.
+  await page
+    .getByTitle(/NUDITY_EXPLICIT/i)
+    .click();
+
+  const pane = page.getByTestId("before-after-pane");
+  await expect(pane).toBeVisible();
+  await expect(pane.getByText(/before \/ after/i)).toBeVisible();
+  await expect(
+    pane.getByAltText(/shot 1 original/i),
+  ).toBeVisible();
+  await expect(
+    pane.getByAltText(/shot 1 censored/i),
+  ).toBeVisible();
+});

@@ -1,16 +1,16 @@
-# Plugin API for custom detectors - design note
+# Plugin API for custom detectors - developer reference
 
-Status: **design**, not yet implemented. This note is the contract a future
-implementation should satisfy; code changes land after review of this page.
-The motivating use cases, in order of demand: a face detector for
-kiss-scene mouth tracking on animation (where CLIP misfires), region
-detectors for weapons/gore on non-English content, and site-specific
-logo/watermark detection.
+Status: **implemented** across four merged slices. The motivating use
+cases, in order of demand: a face detector for kiss-scene mouth tracking
+on animation (where CLIP misfires), region detectors for weapons/gore on
+non-English content, and site-specific logo/watermark detection. The
+user-facing page is [plugins.md](plugins.md).
 
 ## What a detector is
 
-Everything the pipeline needs from a detector already exists in the codebase
-- a plugin is just a class honoring the same shape as `NudityDetector`:
+Everything the pipeline needs from a detector already exists in the
+codebase - a plugin is just a class honoring the same shape as
+`NudityDetector`, with its label mapping declared on the class:
 
 ```python
 from pureframe.hardware import ProfileSettings
@@ -19,6 +19,9 @@ from pureframe.pipeline.detect.nudity import Detection
 
 class MyDetector:
     """Detects one or more visual categories on BGR frames."""
+
+    label_categories = {"pistol": "WEAPON_VISIBLE"}
+    label_thresholds = {"pistol": 0.6}
 
     def __init__(self, settings: ProfileSettings):
         # settings carries detection_resolution, batch size, fp16 flag,
@@ -53,26 +56,35 @@ order of preference:
    densify/tracking). This is for detectors that see the same kind of
    content with different eyes.
 
-2. **Provide a new box-provider category.** The post-#63 fuse/plan plumbing
-   treats any flagged verdict with boxes as a blur source, so a plugin can
-   declare e.g. `WEAPON_VISIBLE` (a new `Category` value) whose verdicts
-   render per-frame boxes without touching the nudity logic. The design
-   constraint carried from the start: **non-nudity categories are box
-   providers** - they must never gate on the audio classifier, and their
-   boxes flow through `densify_shot` + `smooth_detections` untouched.
+2. **Provide a new box-provider category.** Any flagged verdict with boxes
+   is a blur source, so a plugin can declare e.g. `WEAPON_VISIBLE`, a
+   category name of its own whose verdicts render per-frame boxes without
+   touching the nudity logic. The design constraint carried from the
+   start: **non-nudity categories are box providers** - they must never
+   gate on the audio classifier, and their boxes flow through densify +
+   `smooth_detections` untouched.
 
-Label→category maps are plain dicts shipped with the plugin:
+   Plans keep a single closed `Category.PLUGIN_BOX` value for all plugin
+   verdicts, with the plugin's own category name recorded in the optional
+   `ShotVerdict.plugin_category` field. One closed member plus an optional
+   field keeps plans portable in both directions: old versions load new
+   plans (they drop the field), and a plan edited on a machine without
+   the plugin still renders, because boxes are data, not code.
+
+Label→category maps are plain dicts declared on the plugin class:
 
 ```python
 LABEL_CATEGORIES = {"pistol": "WEAPON_VISIBLE", "knife": "WEAPON_VISIBLE"}
 LABEL_THRESHOLDS = {"pistol": 0.6, "knife": 0.6}
 ```
 
-Per-label thresholds ride on the existing per-category threshold controls
-(#69): `THRESHOLD_CATEGORIES` gains the plugin's category names, so
-`--thresholds file.json` works uniformly. The `threshold_overrides`
-validator whitelists category names - the plugin registry contributes its
-categories at validation time.
+Per-label thresholds ride on the existing per-category threshold controls:
+a category's default is the minimum over its labels' declared thresholds
+(the lower one keeps the category trigger-ready), `threshold_overrides`
+and `--thresholds file.json` accept the plugin's category names the same
+way they accept `nudity`/`clip`/`audio` (the validator whitelists
+categories contributed by the discovered registry), and the content-type
+multiplier plus `--strict` apply on top exactly as for built-ins.
 
 ## Registration
 
@@ -84,13 +96,20 @@ weapons = "pureframe_weapons:MyDetector"
 ```
 
 `pureframe.plugin_api.discover()` iterates the group and returns
-`{name: (class, LABEL_CATEGORIES, LABEL_THRESHOLDS)}`. The CLI grows:
+`{name: PluginRegistration}` - a frozen record of the class, its
+`label_categories` and its `label_thresholds`, with `threshold_for()`,
+`category_names()` and `category_threshold_bases()` helpers. Plugins that
+fail to import or break the contract are logged and skipped, so one bad
+wheel cannot take the CLI down; nothing is constructed at discovery time.
+The CLI grows:
 
 - `pureframe plugins list` - discovered plugins and their categories;
 - `--enable-plugin weapons` on `process`/`plan` (repeatable).
 
-No auto-enable: plugins change verdicts, so enabling is explicit. The GUI
-gets a checkbox per discovered plugin later via the same discovery call.
+No auto-enable: plugins change verdicts, so enabling is explicit. The
+enabled set is part of `config_hash` (only when non-empty, so pre-plugin
+checkpoints stay valid). The GUI gets a checkbox per discovered plugin
+later via the same discovery call.
 
 ## Pipeline integration points
 
@@ -128,13 +147,14 @@ still renders (boxes are data, not code).
   documented as "install plugins you trust", same trust level as the pip
   packages PureFrame already imports. No sandboxing is attempted (and not
   pretended).
-- First-party example plugin `pureframe-plugins-examples` ships a tiny
-  motion-blob detector (lavfi-friendly, CI-testable) as the reference.
+- First-party example plugin `pureframe-plugins-examples` (under
+  `examples/`) ships a tiny motion-blob detector (lavfi-friendly,
+  CI-testable) as the reference.
 
-## Implementation slices
+## Implementation status
 
-1. `pureframe/plugin_api.py` - discovery + registry + contract tests.
-2. `fuse()` box-provider branch + threshold-category extension.
-3. CLI `plugins list` + `--enable-plugin`, config-hash extension.
-4. Example plugin package + `docs/plugins.md` user page (this note becomes
-   the developer reference).
+All four slices are merged: `pureframe/plugin_api.py` (discovery +
+registry + contract tests), the fuse() box-provider branch with
+per-category threshold integration, the CLI `plugins list` +
+`--enable-plugin` + config-hash extension, and the example plugin package
+with `docs/plugins.md` as the user page.

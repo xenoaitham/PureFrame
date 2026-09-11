@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pureframe-plugins-examples"
+version = "0.1.0"
+description = "First-party example detector plugins for PureFrame."
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "PureFrame Contributors"}]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "opencv-python-headless>=4,<6",
+]
+
+[project.entry-points."pureframe.plugins"]
+motionblob = "pureframe_plugins_examples.motionblob:MotionBlobDetector"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pureframe_plugins_examples"]
