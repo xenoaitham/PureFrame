@@ -28,7 +28,13 @@ from rich.progress import (
 from rich.table import Table
 
 from pureframe.checkpoint import CheckpointStore
-from pureframe.config import Config, ContentType, Strictness, load_thresholds_file
+from pureframe.config import (
+    BlurMode,
+    Config,
+    ContentType,
+    Strictness,
+    load_thresholds_file,
+)
 from pureframe.eta import (
     estimate_analysis_seconds,
     estimate_render_seconds,
@@ -915,6 +921,20 @@ def plan_cmd(
         "--enable-plugin",
         help="Enable an installed detector plugin by name (repeatable)",
     ),
+    blur_mode: BlurMode | None = typer.Option(
+        None,
+        "--blur-mode",
+        case_sensitive=False,
+        help="Censor style for flagged boxes: blur, box, pixelate or emoji",
+    ),
+    emoji_char: str | None = typer.Option(
+        None,
+        "--emoji-char",
+        help=(
+            "Emoji overlay character for --blur-mode emoji "
+            "(default: per-category, e.g. a kiss gets a different mark)"
+        ),
+    ),
     no_cache: bool = typer.Option(
         False,
         "--no-cache",
@@ -955,6 +975,8 @@ def plan_cmd(
         content_type=content_type,
         strictness=strictness,
         quantize_cpu=not no_quant,
+        blur_mode=blur_mode if blur_mode is not None else BlurMode.BLUR,
+        emoji_char=emoji_char if emoji_char is not None else "",
         no_cache=no_cache,
         cache_salt=uuid4().hex if no_cache else "",
         device=device,
@@ -982,6 +1004,17 @@ def apply_cmd(
     output: Path = typer.Option(
         None, "--output", "-o", help="Path to output video file"
     ),
+    blur_mode: BlurMode | None = typer.Option(
+        None,
+        "--blur-mode",
+        case_sensitive=False,
+        help="Override the plan's censor style: blur, box, pixelate or emoji",
+    ),
+    emoji_char: str | None = typer.Option(
+        None,
+        "--emoji-char",
+        help="Emoji overlay character for --blur-mode emoji (overrides the plan)",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose logging"
     ),
@@ -1000,6 +1033,10 @@ def apply_cmd(
         config_dict["output_path"] = input.with_name(
             f"{input.stem}.pureframe{input.suffix}"
         )
+    if blur_mode is not None:
+        config_dict["blur_mode"] = blur_mode
+    if emoji_char is not None:
+        config_dict["emoji_char"] = emoji_char
 
     config = Config(**config_dict)
 
@@ -1157,6 +1194,20 @@ def process_cmd(
         "--enable-plugin",
         help="Enable an installed detector plugin by name (repeatable)",
     ),
+    blur_mode: BlurMode | None = typer.Option(
+        None,
+        "--blur-mode",
+        case_sensitive=False,
+        help="Censor style for flagged boxes: blur, box, pixelate or emoji",
+    ),
+    emoji_char: str | None = typer.Option(
+        None,
+        "--emoji-char",
+        help=(
+            "Emoji overlay character for --blur-mode emoji "
+            "(default: per-category, e.g. a kiss gets a different mark)"
+        ),
+    ),
     no_cache: bool = typer.Option(
         False,
         "--no-cache",
@@ -1203,6 +1254,8 @@ def process_cmd(
                 strictness=strictness,
                 force=force,
                 quantize_cpu=not no_quant,
+                blur_mode=blur_mode if blur_mode is not None else BlurMode.BLUR,
+                emoji_char=emoji_char if emoji_char is not None else "",
                 no_cache=no_cache,
                 cache_salt=cache_salt,
                 device=device,
@@ -1223,6 +1276,8 @@ def process_cmd(
             strictness=strictness,
             force=force,
             quantize_cpu=not no_quant,
+            blur_mode=blur_mode if blur_mode is not None else BlurMode.BLUR,
+            emoji_char=emoji_char if emoji_char is not None else "",
             no_cache=no_cache,
             cache_salt=cache_salt,
             device=device,
