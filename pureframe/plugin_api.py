@@ -63,6 +63,19 @@ class PluginRegistration:
     def category_names(self) -> set[str]:
         return set(self.label_categories.values())
 
+    def category_threshold_bases(self) -> dict[str, float]:
+        """Default threshold per category, as fuse() consumes them.
+
+        A category's base is the minimum over its labels' thresholds - with
+        per-label defaults collapsing to one category number, the lower one
+        keeps the category trigger-ready (a missed detection is worse than
+        a spurious box for this tool).
+        """
+        per_category: dict[str, list[float]] = {}
+        for label, category in self.label_categories.items():
+            per_category.setdefault(category, []).append(self.threshold_for(label))
+        return {category: min(values) for category, values in per_category.items()}
+
 
 def validate_plugin(cls: type) -> list[str]:
     """Return the contract violations of ``cls`` (empty list = valid).

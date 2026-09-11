@@ -58,8 +58,130 @@ if getattr(_sys, "frozen", False):
 app = typer.Typer(help="PureFrame CLI")
 jobs_app = typer.Typer(help="Manage jobs and checkpoints")
 app.add_typer(jobs_app, name="jobs")
+plugins_app = typer.Typer(help="Discover installed detector plugins")
+app.add_typer(plugins_app, name="plugins")
 
 console = Console()
+
+
+def _plugin_runtimes(config: Config, settings) -> list:
+    """Construct the enabled plugin detectors for a plan run.
+
+    Returns ``[(registration, instance), ...]`` in the order the user
+    enabled them. Enabling is explicit, so an unknown name is a hard error
+    here too (the CLI flags validate earlier); a plugin that was
+    uninstalled between flag parsing and this call is the one case that
+    reaches this guard. Instances load models lazily, matching the
+    NudityDetector lifecycle.
+    """
+    if not config.enabled_plugins:
+        return []
+    from pureframe.plugin_api import discover
+
+    registry = discover()
+    runtimes = []
+    for name in config.enabled_plugins:
+        registration = registry.get(name)
+        if registration is None:
+            installed = ", ".join(sorted(registry)) or "none"
+            raise ValueError(
+                f"unknown plugin {name!r} (installed: {installed}); "
+                "run 'pureframe plugins list' to see what is available"
+            )
+        runtimes.append((registration, registration.cls(settings)))
+    return runtimes
+
+
+def _plugin_category_detections(registration, per_frame_dets) -> dict:
+    """Bucket one plugin's per-frame detections by its declared categories.
+
+    Returns ``{category: [per-frame Detection lists]}`` - the shape fuse()
+    consumes. Labels the plugin does not map are dropped.
+    """
+    by_category: dict[str, list] = {}
+    for frame_dets in per_frame_dets:
+        buckets: dict[str, list] = {}
+        for d in frame_dets:
+            category = registration.label_categories.get(d.label)
+            if category:
+                buckets.setdefault(category, []).append(d)
+        for category, dets in buckets.items():
+            by_category.setdefault(category, []).append(dets)
+    return by_category
+
+
+def _densify_plugin_shot(
+    shot,
+    plugin_runtimes: list,
+    config: Config,
+    settings,
+    meta,
+    effective_thresholds: dict[str, float],
+    flagged_categories: set[str],
+) -> dict:
+    """Run the enabled plugins over the shot's densify frames.
+
+    Mirrors densify_shot for the nudity detector: same stride, same
+    end-frame inclusion, same result shape (``{frame_idx: [Detection]}``)
+    so smooth_detections consumes it unchanged. Only labels belonging to
+    the categories that actually flagged the shot are kept, each at its
+    category's effective threshold (strict-mode factor already applied).
+    """
+    n = max(1, settings.densify_every_n_frames)
+    frame_indices = list(range(shot.start_frame, shot.end_frame, n))
+    if shot.end_frame - 1 not in frame_indices:
+        frame_indices.append(shot.end_frame - 1)
+
+    frames_bgr = extract_frames(
+        config.input_path, frame_indices, settings.detection_resolution, meta=meta
+    )
+
+    results = {}
+    for idx in frame_indices:
+        frame = frames_bgr.get(idx)
+        dets = []
+        if frame is not None:
+            for registration, instance in plugin_runtimes:
+                for d in instance.detect_batch([frame])[0]:
+                    category = registration.label_categories.get(d.label)
+                    if (
+                        category in flagged_categories
+                        and d.score >= effective_thresholds.get(category, 1.0)
+                    ):
+                        dets.append(d)
+        results[idx] = dets
+    return results
+
+
+@plugins_app.command("list")
+def plugins_list():
+    """List discovered PureFrame detector plugins and their categories."""
+    from pureframe.plugin_api import discover
+
+    registry = discover()
+    if not registry:
+        console.print(
+            "No plugins discovered. Plugins register through the "
+            "'pureframe.plugins' entry-point group on install."
+        )
+        return
+    table = Table(title="Discovered PureFrame plugins")
+    table.add_column("Name")
+    table.add_column("Categories")
+    table.add_column("Labels")
+    table.add_column("Default thresholds")
+    for name, registration in sorted(registry.items()):
+        thresholds = ", ".join(
+            f"{label}={registration.threshold_for(label):.2f}"
+            for label in sorted(registration.label_categories)
+        )
+        table.add_row(
+            name,
+            ", ".join(sorted(registration.category_names())),
+            ", ".join(sorted(registration.label_categories)),
+            thresholds or "-",
+        )
+    console.print(table)
 
 
 def version_callback(value: bool) -> None:
@@ -108,6 +230,24 @@ def _threshold_overrides(
         if value is not None:
             overrides[category] = value
     return overrides
+
+
+def _validate_plugin_names(names: list[str] | None) -> list[str]:
+    """Validate ``--enable-plugin`` names against the discovered registry."""
+    if not names:
+        return []
+    from pureframe.plugin_api import discover
+
+    registry = discover()
+    unknown = [n for n in names if n not in registry]
+    if unknown:
+        installed = ", ".join(sorted(registry)) or "none installed"
+        raise typer.BadParameter(
+            f"unknown plugin(s): {', '.join(unknown)} (installed: {installed}); "
+            "run 'pureframe plugins list'",
+            param_hint="--enable-plugin",
+        )
+    return list(names)
 
 
 def _build_config(**kwargs) -> Config:
@@ -221,6 +361,11 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
         if config.no_clip:
             scene_classifier.enabled = False
 
+        plugin_runtimes = _plugin_runtimes(config, settings)
+        if plugin_runtimes:
+            names = ", ".join(reg.name for reg, _ in plugin_runtimes)
+            console.print(f"Plugins enabled: [bold]{names}[/bold]")
+
         # Defer constructing the audio model when audio is disabled or the
         # input has no audio streams. The PANNs ctor downloads a ~300MB
         # checkpoint via wget on first use which can hang in CI.
@@ -238,6 +383,21 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
         # under --strictness high - leaving BLACK_BOX verdicts with no boxes.
         eff_nudity, _, _ = config.get_effective_thresholds()
         densify_threshold = eff_nudity * (0.85 if config.strict else 1.0)
+
+        # Plugin category bases and their effective thresholds (strict-mode
+        # factor applied) - computed once from the enabled registrations so
+        # fuse() and the densify pass filter on the same numbers.
+        plugin_threshold_bases: dict[str, float] = {}
+        for reg, _ in plugin_runtimes:
+            for cat, base in reg.category_threshold_bases().items():
+                plugin_threshold_bases.setdefault(cat, base)
+        strict_factor = 0.85 if config.strict else 1.0
+        eff_plugin_thresholds = {
+            cat: t * strict_factor
+            for cat, t in config.get_effective_plugin_thresholds(
+                plugin_threshold_bases
+            ).items()
+        }
 
         try:
             with Progress(
@@ -311,6 +471,21 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                         with timers.phase("detect_nudity"):
                             batch_dets = detector.detect_batch(frames_list)
 
+                        # Plugins run on the same sampled keyframes - no
+                        # extra decodes - and merge into the fuse input
+                        # bucketed by their declared categories.
+                        plugin_detections: dict[str, list] = {}
+                        plugin_kf_dets: list = [[] for _ in frames_list]
+                        for reg, instance in plugin_runtimes:
+                            with timers.phase("detect_plugin"):
+                                results = instance.detect_batch(frames_list)
+                            for i, frame_dets in enumerate(results):
+                                plugin_kf_dets[i].extend(frame_dets)
+                            for cat, per_frame in _plugin_category_detections(
+                                reg, results
+                            ).items():
+                                plugin_detections.setdefault(cat, []).extend(per_frame)
+
                         mid_idx = len(frames_list) // 2
                         mid_frame = frames_list[mid_idx]
                         with timers.phase("detect_clip"):
@@ -344,6 +519,8 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                 audio_ctx,
                                 config,
                                 strict_mode=config.strict,
+                                plugin_detections=plugin_detections,
+                                plugin_threshold_bases=plugin_threshold_bases,
                             )
 
                         if config.strict and verdict.category == Category.KISS_LIGHT:
@@ -422,15 +599,38 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                         frame_idx=idx, detections=dets
                                     )
 
-                                with timers.phase("densify"):
-                                    dense_dets = densify_shot(
-                                        shot,
-                                        config.input_path,
-                                        detector,
-                                        settings,
-                                        densify_threshold,
-                                        meta=meta,
+                                if verdict.category == Category.PLUGIN_BOX:
+                                    # Plugin-flagged shot: densify through
+                                    # the plugin detectors, keeping only the
+                                    # categories that flagged it. The nudity
+                                    # detector saw no threshold-passing
+                                    # detection here, so there is nothing
+                                    # for its densify pass to add.
+                                    flagged = (
+                                        {verdict.plugin_category}
+                                        if verdict.plugin_category
+                                        else set()
                                     )
+                                    with timers.phase("densify"):
+                                        dense_dets = _densify_plugin_shot(
+                                            shot,
+                                            plugin_runtimes,
+                                            config,
+                                            settings,
+                                            meta,
+                                            eff_plugin_thresholds,
+                                            flagged,
+                                        )
+                                else:
+                                    with timers.phase("densify"):
+                                        dense_dets = densify_shot(
+                                            shot,
+                                            config.input_path,
+                                            detector,
+                                            settings,
+                                            densify_threshold,
+                                            meta=meta,
+                                        )
                                 smooth_boxes = smooth_detections(
                                     dense_dets, shot, config.box_padding_pct
                                 )
@@ -464,6 +664,8 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
             detector.unload()
             scene_classifier.unload()
             audio_classifier.unload()
+            for _reg, plugin_instance in plugin_runtimes:
+                plugin_instance.unload()
             del detector
             del scene_classifier
             del audio_classifier
@@ -708,6 +910,11 @@ def plan_cmd(
         min=0,
         help="CUDA device index for the ML models (0-based, e.g. 1 for the second GPU)",
     ),
+    enable_plugin: list[str] = typer.Option(
+        None,
+        "--enable-plugin",
+        help="Enable an installed detector plugin by name (repeatable)",
+    ),
     no_cache: bool = typer.Option(
         False,
         "--no-cache",
@@ -751,6 +958,7 @@ def plan_cmd(
         no_cache=no_cache,
         cache_salt=uuid4().hex if no_cache else "",
         device=device,
+        enabled_plugins=_validate_plugin_names(enable_plugin),
         log_level="DEBUG" if verbose else "INFO",
     )
 
@@ -944,6 +1152,11 @@ def process_cmd(
         min=0,
         help="CUDA device index for the ML models (0-based, e.g. 1 for the second GPU)",
     ),
+    enable_plugin: list[str] = typer.Option(
+        None,
+        "--enable-plugin",
+        help="Enable an installed detector plugin by name (repeatable)",
+    ),
     no_cache: bool = typer.Option(
         False,
         "--no-cache",
@@ -971,6 +1184,7 @@ def process_cmd(
     except ValueError as e:
         raise typer.BadParameter(str(e), param_hint="--thresholds") from e
 
+    enabled_plugins = _validate_plugin_names(enable_plugin)
     cache_salt = uuid4().hex if no_cache else ""
 
     if input.is_dir():
@@ -992,6 +1206,7 @@ def process_cmd(
                 no_cache=no_cache,
                 cache_salt=cache_salt,
                 device=device,
+                enabled_plugins=enabled_plugins,
                 log_level="DEBUG" if verbose else "INFO",
             )
         process_folder(input, recursive, parallel, base_config)
@@ -1011,6 +1226,7 @@ def process_cmd(
             no_cache=no_cache,
             cache_salt=cache_salt,
             device=device,
+            enabled_plugins=enabled_plugins,
             log_level="DEBUG" if verbose else "INFO",
         )
         process_file(config)
