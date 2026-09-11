@@ -211,6 +211,9 @@ export default function App() {
   const [currentPlanPath, setCurrentPlanPath] = useState<string>("");
   const [selectedShot, setSelectedShot] = useState<ShotVerdict | null>(null);
   const [thumbnailBase64, setThumbnailBase64] = useState<string>("");
+  const [previewPair, setPreviewPair] = useState<{ before: string; after: string } | null>(
+    null,
+  );
   const [scrubTime, setScrubTime] = useState<number | null>(null);
   const [scrubThumb, setScrubThumb] = useState<string>("");
   const [scrubLoading, setScrubLoading] = useState(false);
@@ -425,6 +428,8 @@ export default function App() {
     if (!currentPlan) return;
     const shot = currentPlan.shots.find((s) => s.index === verdict.shot_index);
     if (!shot) return;
+    // Any previously shown pair is stale the moment the selection moves.
+    setPreviewPair(null);
     try {
       const b64 = await invoke<string>("extract_thumbnail", {
         videoPath: planSourcePath(currentPlan, currentPlanPath),
@@ -435,6 +440,15 @@ export default function App() {
       console.error("No thumbnail:", e);
       setThumbnailBase64("");
     }
+    // The before/after pair (written by `pureframe preview
+    // --before-after`) is optional - a plan reviewed without a preview
+    // run simply shows the hint instead of the comparison.
+    invoke<[string, string]>("read_preview_pair", {
+      videoPath: planSourcePath(currentPlan, currentPlanPath),
+      shotIndex: verdict.shot_index,
+    })
+      .then(([before, after]) => setPreviewPair({ before, after }))
+      .catch((e) => console.info("No before/after pair:", e));
     // The scrubber follows selection so the bar always reflects what the
     // preview shows (the shot thumbnail fetch above already ran).
     setScrubTime((shot.start_time + shot.end_time) / 2);
@@ -732,16 +746,59 @@ export default function App() {
             </div>
 
             <div className="flex-1 flex gap-6 min-h-0">
-              <div className="flex-1 bg-slate-950/60 border border-slate-800 rounded-lg flex items-center justify-center overflow-hidden">
-                {thumbnailBase64 ? (
-                  <img
-                    src={thumbnailBase64}
-                    alt="Thumbnail"
-                    className="max-h-full object-contain"
-                  />
-                ) : (
-                  <Eye className="w-12 h-12 text-slate-700" />
-                )}
+              <div className="flex-1 flex flex-col gap-4 min-h-0 min-w-0">
+                <div className="flex-1 bg-slate-950/60 border border-slate-800 rounded-lg flex items-center justify-center overflow-hidden min-h-[160px]">
+                  {thumbnailBase64 ? (
+                    <img
+                      src={thumbnailBase64}
+                      alt="Thumbnail"
+                      className="max-h-full object-contain"
+                    />
+                  ) : (
+                    <Eye className="w-12 h-12 text-slate-700" />
+                  )}
+                </div>
+
+                <div
+                  data-testid="before-after-pane"
+                  className="bg-slate-950/60 border border-slate-800 rounded-lg p-3"
+                >
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+                    Before / After
+                  </h4>
+                  {previewPair ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <figure className="min-w-0">
+                        <img
+                          src={previewPair.before}
+                          alt={`Shot ${selectedShot.shot_index} original`}
+                          className="w-full object-contain rounded border border-slate-800"
+                        />
+                        <figcaption className="text-center text-xs text-slate-500 mt-1">
+                          Original
+                        </figcaption>
+                      </figure>
+                      <figure className="min-w-0">
+                        <img
+                          src={previewPair.after}
+                          alt={`Shot ${selectedShot.shot_index} censored`}
+                          className="w-full object-contain rounded border border-slate-800"
+                        />
+                        <figcaption className="text-center text-xs text-slate-500 mt-1">
+                          Censored
+                        </figcaption>
+                      </figure>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      No comparison frames for this shot. Run{" "}
+                      <code className="text-slate-500">
+                        pureframe preview --before-after
+                      </code>{" "}
+                      to render original/censored pairs the editor can show.
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="w-64 flex flex-col gap-3 shrink-0">
