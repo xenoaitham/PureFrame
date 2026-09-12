@@ -14,6 +14,7 @@ from pathlib import Path
 from queue import Full, Queue
 from uuid import uuid4
 
+import click
 import platformdirs
 import typer
 from rich.console import Console
@@ -66,6 +67,34 @@ jobs_app = typer.Typer(help="Manage jobs and checkpoints")
 app.add_typer(jobs_app, name="jobs")
 plugins_app = typer.Typer(help="Discover installed detector plugins")
 app.add_typer(plugins_app, name="plugins")
+
+
+class ProfileParam(click.ParamType):
+    """Hardware profile override accepting any casing.
+
+    The docs promise ``--profile cpu`` (cli-reference, installation,
+    KNOWN_LIMITATIONS all use lowercase) while the enum values are
+    uppercase, so the plain enum choice rejected every documented
+    invocation. Normalize before validating instead of making three doc
+    pages lie.
+    """
+
+    name = "profile"
+
+    def convert(self, value, param, ctx):
+        if value is None or isinstance(value, HardwareProfile):
+            return value
+        try:
+            return HardwareProfile(str(value).upper())
+        except ValueError:
+            self.fail(
+                f"'{value}' is not one of 'HIGH', 'MEDIUM', 'LOW', 'CPU'.",
+                param,
+                ctx,
+            )
+
+
+PROFILE_ARG = ProfileParam()
 
 console = Console()
 
@@ -859,7 +888,7 @@ def plan_cmd(
         help="Path to output censorplan JSON (defaults to input.censorplan.json)",
     ),
     profile: HardwareProfile = typer.Option(
-        None, "--profile", help="Hardware profile override"
+        None, "--profile", click_type=PROFILE_ARG, help="Hardware profile override"
     ),
     threshold: float | None = typer.Option(
         None,
@@ -1131,7 +1160,7 @@ def process_cmd(
         1, "--parallel", "-p", help="Number of parallel workers for folders"
     ),
     profile: HardwareProfile = typer.Option(
-        None, "--profile", help="Hardware profile override"
+        None, "--profile", click_type=PROFILE_ARG, help="Hardware profile override"
     ),
     threshold: float | None = typer.Option(
         None,
