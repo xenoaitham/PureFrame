@@ -77,6 +77,12 @@ def get_pyinstaller_args() -> list[str]:
         "panns_inference",
         "--hidden-import",
         "matplotlib",
+        # NudeNet's detector resolves 320n.onnx next to its own module
+        # file; PyInstaller collects .py modules but not package data by
+        # default, so without this the frozen app died on first detection
+        # with NO_SUCHFILE for the model.
+        "--collect-data",
+        "nudenet",
         # Exclude unnecessary modules to reduce size
         "--exclude-module",
         "tkinter",

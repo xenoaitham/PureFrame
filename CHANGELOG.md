@@ -55,17 +55,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prerelease.
 
 ### Fixed
-- **The standalone builds crashed on real work.** The PyInstaller build
-  excluded matplotlib to save space, but `panns_inference` (the audio
-  classifier's engine) imports `matplotlib.pyplot` at module level - so
-  in every standalone (Windows zip, macOS tarball, Linux tarball) any
-  `process`/`plan` run on audio-bearing content died with
-  `ModuleNotFoundError: No module named 'matplotlib'`, while the
-  `--version` smoke in the packaging job stayed green. matplotlib and
-  the lazy `panns_inference` import are now bundled. Found by the
-  v0.2.3-rc1 tag exercise, which for the first time ran a real
-  `pureframe process` inside the released artifacts with no system
-  ffmpeg on PATH.
+- **The standalone builds crashed on real work - twice.** First: the
+  PyInstaller build excluded matplotlib to save space, but
+  `panns_inference` (the audio classifier's engine) imports
+  `matplotlib.pyplot` at module level, so every standalone (Windows
+  zip, macOS tarball, Linux tarball) died on any `process`/`plan` run
+  with audio. Second, one layer deeper once that was fixed: NudeNet's
+  detector resolves its `320n.onnx` model next to its own module file,
+  and PyInstaller does not collect package data by default - so the
+  model was never in the bundle and detection died with `NO_SUCHFILE`.
+  The `--version` smoke in the packaging jobs never reaches either
+  path. matplotlib, the lazy `panns_inference` import, and the nudenet
+  data files are now bundled. Found by the v0.2.3-rc1/rc2 tag
+  exercises, which for the first time ran a real `pureframe process`
+  inside the released artifacts with no system ffmpeg on PATH.
 
 ## [0.2.2] - 2026-09-11
 
