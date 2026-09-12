@@ -1,5 +1,6 @@
 """Additional CLI coverage tests - version, edge cases, error paths."""
 
+import pytest
 from typer.testing import CliRunner
 
 from pureframe.cli import app
@@ -74,6 +75,42 @@ class TestProcessDefaults:
             ["process", str(tmp_path / "nonexistent.mp4")],
         )
         assert result.exit_code != 0
+
+
+class TestProfileCasing:
+    """The docs promise `--profile cpu` (cli-reference, installation,
+    KNOWN_LIMITATIONS); the option must accept any casing, not just the
+    enum's uppercase values."""
+
+    def test_param_normalizes_documented_lowercase(self):
+        from pureframe.cli import PROFILE_ARG
+        from pureframe.hardware import HardwareProfile
+
+        assert PROFILE_ARG.convert("cpu", None, None) is HardwareProfile.CPU
+        assert PROFILE_ARG.convert("Cpu", None, None) is HardwareProfile.CPU
+        assert PROFILE_ARG.convert("LOW", None, None) is HardwareProfile.LOW
+        assert PROFILE_ARG.convert(None, None, None) is None
+
+    def test_param_rejects_garbage(self):
+        from pureframe.cli import PROFILE_ARG
+
+        with pytest.raises(Exception):
+            PROFILE_ARG.convert("turbo", None, None)
+
+    def test_cli_accepts_documented_lowercase_flag(self, tmp_path):
+        """Parse-level proof: `--profile cpu` on a bad input must fail on
+        the missing file, never on the profile value."""
+        result = runner.invoke(
+            app,
+            [
+                "process",
+                str(tmp_path / "nonexistent.mp4"),
+                "--profile",
+                "cpu",
+            ],
+        )
+        assert result.exit_code != 0
+        assert "Invalid value for '--profile'" not in (result.output or "")
 
 
 class TestJobsSubcommands:
