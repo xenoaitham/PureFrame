@@ -69,11 +69,17 @@ def get_pyinstaller_args() -> list[str]:
         "scipy",
         "--hidden-import",
         "platformdirs",
+        # panns_inference imports matplotlib.pyplot at module level; the
+        # audio classifier constructs it lazily on every process/plan run
+        # with audio, so excluding matplotlib here made every standalone
+        # crash on real work while --version still looked fine.
+        "--hidden-import",
+        "panns_inference",
+        "--hidden-import",
+        "matplotlib",
         # Exclude unnecessary modules to reduce size
         "--exclude-module",
         "tkinter",
-        "--exclude-module",
-        "matplotlib",
         "--exclude-module",
         "IPython",
         "--exclude-module",
