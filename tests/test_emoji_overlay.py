@@ -7,6 +7,9 @@ back to a solid box - a region must never render as untouched pixels
 just because a font was missing.
 """
 
+import os
+import sys
+
 import cv2
 import numpy as np
 import pytest
@@ -19,8 +22,10 @@ from pureframe.config import (
 )
 from pureframe.hardware import HardwareProfile, get_settings
 from pureframe.pipeline.render.overlay import (
+    _EMOJI_FONT_CANDIDATES,
     _apply_emoji,
     _load_emoji_font,
+    _render_emoji_tile,
     build_overlay_callback,
     resolve_emoji,
 )
@@ -200,6 +205,57 @@ class TestApplyEmoji:
         _apply_emoji(frame, (100, 80, 220, 160), DEFAULT_EMOJI)
         np.testing.assert_array_equal(frame[:, :90], original[:, :90])
         np.testing.assert_array_equal(frame[:, 230:], original[:, 230:])
+
+
+class TestEmojiFontAcrossPlatforms:
+    """The emoji style must actually draw ink on every platform the CI
+    matrix covers, not silently ride the solid-box fallback. A font-less
+    dev box still skips (the fallback is a supported configuration
+    there); on CI a missing font or an empty glyph is a failure, because
+    that is exactly the macOS/Windows gap this suite used to paper over
+    with skips."""
+
+    _MARKERS = sorted(set(EMOJI_BY_CATEGORY.values()) | {DEFAULT_EMOJI})
+
+    def test_font_resolution_finds_a_candidate(self):
+        _load_emoji_font.cache_clear()
+        _render_emoji_tile.cache_clear()
+        font = _load_emoji_font()
+        if font is None:
+            if os.environ.get("CI") == "true":
+                pytest.fail(
+                    f"no emoji font candidate resolved on {sys.platform}; "
+                    f"candidates tried: {list(_EMOJI_FONT_CANDIDATES)}. "
+                    "The overlay would fall back to a solid box on this "
+                    "platform - extend _EMOJI_FONT_CANDIDATES or "
+                    "_EMOJI_STRIKE_SIZES instead."
+                )
+            pytest.skip("no emoji font on this machine; the CI matrix pins ink")
+
+    def test_every_marker_char_renders_ink(self):
+        for char in self._MARKERS:
+            tile = _render_emoji_tile(char)
+            if tile is None:
+                if os.environ.get("CI") == "true":
+                    pytest.fail(
+                        f"{char!r} rendered an empty glyph on {sys.platform} "
+                        "(no ink at all), so the overlay falls back to a "
+                        "solid box; see _EMOJI_FONT_CANDIDATES"
+                    )
+                pytest.skip(
+                    f"no emoji ink for {char!r} on this machine; the CI matrix pins ink"
+                )
+            alpha = tile[:, :, 3]
+            visible = int((alpha > 0).sum())
+            assert visible > 500, (
+                f"{char!r} tile is nearly empty ({visible} px with alpha>0) "
+                f"on {sys.platform}"
+            )
+            body = int((alpha > 200).sum())
+            assert body > 200, (
+                f"{char!r} glyph has no opaque body ({body} px with "
+                f"alpha>200) on {sys.platform}"
+            )
 
 
 class TestCallbackEmojiMode:

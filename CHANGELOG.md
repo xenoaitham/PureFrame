@@ -38,6 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the Windows zip already did - the standalones no longer require a
   system ffmpeg. Each packaging job runs both bundled binaries before
   archiving.
+- **Cross-platform emoji verification in CI.** The emoji style's font
+  resolution and ink rendering are now asserted on every CI platform;
+  the previous tests skipped font-less systems silently, so the macOS
+  and Windows font paths were never proven. Each test job also uploads
+  rendered probe frames (`scripts/emoji_probe.py`) as run artifacts, so
+  a rendered frame can be eyeballed per platform. The solid-box
+  fallback stays as the safety net on font-less machines.
 
 ### Changed
 - Prerelease tags no longer publish to PyPI. The publish workflow reads

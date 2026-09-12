@@ -88,6 +88,23 @@ jobs:
         run: pytest -q -m "not slow" --maxfail=3 --timeout=180 --timeout-method=thread --cov=pureframe --cov-report=term-missing --cov-report=xml:coverage.xml
         timeout-minutes: 30
 
+      # Runs even when tests fail: the frames are the evidence needed to
+      # debug an emoji-font gap on this platform. The matrix test in
+      # tests/test_emoji_overlay.py asserts ink; these PNGs are for eyes.
+      - name: Render emoji probe frames
+        if: ${{ !cancelled() }}
+        run: python scripts/emoji_probe.py emoji-probe
+        env:
+          PYTHONUTF8: "1"
+
+      - name: Upload emoji probe frames
+        if: ${{ !cancelled() && matrix.python-version == '3.13' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: emoji-probe-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: emoji-probe/
+          retention-days: 7
+
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.13' && github.event_name == 'push'
         uses: codecov/codecov-action@v4
