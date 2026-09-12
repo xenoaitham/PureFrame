@@ -88,6 +88,15 @@ class TestPluginsListCommand:
         result = runner.invoke(app, ["plugins", "list"], catch_exceptions=False)
         assert result.exit_code == 0
 
+    def test_bare_plugins_command_lists_too(self, monkeypatch):
+        """`pureframe plugins` without a subcommand must not die with
+        'Missing command' - it prints the same listing."""
+        _patched_registry(monkeypatch, _fixture_registration())
+        result = runner.invoke(app, ["plugins"], catch_exceptions=False)
+        assert result.exit_code == 0
+        assert "weapons" in result.output
+        assert WEAPON in result.output
+
 
 class TestEnablePluginFlag:
     def test_unknown_name_rejected(self, synthetic_video):

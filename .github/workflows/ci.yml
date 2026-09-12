@@ -208,3 +208,17 @@ jobs:
           name: eval-report
           path: evaluation_report.json
           retention-days: 7
+
+  plugin-install-smoke:
+    name: Plugin install path (real venv, real entry points)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install, list, process and uninstall the example plugin
+        run: bash scripts/plugin_install_smoke.sh
+        timeout-minutes: 25
