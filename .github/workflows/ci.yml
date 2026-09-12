@@ -107,9 +107,9 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.13' && github.event_name == 'push'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
-          file: coverage.xml
+          files: coverage.xml
           flags: unittests
           fail_ci_if_error: false
         env:
