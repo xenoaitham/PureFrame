@@ -159,6 +159,14 @@ def _densify_plugin_shot(
     return results
 
 
+@plugins_app.callback(invoke_without_command=True)
+def plugins_root(ctx: typer.Context):
+    """Running bare `pureframe plugins` lists what is discovered; the
+    subcommand form (`plugins list`) stays for scripts and the docs."""
+    if ctx.invoked_subcommand is None:
+        plugins_list()
+
+
 @plugins_app.command("list")
 def plugins_list():
     """List discovered PureFrame detector plugins and their categories."""
