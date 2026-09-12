@@ -94,6 +94,8 @@ jobs:
       - name: Render emoji probe frames
         if: ${{ !cancelled() }}
         run: python scripts/emoji_probe.py emoji-probe
+        env:
+          PYTHONUTF8: "1"
 
       - name: Upload emoji probe frames
         if: ${{ !cancelled() && matrix.python-version == '3.13' }}
