@@ -209,6 +209,39 @@ jobs:
         ./dist/pureframe/ffmpeg -version | head -n1
         ./dist/pureframe/ffprobe -version | head -n1
 
+    # A --version smoke cannot see what real work imports. Two release
+    # cycles shipped standalones that died on `process`: matplotlib was
+    # excluded while panns_inference imports it, and PyInstaller never
+    # collected the nudenet .onnx package data. This runs an actual tiny
+    # detection (nudenet model is bundled; --no-audio/--no-clip keep the
+    # heavy CLIP/PANNs downloads out of the release job) with the bundled
+    # binaries first on PATH, so a frozen CLI that cannot probe, detect,
+    # or render fails the job before archiving.
+    - name: Smoke test a real process run (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        set -euo pipefail
+        export PATH="$PWD/dist/pureframe:$PATH"
+        ffmpeg -nostdin -y -loglevel error \
+          -f lavfi -i "testsrc2=duration=1:size=160x120:rate=10" \
+          -pix_fmt yuv420p -c:v libx264 -crf 35 tiny.mp4
+        ./dist/pureframe/pureframe process tiny.mp4 \
+          --output tiny_out.mp4 --profile cpu --no-clip --no-audio
+        test -s tiny_out.mp4
+
+    - name: Smoke test a real process run (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $env:PATH = "$PWD\dist\pureframe;$env:PATH"
+        ffmpeg -nostdin -y -loglevel error `
+          -f lavfi -i "testsrc2=duration=1:size=160x120:rate=10" `
+          -pix_fmt yuv420p -c:v libx264 -crf 35 tiny.mp4
+        .\dist\pureframe\pureframe.exe process tiny.mp4 `
+          --output tiny_out.mp4 --profile cpu --no-clip --no-audio
+        if (-not (Test-Path tiny_out.mp4) -or (Get-Item tiny_out.mp4).Length -eq 0) { exit 1 }
+
     - name: Archive build
       shell: bash
       run: ${{ matrix.archive-cmd }}
