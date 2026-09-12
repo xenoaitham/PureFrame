@@ -68,7 +68,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   path. matplotlib, the lazy `panns_inference` import, and the nudenet
   data files are now bundled. Found by the v0.2.3-rc1/rc2 tag
   exercises, which for the first time ran a real `pureframe process`
-  inside the released artifacts with no system ffmpeg on PATH.
+  inside the released artifacts with no system ffmpeg on PATH. The
+  packaging jobs now also run a tiny real `process` (bundled models,
+  bundled ffmpeg) before archiving, so this class of failure fails the
+  release build instead of shipping.
 
 ## [0.2.2] - 2026-09-11
 
