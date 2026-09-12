@@ -69,7 +69,9 @@ jobs:
         releaseName: 'PureFrame ${{ github.ref_name }}'
         releaseBody: 'Release ${{ github.ref_name }}'
         releaseDraft: false
-        prerelease: false
+        # Tag pipelines exercising a release candidate (v0.2.3-rc1) must not
+        # advertise themselves as stable releases on GitHub.
+        prerelease: ${{ contains(github.ref_name, 'rc') }}
         args: ${{ matrix.os == 'macos-latest' && format('--target {0}', matrix.target) || '' }}
 
   pyinstaller-build:
