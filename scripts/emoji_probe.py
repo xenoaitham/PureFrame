@@ -32,6 +32,12 @@ _SMALL_BOXES = [(20, 40, 100, 90), (150, 100, 230, 150)]
 
 
 def main() -> int:
+    # Windows consoles default to a legacy codepage that cannot encode the
+    # emoji this script draws; keep stdout utf-8 with replacement so the
+    # logs survive, and print codepoints rather than raw glyphs.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("emoji-probe")
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -57,7 +63,10 @@ def main() -> int:
     for i, char in enumerate(chars):
         tile = _render_emoji_tile(char)
         shape = None if tile is None else (tile.shape[0], tile.shape[1])
-        print(f"  {char!r}: tile={'ok' if tile is not None else 'EMPTY'} shape={shape}")
+        print(
+            f"  U+{ord(char):04X}: "
+            f"tile={'ok' if tile is not None else 'EMPTY'} shape={shape}"
+        )
 
         large = frame.copy()
         _apply_emoji(large, _LARGE_BOX, char)
