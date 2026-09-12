@@ -54,6 +54,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shipping to PyPI; GitHub releases built from such tags are marked
   prerelease.
 
+### Fixed
+- **The standalone builds crashed on real work.** The PyInstaller build
+  excluded matplotlib to save space, but `panns_inference` (the audio
+  classifier's engine) imports `matplotlib.pyplot` at module level - so
+  in every standalone (Windows zip, macOS tarball, Linux tarball) any
+  `process`/`plan` run on audio-bearing content died with
+  `ModuleNotFoundError: No module named 'matplotlib'`, while the
+  `--version` smoke in the packaging job stayed green. matplotlib and
+  the lazy `panns_inference` import are now bundled. Found by the
+  v0.2.3-rc1 tag exercise, which for the first time ran a real
+  `pureframe process` inside the released artifacts with no system
+  ffmpeg on PATH.
+
 ## [0.2.2] - 2026-09-11
 
 ### Added
