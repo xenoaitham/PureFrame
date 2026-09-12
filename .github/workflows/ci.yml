@@ -99,7 +99,7 @@ jobs:
 
       - name: Upload emoji probe frames
         if: ${{ !cancelled() && matrix.python-version == '3.13' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: emoji-probe-${{ matrix.os }}-py${{ matrix.python-version }}
           path: emoji-probe/
@@ -117,7 +117,7 @@ jobs:
 
       - name: Upload coverage artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-py${{ matrix.python-version }}
           path: coverage.xml
@@ -163,7 +163,7 @@ jobs:
         run: npm run e2e
       - name: Upload Playwright report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: gui/playwright-report/
@@ -203,7 +203,7 @@ jobs:
         run: python scripts/check_eval_parity.py evaluation_report.json
       - name: Upload evaluation report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: eval-report
           path: evaluation_report.json
