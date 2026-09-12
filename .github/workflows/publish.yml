@@ -10,6 +10,8 @@ jobs:
   build:
     name: Build distribution
     runs-on: ubuntu-latest
+    outputs:
+      prerelease: ${{ steps.version.outputs.prerelease }}
 
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +22,20 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+
+      # Prerelease versions (e.g. 0.2.3rc1 used to exercise the tag
+      # pipeline) build and upload as artifacts but must never reach PyPI;
+      # the publish job is gated on this output.
+      - name: Detect prerelease version
+        id: version
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if echo "$VERSION" | grep -Eq '(a|b|rc)[0-9]+$'; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install build tools
         run: python -m pip install --upgrade build twine
@@ -39,6 +55,7 @@ jobs:
   publish:
     name: Publish to PyPI
     needs: build
+    if: build.outputs.prerelease == 'false'
     runs-on: ubuntu-latest
     environment:
       name: pypi

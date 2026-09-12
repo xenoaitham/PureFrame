@@ -39,6 +39,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   system ffmpeg. Each packaging job runs both bundled binaries before
   archiving.
 
+### Changed
+- Prerelease tags no longer publish to PyPI. The publish workflow reads
+  the version from `pyproject.toml` and skips the publish job when it
+  carries an `a`/`b`/`rc` suffix, so release-candidate tags can exercise
+  the full tag pipeline (CI, installers, standalones, checksums) without
+  shipping to PyPI; GitHub releases built from such tags are marked
+  prerelease.
+
 ## [0.2.2] - 2026-09-11
 
 ### Added
