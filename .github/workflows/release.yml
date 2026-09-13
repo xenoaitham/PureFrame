@@ -229,6 +229,8 @@ jobs:
     - name: Smoke test a real process run (Unix)
       if: runner.os != 'Windows'
       shell: bash
+      env:
+        PYTHONUTF8: "1"
       run: |
         set -euo pipefail
         export PATH="$PWD/dist/pureframe:$PATH"
@@ -242,6 +244,8 @@ jobs:
     - name: Smoke test a real process run (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
+      env:
+        PYTHONUTF8: "1"
       run: |
         $env:PATH = "$PWD\dist\pureframe;$env:PATH"
         ffmpeg -nostdin -y -loglevel error `
