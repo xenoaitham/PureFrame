@@ -90,9 +90,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   plugin, and the real venv install path as a dedicated CI job - are
   pinned by tests in the same change (#99).
 - **`--profile` rejected the documented lowercase form.** Three doc
-  pages say `--profile cpu` / `low` / `medium` / `high`; the option
-  now accepts any casing and still rejects unknown names with the
-  same message shape (#99).
+  pages say `--profile cpu` / `low` / `medium` / `high`; the option now
+  accepts any casing and still rejects unknown names with the same
+  message shape (#99).
+- **AVI files lied about their frame count, and pairwise detectors
+  starved.** An MPEG-4 AVI carries a stream duration one tick longer
+  than the frames it holds (61 declared for 60 packets on the
+  regression fixture), and the plan trusted it twice: the keyframe
+  sampler requested the phantom tail frame, extraction silently
+  returned nothing, and a profile sampling two keyframes per shot
+  handed a differencing detector a single frame. The motion-blob
+  plugin scored the shot 0/60 censored on AVI while the identical
+  content flagged 60/60 on WebM. `probe_video` now recounts packets
+  (demux only) for containers known to overcount and `detect_shots`
+  clamps shot boundaries to that count; found by the adversarial
+  critic pass on fresh AVI input.
 
 ## [0.2.2] - 2026-09-11
 
