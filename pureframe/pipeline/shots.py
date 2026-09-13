@@ -64,12 +64,21 @@ class ShotVerdict(BaseModel):
 
 
 def detect_shots(
-    path: Path, threshold: float = 27.0, frame_skip: int = 0
+    path: Path,
+    threshold: float = 27.0,
+    frame_skip: int = 0,
+    total_frames: int | None = None,
 ) -> list[Shot]:
     """Detect shots. ``frame_skip`` analyzes every N+1-th frame: the decode
     cost drops proportionally while reported positions stay real (PySceneDetect
     tracks actual frame numbers); boundary precision degrades to ±frame_skip
-    frames, which the renderer's segment padding covers."""
+    frames, which the renderer's segment padding covers.
+
+    ``total_frames`` clamps shot boundaries to the real frame count when
+    the caller has a better number than the scene library's duration
+    math - some containers (AVI/MPEG-4) report a stream duration one
+    tick past their last frame, and a shot ending on that phantom frame
+    makes the sampler request a keyframe that extracts as nothing."""
     video = open_video(str(path))
     scene_manager = SceneManager()
     scene_manager.add_detector(ContentDetector(threshold=threshold))
@@ -109,17 +118,29 @@ def detect_shots(
     for j, s in enumerate(merged_shots):
         s.index = j
 
+    if total_frames and total_frames > 0:
+        frame_rate = float(video.frame_rate)
+        for s in merged_shots:
+            if s.end_frame > total_frames:
+                s.end_frame = total_frames
+                if frame_rate:
+                    s.end_time = total_frames / frame_rate
+
     if not merged_shots:
-        video = open_video(str(path))
-        duration = video.duration.get_seconds()
-        total_frames = video.duration.get_frames()
+        end_frame = video.duration.get_frames()
+        end_time = video.duration.get_seconds()
+        if total_frames and total_frames > 0:
+            end_frame = min(end_frame, total_frames)
+            frame_rate = float(video.frame_rate)
+            if frame_rate:
+                end_time = end_frame / frame_rate
         merged_shots.append(
             Shot(
                 index=0,
                 start_frame=0,
-                end_frame=total_frames,
+                end_frame=end_frame,
                 start_time=0.0,
-                end_time=duration,
+                end_time=end_time,
             )
         )
 
