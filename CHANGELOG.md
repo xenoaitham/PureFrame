@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the console's encoding but replaces unencodable characters instead of
   dying.
 
+## [0.2.4] - 2026-09-13
+
+### Fixed
+- The Windows-legacy-console crash shipped in 0.2.3's standalones
+  before the fix could land; 0.2.4 is the corrected build. Nothing
+  else changed between the two.
+
 ## [0.2.3] - 2026-09-13
 
 ### Added
