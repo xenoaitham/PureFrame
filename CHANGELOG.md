@@ -62,7 +62,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   carries an `a`/`b`/`rc` suffix, so release-candidate tags can exercise
   the full tag pipeline (CI, installers, standalones, checksums) without
   shipping to PyPI; GitHub releases built from such tags are marked
-  prerelease.
+  prerelease. Publishing itself now authenticates with the
+  project-scoped `PYPI_TOKEN` secret instead of trusted publishing,
+  whose publisher record was registered under a stale account name and
+  could never match the renamed one.
 
 ### Fixed
 - **The standalone builds crashed on real work - twice.** First: the
