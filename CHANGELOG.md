@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Desktop auto-updater.** The GUI checks the release endpoint once on
+  startup and shows a non-blocking "Update available - Install" notice;
+  nothing downloads without that click, and after installing it asks
+  for a restart. Every download is verified against a minisign public
+  key baked into the app (the private key lives only on the owner's
+  machine), and the release pipeline signs each installer and publishes
+  `latest.json`. Windows and Linux can update from the first tagged
+  release that ships this; macOS stays blocked on code signing
+  (Gatekeeper refuses an unsigned replacement).
 - **Real-footage evaluation harness.** `scripts/score_real_footage.py`
   runs the real planner on a clip you supply and scores the flagged
   shot ranges against a hand-marked JSON of expected ranges
