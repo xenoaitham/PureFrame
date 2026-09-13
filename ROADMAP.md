@@ -1,8 +1,9 @@
 # Roadmap
 
-Last reconciled 2026-09-11, after v0.2.2 and the plugin API session. Every
-tick below carries its evidence - a PR, a workflow, a file - so nobody has
-to guess again.
+Last reconciled 2026-09-13, after the standalone-proof exercise (rc
+tags), the plugin hardening, and the real-footage eval harness. Every
+tick below carries its evidence - a PR, a workflow, a file - so nobody
+has to guess again.
 
 Version-number buckets stopped matching reality (desktop installers, a
 "v0.3.0" item, shipped before half of the "v0.2.0" list), so this is now one
@@ -16,22 +17,25 @@ _Nothing in flight - the next work is queued under Next._
 
 ## Next
 
-- **Dependabot follow-ups, done deliberately.** The safe patch/minor bumps
-  merged as batches (#94, #95); the risky majors were closed with reasons
-  (tailwind 4, eslint 10, action-gh-release 3, upload/download-artifact,
-  codecov 7, checkout 7). Each major gets a dedicated PR in a maintenance
-  window - checkout first, since CI already shows the Node 20 deprecation
-  warnings it would fix.
+_Nothing in flight - the next work is queued under Later and Blocked on
+me._
 
 ## Later
+
+- **Baseline on real footage.** The harness shipped (see Shipped); the
+  metrics suite is waiting on me to supply a clip and mark it. First
+  numbers go in the devlog, not the repo.
 
 - **Multi-GPU sharding.** The descope shipped: `--device cuda:N` pins all ML
   models to a chosen GPU with per-device VRAM profiling (`docs/multi-gpu.md`).
   Shot-level sharding stays here - the plan loop and checkpoint store would
   need surgery, and detection is the smallest phase on the reference box
   (Amdahl); revisit for 4K-first or CPU-dominated deployments.
-- **Evaluation on real footage.** The synthetic corpus and the eval-parity
-  gate exist; a metrics suite on real (user-supplied) footage does not.
+- **Evaluation on real footage.** Shipped 2026-09-13 (was Later): the
+  harness lives in `scripts/score_real_footage.py` +
+  `pureframe/eval/real_footage.py`, workflow in
+  `docs/real-footage-eval.md` (#106). What remains is the baseline run
+  on my footage - see Later.
 - **AV1 and other codecs re-encoded in their own codec.** Today they fall
   back to H.264, which WebM rejects (see `docs/KNOWN_LIMITATIONS.md`).
 - **Model-based box smoothing (Kalman or spline over anchors).** Box EMA and
@@ -187,14 +191,56 @@ _Nothing in flight - the next work is queued under Next._
 - [x] Linux AppImage, `.deb`, `.rpm` and PyInstaller tarball
 - [x] Bundled FFmpeg - all standalones: Windows zip since v0.2.0; the macOS
       tarball (arm64, ffmpeg-static b6.1.1 + @ffprobe-installer) and Linux
-      tarball (johnvansickle 7.0.2 static) since #92, with a run-the-binary
-      check in the packaging job itself
+      tarball (johnvansickle 7.0.2 static) since #92. Since the rc
+      exercise: the packaging jobs run a real tiny `process` through the
+      bundled stack before archiving (#107), and the Linux tarball is
+      proven end to end - full pipeline, no system ffmpeg on PATH, output
+      frame count preserved (rc3, September 2026)
 - [x] Bundled models - NudeNet ships inside the standalones (it lives in the
       `nudenet` wheel); CLIP and PANNs download on first run
 - [x] First-run onboarding wizard - the GUI's onboarding page (`gui/src/App.tsx`)
 - [x] `SHA256SUMS.txt` attached to every release (`release.yml`). Code
       signing is a separate, paid item - see Blocked on me
 - [x] 13 assets on v0.2.1 and v0.2.2: `gh release view v0.2.2 --json assets`
+
+### Standalone-proof exercise (September 2026, rc tags v0.2.3-rc1..rc3)
+
+- [x] Prerelease publish guard - a `v*` tag carrying an rc/beta version
+      builds installers but skips the PyPI publish job, and its GitHub
+      release is marked prerelease; a practice tag can no longer ship to
+      PyPI by accident (#97)
+- [x] The rc exercise itself - extracted the macOS and Linux tarballs,
+      ran the bundled binaries, then `pureframe process` on a synthetic
+      clip with no system ffmpeg on PATH. It found that no standalone
+      could ever run real work, in two layers: matplotlib was excluded
+      while `panns_inference` imports it (#100), and PyInstaller never
+      collected the nudenet `.onnx` package data (#105). Both fixed;
+      rc3 ran the full pipeline inside the artifact, output frame count
+      preserved (#100, #105, tags deleted after verification)
+- [x] Real-process smoke in every packaging job - a tiny detection with
+      bundled models and bundled ffmpeg runs before archiving, so this
+      failure class fails the release build instead of shipping (#107)
+- [x] Emoji ink pinned on all three CI platforms - the matrix tests fail
+      on CI when no font resolves or a glyph renders empty (the old
+      tests skipped silently, which is how macOS/Windows went
+      unproven), and each test job uploads rendered probe frames
+      (#98); Apple Color Emoji, Segoe UI Emoji and Noto Color Emoji all
+      eyeballed from CI artifacts
+- [x] Plugin corners pinned: checkpoint resume with a plugin enabled,
+      plugin + `--no-cache`, and a plugin-flagged plan rendered on a
+      machine without the plugin; the real install path (venv install,
+      entry-point discovery, `plugins list`, end-to-end `process`
+      with the example plugin, uninstall) runs as a dedicated CI job.
+      Fixed on the way: bare `pureframe plugins` died with "Missing
+      command" (#99), and `--profile` rejected the lowercase form three
+      doc pages recommend (#99)
+- [x] Real-footage evaluation harness - score a user-supplied clip
+      against hand-marked ranges (per-category time-coverage
+      precision/recall, missed/extra ranges), privacy-safe JSONL in the
+      `bench --real` shape; workflow in `docs/real-footage-eval.md` (#106)
+- [x] Dependabot majors, one dedicated PR each with a full CI cycle:
+      actions/checkout 7 (#101), upload-artifact 7 + download-artifact 8
+      (#102), codecov-action 7 (#103), action-gh-release 3 (#104)
 
 ### Incidents that shaped this board
 
