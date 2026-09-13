@@ -82,6 +82,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   packaging jobs now also run a tiny real `process` (bundled models,
   bundled ffmpeg) before archiving, so this class of failure fails the
   release build instead of shipping.
+- **Bare `pureframe plugins` died with "Missing command."** Typer's
+  subcommand error instead of the plugin listing; the bare form now
+  prints the same table as `plugins list` (#99). The plugin corners
+  the first pass left open - checkpoint resume with a plugin enabled,
+  plugin + `--no-cache`, a plugin-flagged plan rendered without the
+  plugin, and the real venv install path as a dedicated CI job - are
+  pinned by tests in the same change (#99).
+- **`--profile` rejected the documented lowercase form.** Three doc
+  pages say `--profile cpu` / `low` / `medium` / `high`; the option
+  now accepts any casing and still rejects unknown names with the
+  same message shape (#99).
 
 ## [0.2.2] - 2026-09-11
 
