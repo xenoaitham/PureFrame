@@ -5,6 +5,11 @@ on:
   push:
     tags:
       - "v*"
+  # Manual escape hatch: tag-push runs have been swallowed whole by
+  # GitHub before (zero-job shell runs with no tag-evaluated run at
+  # all), so a publish can be re-triggered by hand from the Actions
+  # tab against any ref.
+  workflow_dispatch:
 
 jobs:
   build:
