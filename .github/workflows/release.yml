@@ -57,18 +57,27 @@ jobs:
       uses: tauri-apps/tauri-action@v0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # macOS code signing + notarization + Tauri updater signing - all
-        # optional. tauri-action silently skips signing/notarization when the
-        # corresponding env vars are absent, so we deliberately do not export
-        # empty strings here (empty APPLE_CERTIFICATE makes `security import`
-        # fail the build). To enable: add the secrets to the repo, then
-        # re-export them here.
+        # Tauri updater signing - the updater plugin verifies every
+        # download against the public key baked into tauri.conf.json, so
+        # these two secrets are required for the build to produce
+        # updater artifacts at all (createUpdaterArtifacts is on).
+        TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        # macOS code signing + notarization - optional. tauri-action
+        # silently skips signing/notarization when the corresponding env
+        # vars are absent, so we deliberately do not export empty strings
+        # here (empty APPLE_CERTIFICATE makes `security import` fail the
+        # build). To enable: add the secrets to the repo, then re-export
+        # them here.
       with:
         projectPath: gui
         tagName: ${{ github.ref_name }}
         releaseName: 'PureFrame ${{ github.ref_name }}'
         releaseBody: 'Release ${{ github.ref_name }}'
         releaseDraft: false
+        # Upload latest.json and one .sig per installer alongside the
+        # existing assets - the update endpoint the desktop app polls.
+        includeUpdaterJson: true
         # Tag pipelines exercising a release candidate (v0.2.3-rc1) must not
         # advertise themselves as stable releases on GitHub.
         prerelease: ${{ contains(github.ref_name, 'rc') }}
