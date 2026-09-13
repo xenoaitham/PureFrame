@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Real-footage evaluation harness.** `scripts/score_real_footage.py`
+  runs the real planner on a clip you supply and scores the flagged
+  shot ranges against a hand-marked JSON of expected ranges
+  (`docs/real-footage-eval.md` is the workflow): per-category
+  time-coverage precision/recall/F1 with missed and extra ranges
+  spelled out, a configurable boundary tolerance for shot snapping,
+  and an append-only JSONL that records the clip as a SHA-256 plus
+  resolution - never a path - so numbers accumulate locally and can be
+  shared without leaking filenames (the same privacy shape as
+  `bench --real`).
 - **Plugin API for custom detectors.** Register a detector class through
   the `pureframe.plugins` entry-point group and it shows up in
   `pureframe plugins list`; opt in per run with a repeatable
