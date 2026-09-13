@@ -297,6 +297,7 @@ Models are cached in your system's standard cache directory (`~/.cache/` on Linu
 | [Confidence Calibration](docs/CALIBRATION.md) | Threshold presets, content types, and tuning workflow |
 | [Known Limitations](docs/KNOWN_LIMITATIONS.md) | False positives/negatives, edge cases, audio gaps |
 | [Evaluation Report](docs/evaluation.md) | Detection accuracy and synthetic benchmarks |
+| [Real-Footage Evaluation](docs/real-footage-eval.md) | Score your own clips against hand-marked ranges (precision/recall) |
 | [Performance](docs/performance.md) | The low-end-PC speed offensive: bottlenecks, fixes, measurement |
 | [Censor Plan Schema](docs/censor-plan-schema.md) | JSON schema reference |
 | [Architecture](docs/architecture.md) | Pipeline diagram and component details |
