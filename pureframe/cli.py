@@ -374,8 +374,12 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
 
     if job.status == "DONE" or job.status == "RENDERING":
         verdicts = store.load_verdicts(job.id)
-        shots = detect_shots(config.input_path, frame_skip=settings.scene_frame_skip)
         meta = probe_video(config.input_path)
+        shots = detect_shots(
+            config.input_path,
+            frame_skip=settings.scene_frame_skip,
+            total_frames=meta.total_frames,
+        )
     else:
         store.update_status(job.id, "DETECTING")
 
@@ -393,7 +397,9 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
             timers.phase("scene_detect"),
         ):
             shots = detect_shots(
-                config.input_path, frame_skip=settings.scene_frame_skip
+                config.input_path,
+                frame_skip=settings.scene_frame_skip,
+                total_frames=meta.total_frames,
             )
 
         store.update_status(job.id, "DETECTING", total_shots=len(shots))
