@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **The CLI crashed on Windows legacy consoles.** Any `process`/`plan`
+  on a cp1252-codepage terminal died with `UnicodeEncodeError` the
+  moment the ETA estimate printed its "approximately" sign - found by
+  the release pipeline's real-process smoke on the Windows standalone,
+  which is exactly what that smoke exists to catch. The CLI now keeps
+  the console's encoding but replaces unencodable characters instead of
+  dying.
+
 ## [0.2.3] - 2026-09-13
 
 ### Added

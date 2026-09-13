@@ -62,6 +62,17 @@ if getattr(_sys, "frozen", False):
     _exe_dir = os.path.dirname(_sys.executable)
     os.environ["PATH"] = _exe_dir + os.pathsep + os.environ.get("PATH", "")
 
+# Windows legacy consoles (cp1252 and friends) cannot encode characters the
+# CLI legitimately prints - the ETA line's "approx" sign among them - and a
+# UnicodeEncodeError there killed the whole run. Keep the console's encoding
+# but swap unencodable characters for a replacement instead of dying.
+for _stream in (_sys.stdout, _sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(errors="replace")
+        except (OSError, ValueError):
+            pass
+
 app = typer.Typer(help="PureFrame CLI")
 jobs_app = typer.Typer(help="Manage jobs and checkpoints")
 app.add_typer(jobs_app, name="jobs")
