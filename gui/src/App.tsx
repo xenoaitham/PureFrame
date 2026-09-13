@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 import { Toaster, toast } from "sonner";
 import {
   Upload,
@@ -218,6 +219,61 @@ export default function App() {
   const [scrubThumb, setScrubThumb] = useState<string>("");
   const [scrubLoading, setScrubLoading] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
+
+  // Updater: a silent startup check plus a notice the user acts on.
+  // Never auto-installs; a click is the only path to downloadAndInstall.
+  const [update, setUpdate] = useState<
+    | { status: "idle" }
+    | { status: "available"; nextVersion: string }
+    | { status: "installing"; progress: number | null }
+    | { status: "installed" }
+  >({ status: "idle" });
+  const pendingUpdate = useRef<Update | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const found = await check();
+        if (cancelled || !found) return;
+        pendingUpdate.current = found;
+        setUpdate({ status: "available", nextVersion: found.version });
+      } catch {
+        // Outside the real Tauri runtime (e2e shim), offline, or the
+        // endpoint has no release yet: the notice simply never shows.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const installUpdate = useCallback(async () => {
+    const found = pendingUpdate.current;
+    if (!found) return;
+    setUpdate({ status: "installing", progress: null });
+    try {
+      let downloaded = 0;
+      let total: number | null = null;
+      await found.downloadAndInstall((event) => {
+        if (event.event === "Started") {
+          total = event.data.contentLength ?? null;
+        } else if (event.event === "Progress") {
+          downloaded += event.data.chunkLength;
+          setUpdate({
+            status: "installing",
+            progress: total
+              ? Math.min(100, Math.round((downloaded / total) * 100))
+              : null,
+          });
+        }
+      });
+      setUpdate({ status: "installed" });
+    } catch {
+      toast.error("Update failed. Grab the new version from the releases page.");
+      setUpdate({ status: "idle" });
+    }
+  }, []);
 
   // Monotonic token so a slow thumbnail fetch can't overwrite a newer one.
   const scrubRequestId = useRef(0);
@@ -929,6 +985,50 @@ export default function App() {
   return (
     <div className="h-screen w-screen bg-slate-950 text-slate-100 font-sans flex flex-col">
       <Toaster position="top-right" theme="dark" richColors />
+      {update.status === "available" && (
+        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 shadow-xl">
+          <div className="text-sm">
+            <span className="font-medium">Update available</span>
+            <span className="text-slate-400"> - v{update.nextVersion}</span>
+          </div>
+          <button
+            onClick={installUpdate}
+            className="rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-500"
+          >
+            Install
+          </button>
+          <button
+            onClick={() => setUpdate({ status: "idle" })}
+            className="text-slate-500 hover:text-slate-300"
+            aria-label="Dismiss update"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+      {update.status === "installing" && (
+        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 shadow-xl">
+          <Loader2 size={16} className="animate-spin text-sky-400" />
+          <div className="text-sm text-slate-300">
+            Downloading update
+            {update.progress !== null ? ` - ${update.progress}%` : ""}
+          </div>
+        </div>
+      )}
+      {update.status === "installed" && (
+        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg border border-emerald-700/50 bg-slate-900 px-4 py-3 shadow-xl">
+          <div className="text-sm text-emerald-300">
+            Update installed - restart PureFrame to apply
+          </div>
+          <button
+            onClick={() => setUpdate({ status: "idle" })}
+            className="text-slate-500 hover:text-slate-300"
+            aria-label="Dismiss"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
       {page === "onboarding" && renderOnboarding()}
       {page === "queue" && renderQueue()}
       {page === "plan-editor" && renderPlanEditor()}
