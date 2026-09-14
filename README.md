@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo.svg" alt="PureFrame" width="180" />
+  <img src="assets/logo.svg" alt="PureFrame" width="140" />
   <h1>PureFrame</h1>
   <p><strong>Watch any movie with your family. Without cutting a single second.</strong></p>
   <p>PureFrame applies smart, localized blurs over explicit visuals - no cuts, no audio edits, no streaming, no subscription.</p>
@@ -13,8 +13,13 @@
   <img src="https://img.shields.io/badge/telemetry-none-brightgreen" alt="Telemetry: None" />
 
   <br /><br />
-  <img src="assets/demo.gif" alt="PureFrame in action" width="640" />
-  <p><em>Synthetic demo - left: original, right: PureFrame output. The flagged region is Gaussian-blurred and smoothly tracked as the figure crosses the frame; everything else is untouched. Regenerate with <code>scripts/make_demo.py</code>.</em></p>
+  <img src="assets/banner.png" alt="The same frame before and after PureFrame: the figure is blurred, the window stays sharp" width="800" />
+  <p><em>
+    Real pipeline output: the flagged region is Gaussian-blurred and
+    smoothly tracked as the figure crosses the frame; everything else is
+    untouched. <a href="https://xenoaitham.github.io/PureFrame/demo/">See the full
+    walkthrough</a> or browse <a href="screenshots/">screenshots/</a>.
+  </em></p>
 </div>
 
 ---
@@ -228,8 +233,11 @@ PureFrame includes an experimental [Tauri](https://tauri.app/) desktop GUI - dar
 - ✅ One-click whitelist/blacklist
 - ✅ Hardware profile settings
 - ✅ Detection sensitivity slider
-- 🔜 Timeline scrubbing
-- 🔜 Before/after preview
+- ✅ Timeline scrubbing
+- ✅ Before/after preview
+
+More views in [screenshots/](screenshots/) and the
+[visual walkthrough](https://xenoaitham.github.io/PureFrame/demo/).
 
 ```bash
 cd gui && npm install && npm run tauri dev
