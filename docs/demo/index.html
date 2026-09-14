@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PureFrame - see it work</title>
+<meta name="description" content="PureFrame applies smooth, tracked blur over explicit content in video. Local, automatic, no cuts, no audio changes. A visual walkthrough.">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #0d1117; color: #e6edf3; line-height: 1.6;
+    max-width: 1080px; margin: 0 auto; padding: 3rem 1.5rem 5rem;
+  }
+  header { display: flex; align-items: center; gap: 1rem; margin-bottom: 2.5rem; }
+  header img { width: 56px; height: 56px; }
+  h1 { font-size: 1.6rem; letter-spacing: -0.02em; }
+  h2 { font-size: 1.15rem; margin: 2.8rem 0 1rem; color: #79c0ff; }
+  p.lead { font-size: 1.05rem; color: #8b949e; max-width: 46rem; }
+  .banner { width: 100%; border-radius: 12px; border: 1px solid #21262d; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+  .grid img, figure img {
+    width: 100%; border-radius: 10px; border: 1px solid #21262d; display: block;
+  }
+  figure figcaption { font-size: 0.85rem; color: #8b949e; margin-top: 0.5rem; }
+  .cta { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-top: 2rem; }
+  .cta a {
+    background: #1f6feb; color: #fff; text-decoration: none; font-weight: 600;
+    padding: 0.7rem 1.3rem; border-radius: 8px; font-size: 0.95rem;
+  }
+  .cta a.ghost { background: transparent; border: 1px solid #30363d; color: #e6edf3; }
+  .cta a:hover { filter: brightness(1.15); }
+  footer { margin-top: 4rem; font-size: 0.85rem; color: #8b949e; }
+  footer a { color: #79c0ff; }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="https://raw.githubusercontent.com/xenoaitham/PureFrame/master/assets/logo.svg" alt="PureFrame logo">
+  <h1>PureFrame - see it work</h1>
+</header>
+
+<p class="lead">
+  PureFrame watches a video the way a parent would, finds the shots that
+  need covering, and blurs exactly that region - tracked frame by frame.
+  No scene cutting, no audio changes, nothing uploaded. Below is a real
+  run, start to finish.
+</p>
+
+<img class="banner" src="banner.png"
+     alt="The same frame before and after: a figure at dusk, blurred in the censored version while the window stays sharp">
+
+<h2>1. Drop a file in the desktop app</h2>
+<div class="grid">
+  <figure>
+    <img src="gui_onboarding.png" alt="First-run onboarding screen">
+    <figcaption>First run: pick a hardware profile, done in one screen.</figcaption>
+  </figure>
+  <figure>
+    <img src="gui_queue.png" alt="Job queue with a finished plan and a finished render">
+    <figcaption>The queue. One plan pass, one render pass, both finished.</figcaption>
+  </figure>
+</div>
+
+<h2>2. Review exactly what gets covered</h2>
+<figure>
+  <img src="gui_plan_editor.png" alt="Plan editor with the flagged shot selected">
+  <figcaption>
+    The plan editor. Red is a flagged shot on the timeline; selecting it
+    shows the frame, the category and confidence, and three honest
+    choices: keep the blur, blur everything, or whitelist the shot.
+  </figcaption>
+</figure>
+<figure>
+  <img src="gui_before_after.png" alt="Before and after pair for the selected shot">
+  <figcaption>
+    Original and censored, side by side, through the same overlay code the
+    final render uses. What you approve here is what ships in the video.
+  </figcaption>
+</figure>
+
+<h2>3. Get the video back</h2>
+<figure>
+  <img src="after.png" alt="A censored frame: tracked blur over the figure, the rest untouched">
+  <figcaption>
+    A frame from the rendered output. Only the flagged region changed -
+    cuts, motion and audio stay exactly as the creator made them.
+  </figcaption>
+</figure>
+
+<div class="cta">
+  <a href="https://github.com/xenoaitham/PureFrame/releases">Download for Windows, macOS or Linux</a>
+  <a class="ghost" href="https://pypi.org/project/pureframe/">pip install pureframe</a>
+  <a class="ghost" href="https://github.com/xenoaitham/PureFrame">Source on GitHub</a>
+</div>
+
+<footer>
+  Every image on this page is a real PureFrame run on a synthetic clip -
+  no stock photos. <a href="https://github.com/xenoaitham/PureFrame/tree/master/screenshots">Full-resolution screenshots</a>
+  live in the repository. Processing happens on your machine; no video,
+  frames or metadata ever leave it.
+</footer>
+
+</body>
+</html>
