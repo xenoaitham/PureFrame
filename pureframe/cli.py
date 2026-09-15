@@ -416,6 +416,33 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
         store.update_status(job.id, "DETECTING", total_shots=len(shots))
         console.print(f"Detected {len(shots)} shots.")
 
+        # Parental-guide marks (--guide): shots overlapping a marked window
+        # get a lower nudity bar (hint mode), and window mode additionally
+        # turns detector-silent guide shots into whole-shot blur the user
+        # reviews before applying. The marks file is authored locally -
+        # PureFrame never fetches guides from the network.
+        guide_factor_by_shot: dict[int, float] = {}
+        if config.guide_path:
+            from pureframe.eval.real_footage import load_marks
+
+            guide_marks = load_marks(Path(config.guide_path))
+            for s in shots:
+                if any(
+                    s.start_time < m.end and m.start < s.end_time for m in guide_marks
+                ):
+                    guide_factor_by_shot[s.index] = config.guide_threshold_factor
+            if guide_factor_by_shot:
+                console.print(
+                    f"[bold blue]Guide:[/bold blue] {len(guide_marks)} marked "
+                    f"window(s) cover {len(guide_factor_by_shot)} shot(s) "
+                    f"(mode: {config.guide_mode})"
+                )
+            else:
+                console.print(
+                    "[yellow]Guide:[/yellow] no shot overlaps the marked "
+                    "windows - check timestamps against this file."
+                )
+
         detector = NudityDetector(settings, quantize=config.quantize_cpu)
         scene_classifier = SceneClassifier(settings)
         if config.no_clip:
@@ -581,10 +608,33 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                 strict_mode=config.strict,
                                 plugin_detections=plugin_detections,
                                 plugin_threshold_bases=plugin_threshold_bases,
+                                guide_threshold_factor=guide_factor_by_shot.get(
+                                    shot.index, 1.0
+                                ),
                             )
 
                         if config.strict and verdict.category == Category.KISS_LIGHT:
                             verdict.action = Action.BLACK_BOX
+
+                        # Window mode: a guide-marked shot the detectors did
+                        # not flag still becomes whole-shot blur, visibly
+                        # categorized for review before the plan is applied.
+                        if (
+                            config.guide_mode == "window"
+                            and shot.index in guide_factor_by_shot
+                            and verdict.action == Action.NONE
+                        ):
+                            verdict = ShotVerdict(
+                                shot_index=shot.index,
+                                category=Category.GUIDE_BOX,
+                                action=Action.FULL_FRAME_BLUR,
+                                confidence=max(0.5, verdict.confidence),
+                                boxes=None,
+                                reasoning=(
+                                    "Guide-marked window; detectors found "
+                                    f"nothing at the boosted bar (score: {verdict.confidence:.2f}) - whole-shot blur for review"
+                                ),
+                            )
 
                         if verdict.action != Action.NONE:
                             is_kiss_black_box = (
@@ -688,7 +738,15 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                             config.input_path,
                                             detector,
                                             settings,
-                                            densify_threshold,
+                                            # Keep every detection the boosted
+                                            # guide bar could have flagged on:
+                                            # densifying at the unboosted
+                                            # threshold here would strip the
+                                            # boxes off guide-hinted marginal
+                                            # detections (the v0.2.2 class of
+                                            # bug, one layer down).
+                                            densify_threshold
+                                            * guide_factor_by_shot.get(shot.index, 1.0),
                                             meta=meta,
                                         )
                                 smooth_boxes = smooth_detections(
@@ -975,6 +1033,30 @@ def plan_cmd(
         "--enable-plugin",
         help="Enable an installed detector plugin by name (repeatable)",
     ),
+    guide: Path | None = typer.Option(
+        None,
+        "--guide",
+        help=(
+            'Parental-guide marks JSON ({"ranges": [{start, end, category?}]}'
+            ", seconds) - authored locally, e.g. from a saved guide page. "
+            "Inside marked windows the nudity threshold is scaled by "
+            "--guide-factor, and --guide-mode window adds whole-shot blur "
+            "for windows the detectors did not flag."
+        ),
+    ),
+    guide_mode: str = typer.Option(
+        "hint",
+        "--guide-mode",
+        case_sensitive=False,
+        help="hint: threshold boost inside guide windows only. window: also blur unflagged guide shots (review before applying)",
+    ),
+    guide_factor: float = typer.Option(
+        0.7,
+        "--guide-factor",
+        min=0.1,
+        max=1.0,
+        help="Nudity-threshold multiplier inside guide windows",
+    ),
     blur_mode: BlurMode | None = typer.Option(
         None,
         "--blur-mode",
@@ -1035,6 +1117,9 @@ def plan_cmd(
         cache_salt=uuid4().hex if no_cache else "",
         device=device,
         enabled_plugins=_validate_plugin_names(enable_plugin),
+        guide_path=str(guide) if guide is not None else "",
+        guide_mode=guide_mode,
+        guide_threshold_factor=guide_factor,
         log_level="DEBUG" if verbose else "INFO",
     )
 
@@ -1248,6 +1333,30 @@ def process_cmd(
         "--enable-plugin",
         help="Enable an installed detector plugin by name (repeatable)",
     ),
+    guide: Path | None = typer.Option(
+        None,
+        "--guide",
+        help=(
+            'Parental-guide marks JSON ({"ranges": [{start, end, category?}]}'
+            ", seconds) - authored locally, e.g. from a saved guide page. "
+            "Inside marked windows the nudity threshold is scaled by "
+            "--guide-factor, and --guide-mode window adds whole-shot blur "
+            "for windows the detectors did not flag."
+        ),
+    ),
+    guide_mode: str = typer.Option(
+        "hint",
+        "--guide-mode",
+        case_sensitive=False,
+        help="hint: threshold boost inside guide windows only. window: also blur unflagged guide shots (review before applying)",
+    ),
+    guide_factor: float = typer.Option(
+        0.7,
+        "--guide-factor",
+        min=0.1,
+        max=1.0,
+        help="Nudity-threshold multiplier inside guide windows",
+    ),
     blur_mode: BlurMode | None = typer.Option(
         None,
         "--blur-mode",
@@ -1314,6 +1423,9 @@ def process_cmd(
                 cache_salt=cache_salt,
                 device=device,
                 enabled_plugins=enabled_plugins,
+                guide_path=str(guide) if guide is not None else "",
+                guide_mode=guide_mode,
+                guide_threshold_factor=guide_factor,
                 log_level="DEBUG" if verbose else "INFO",
             )
         process_folder(input, recursive, parallel, base_config)
@@ -1336,6 +1448,9 @@ def process_cmd(
             cache_salt=cache_salt,
             device=device,
             enabled_plugins=enabled_plugins,
+            guide_path=str(guide) if guide is not None else "",
+            guide_mode=guide_mode,
+            guide_threshold_factor=guide_factor,
             log_level="DEBUG" if verbose else "INFO",
         )
         process_file(config)

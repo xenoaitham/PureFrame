@@ -59,6 +59,7 @@ def fuse(
     strict_mode: bool = False,
     plugin_detections: dict[str, list[list[Detection]]] | None = None,
     plugin_threshold_bases: dict[str, float] | None = None,
+    guide_threshold_factor: float = 1.0,
 ) -> ShotVerdict:
     # Use effective thresholds from config (includes content-type and strictness adjustments)
     eff_nudity, eff_clip, eff_audio = config.get_effective_thresholds()
@@ -66,7 +67,11 @@ def fuse(
     # Legacy strict_mode applies an additional 0.85 multiplier for backward compat
     t_mod = 0.85 if strict_mode else 1.0
 
-    nudity_thresh = eff_nudity * t_mod
+    # A parental-guide window lowers the nudity bar for shots the guide
+    # marked: inside those windows detection gets a second chance at a
+    # stricter effective bar. The factor only ever applies where the guide
+    # marked - generate_plan passes 1.0 everywhere else.
+    nudity_thresh = eff_nudity * t_mod * guide_threshold_factor
 
     # 1. Explicit Nudity
     max_nudity_score = 0.0

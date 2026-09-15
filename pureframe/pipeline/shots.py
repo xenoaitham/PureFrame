@@ -34,6 +34,12 @@ class Category(str, Enum):
     # ShotVerdict.plugin_category, so a plan renders on a machine without
     # the plugin (boxes are data, not code).
     PLUGIN_BOX = "PLUGIN_BOX"
+    # Verdict category for shots inside an externally marked parental-guide
+    # window (a marks JSON passed with --guide) that the detectors did not
+    # flag on their own. Window mode exists so guide evidence can censor a
+    # shot the models missed - it is deliberately loud in the plan editor so
+    # the user reviews it before applying.
+    GUIDE_BOX = "GUIDE_BOX"
     SAFE = "SAFE"
 
 

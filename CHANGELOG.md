@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Parental-guide marks (`--guide`).** Hand PureFrame externally
+  documented targets - e.g. the timestamps from a saved Parents Guide
+  page - as a small marks JSON (`docs/guides.md` is the workflow).
+  PureFrame never fetches guides from the network; the file is authored
+  locally, in the same schema the real-footage evaluator reads. Inside
+  a marked window the nudity threshold scales by `--guide-factor`
+  (default 0.7), so borderline detections in exactly those windows now
+  flag; with `--guide-mode window`, marked shots the detectors still
+  did not flag become whole-shot blur under a dedicated `GUIDE_BOX`
+  category (blue on the plan-editor timeline) for review before
+  applying. Guide settings fold into the checkpoint hash; the densify
+  pass scales its bar by the same factor, so boosted marginal
+  detections keep their blur boxes.
+
 ### Fixed
 - **The CLI crashed on Windows legacy consoles.** Any `process`/`plan`
   on a cp1252-codepage terminal died with `UnicodeEncodeError` the
