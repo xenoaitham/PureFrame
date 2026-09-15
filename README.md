@@ -303,6 +303,7 @@ Models are cached in your system's standard cache directory (`~/.cache/` on Linu
 | [Installation Guide](docs/installation.md) | Platform-specific install, GPU setup, troubleshooting |
 | [CLI Reference](docs/cli-reference.md) | All commands, options, and examples |
 | [Confidence Calibration](docs/CALIBRATION.md) | Threshold presets, content types, and tuning workflow |
+| [Parental Guides](docs/guides.md) | Feed known scene timestamps (e.g. from a saved guide page) as detection targets |
 | [Known Limitations](docs/KNOWN_LIMITATIONS.md) | False positives/negatives, edge cases, audio gaps |
 | [Evaluation Report](docs/evaluation.md) | Detection accuracy and synthetic benchmarks |
 | [Real-Footage Evaluation](docs/real-footage-eval.md) | Score your own clips against hand-marked ranges (precision/recall) |

@@ -724,6 +724,9 @@ export default function App() {
               if (v.category.includes("SEXUAL")) color = "bg-orange-500";
               else if (v.category.includes("NUDITY")) color = "bg-red-500";
               else if (v.category.includes("KISS")) color = "bg-yellow-500";
+              // Guide-marked shots the detectors missed: a distinct blue so
+              // window-mode blur is obviously "from the guide, review me".
+              else if (v.category.includes("GUIDE")) color = "bg-sky-500";
               if (v.action === "NONE") color = "bg-slate-600";
 
               return (

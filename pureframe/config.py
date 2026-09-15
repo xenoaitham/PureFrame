@@ -149,7 +149,28 @@ class Config(BaseSettings):
     # checkpoints keep hashing to their old values.
     enabled_plugins: list[str] = []
 
+    # External parental-guide marks (--guide, a marks JSON carrying
+    # {"ranges": [{start, end, category?}]} in seconds - the same schema
+    # the real-footage evaluator uses). PureFrame never fetches guides
+    # itself; the file is authored locally. Inside marked windows the
+    # nudity threshold is scaled by guide_threshold_factor (hint mode:
+    # detection gets a second chance), and guide_mode "window" also turns
+    # still-unflagged shots into whole-shot blur for review. Both fold
+    # into config_hash only when a guide is set, so pre-guide checkpoints
+    # keep hashing to their old values.
+    guide_path: str = ""
+    guide_mode: str = "hint"
+    guide_threshold_factor: float = 0.7
+
     model_config = SettingsConfigDict(env_prefix="PUREFRAME_")
+
+    @field_validator("guide_mode")
+    @classmethod
+    def _validate_guide_mode(cls, value: str) -> str:
+        v = str(value).lower()
+        if v not in ("hint", "window"):
+            raise ValueError(f"guide_mode must be 'hint' or 'window', got {value!r}")
+        return v
 
     @field_validator("threshold_overrides")
     @classmethod
@@ -265,6 +286,10 @@ class Config(BaseSettings):
             data["threshold_overrides"] = dict(sorted(self.threshold_overrides.items()))
         if self.enabled_plugins:
             data["enabled_plugins"] = sorted(self.enabled_plugins)
+        if self.guide_path:
+            data["guide_path"] = self.guide_path
+            data["guide_mode"] = self.guide_mode
+            data["guide_threshold_factor"] = self.guide_threshold_factor
         if self.content_fingerprint:
             data["content_fingerprint"] = self.content_fingerprint
         data_str = json.dumps(data, sort_keys=True)
