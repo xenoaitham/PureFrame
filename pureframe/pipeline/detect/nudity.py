@@ -5,6 +5,10 @@ from nudenet import NudeDetector
 from pydantic import BaseModel
 
 from pureframe.hardware import ProfileSettings, onnx_providers_for
+from pureframe.pipeline.detect.preprocess import (
+    needs_normalization,
+    normalize_for_detection,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +28,18 @@ class Detection(BaseModel):
 
 
 class NudityDetector:
-    def __init__(self, settings: ProfileSettings, quantize: bool = True):
+    def __init__(
+        self,
+        settings: ProfileSettings,
+        quantize: bool = True,
+        preprocess_low_light: bool = True,
+    ):
         self.settings = settings
         self.quantize = quantize
+        # Dark and low-contrast grayscale frames get a percentile stretch
+        # before inference (detection-only; the renderer sees the
+        # originals). See pureframe.pipeline.detect.preprocess.
+        self.preprocess_low_light = preprocess_low_light
         self.detector = None
         if self.settings.keep_models_loaded:
             self._load()
@@ -83,6 +96,8 @@ class NudityDetector:
         # If it doesn't support batched inference natively, we loop.
         for frame in frames_bgr:
             try:
+                if self.preprocess_low_light and needs_normalization(frame):
+                    frame = normalize_for_detection(frame)
                 preds = self.detector.detect(frame)
                 detections = []
                 for p in preds:
