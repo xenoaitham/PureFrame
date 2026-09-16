@@ -129,7 +129,7 @@ class TestEvaluationReport:
 
 class TestSyntheticScenarios:
     def test_scenario_count(self):
-        assert len(SYNTHETIC_SCENARIOS) == 50
+        assert len(SYNTHETIC_SCENARIOS) == 51
 
     def test_genres_covered(self):
         genres = set(s["genre"] for s in SYNTHETIC_SCENARIOS)
@@ -208,7 +208,7 @@ class TestRunSyntheticBenchmark:
 
         report = run_synthetic_benchmark(detector=detector, threshold=0.5)
 
-        assert report.total_scenes == 50
+        assert report.total_scenes == len(SYNTHETIC_SCENARIOS)
         assert report.version  # Should have a version string
         assert report.timestamp
         # All scenes detected as explicit (mock always returns explicit)
@@ -227,7 +227,7 @@ class TestRunSyntheticBenchmark:
 
         report = run_synthetic_benchmark(detector=detector, threshold=0.5)
 
-        assert report.total_scenes == 50
+        assert report.total_scenes == len(SYNTHETIC_SCENARIOS)
         # Nothing detected → all safe scenes = TN, all explicit = FN
         assert report.precision == 0.0
         assert report.recall == 0.0
@@ -269,7 +269,7 @@ class TestRunSyntheticBenchmark:
         report.save(out)
 
         data = json.loads(out.read_text())
-        assert data["total_scenes"] == 50
+        assert data["total_scenes"] == len(SYNTHETIC_SCENARIOS)
         assert "aggregate_metrics" in data
         assert "threshold_analysis" in data
-        assert len(data["results"]) == 50
+        assert len(data["results"]) == len(SYNTHETIC_SCENARIOS)
