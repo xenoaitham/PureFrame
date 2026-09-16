@@ -1,41 +1,52 @@
 # Confidence Calibration Guide
 
-> **TL;DR**: Use `--strictness high` for family viewing, `--strictness medium` for general use, `--strictness low` for minimal false positives.
+> **TL;DR**: Use `--strictness high` for family viewing, `--strictness medium` for general use, `--strictness low` for minimal false positives. Beach/pool and gym/sports scenes get an automatic bar raise; tune or disable it with `--scene-context-factor`.
 
 ## Threshold Presets
 
-PureFrame uses confidence thresholds to decide when a detection is "real" enough to trigger censoring. Higher thresholds mean fewer false positives but risk missing actual explicit content.
+PureFrame uses confidence thresholds to decide when a detection is "real" enough to trigger censoring. Higher thresholds mean fewer false positives but risk missing actual explicit content. There is one nudity threshold, one CLIP scene threshold and one audio threshold; every preset sets all three.
 
 ### Built-in Strictness Levels
 
-| Strictness | Nudity | Genitalia | Buttocks | Use Case |
+| Strictness | Nudity | CLIP scene | Audio | Use Case |
 |-----------|--------|-----------|----------|----------|
-| **High** | 0.30 | 0.25 | 0.35 | Family movie night - catches everything, may flag swimwear |
-| **Medium** | 0.45 | 0.40 | 0.50 | General use - balanced precision/recall |
-| **Low** | 0.60 | 0.55 | 0.65 | Minimal intervention - only flags obvious nudity |
-| **Custom** | User-defined via `--threshold` | | | Full control |
+| **High** | 0.35 | 0.35 | 0.40 | Family movie night - catches the most, accepts more false positives |
+| **Medium** (default) | 0.55 | 0.50 | 0.60 | General use - balanced precision/recall |
+| **Low** | 0.75 | 0.70 | 0.80 | Minimal intervention - only flags obvious nudity |
+| **Custom** | via `--threshold` / `--threshold-nudity` / `--threshold-clip` / `--threshold-audio` or a `--thresholds` file | | | Full control |
+
+A per-category flag or file entry replaces that category's preset value; the others keep it. The content-type multiplier and `--strict` (an additional 0.85x on every threshold) apply on top either way.
 
 ### Content-Type Modifiers
 
-Each content type applies a multiplier to the base thresholds:
+Each content type multiplies all three base thresholds (capped at 0.99):
 
 | Content Type | Multiplier | Effect |
 |-------------|------------|--------|
 | `live-action` | 1.0x | Standard thresholds |
-| `animation` | 0.85x | Lower thresholds (animated skin tones are harder to detect) |
-| `anime` | 0.80x | Even lower (anime has unique skin rendering) |
-| `low-light` | 0.90x | Slightly lower (dark scenes reduce detection confidence) |
+| `animation` | 1.3x | Higher bar (drawn skin tones trigger the detector more easily) |
+| `anime` | 1.4x | Highest bar (anime styling over-triggers) |
+| `low-light` | 0.85x | Lower bar, plus the automatic dark-frame normalization described below |
 
-### Recommended Configurations
+Since 0.2.5, dark scenes get help automatically regardless of content type: when a frame measures dark (mean luma under 70) or near-grayscale with a compressed histogram, the detector sees a range-restored copy while the render keeps the original pixels. Declaring `--content-type low-light` keeps the 0.85x multiplier for content that stays dark in ways the frame-level measurement misses.
+
+### Scene-Context Gate (beach/pool, gym/sports)
+
+Swimwear, skin-tight clothing and shirtless athletes produce real detector signals - they are just not nudity. CLIP classifies every shot's context; when a beach/pool or gym/sports context reads confident (score at or above 0.60) and neither sexual context category is near its own threshold, the shot's nudity threshold scales by `--scene-context-factor` (default 1.4, valid range 1.0 to 2.0; 1.0 disables the gate).
+
+The gate can only raise a bar, never lower one, and confident sexual context switches it off entirely - a sex scene at the beach keeps the strict threshold. The factor is part of the plan's config hash: changing it re-analyzes.
+
+The parental-guide feature composes with it: inside a `--guide` window the guide factor multiplies on top of whatever the context gate decided.
+
+## Recommended Configurations
 
 #### Family Movie Night
 ```bash
 pureframe process movie.mp4 --strictness high --content-type live-action
 ```
-- Catches virtually all explicit content
-- May flag beach/pool scenes as borderline
-- Expected false positive rate: ~5-8%
-- Expected false negative rate: <1%
+- Catches the most explicit content
+- Swimwear scenes at the beach or pool are gated by the scene-context factor; pass `--scene-context-factor 1.0` if you would rather over-flag them
+- Borderline cases land in the plan for review before anything renders
 
 #### Anime Watching Session
 ```bash
@@ -43,29 +54,30 @@ pureframe process anime.mkv --strictness high --content-type anime
 ```
 - Anime-specific thresholds handle stylized skin tones
 - Catches ecchi/fanservice content
-- Hot springs episodes may trigger (use `plan-whitelist` to review)
-- Expected false positive rate: ~10-15%
-- Expected false negative rate: <2%
+- Hot springs episodes may still trigger (use `plan-whitelist` to review)
 
 #### TV Series Binge
 ```bash
 pureframe process episode.mp4 --strictness medium --content-type live-action
 ```
-- Balanced for shows like Game of Thrones, Euphoria
+- Balanced for shows with intermittent explicit scenes
 - Catches full nudity and most partial nudity
 - Brief kissing/embrace scenes left uncensored
-- Expected false positive rate: ~2-4%
-- Expected false negative rate: ~3-5%
 
-#### Documentary / Educational
+#### Beach / Sports Footage
+```bash
+pureframe process surf_day.mp4 --strictness high
+```
+- The scene-context gate suppresses swimwear flags on confident beach/pool shots
+- Verdict reasoning and the plan editor show what flagged; whitelist anything the gate missed
+- Real nudity in the same footage still flags at the strictness preset
+
+#### Documentary / Art
 ```bash
 pureframe process documentary.mp4 --strictness low --content-type live-action
 ```
 - Only flags clearly explicit content
-- Medical/anatomical content mostly left uncensored
 - Art with classical nudity generally untouched
-- Expected false positive rate: <1%
-- Expected false negative rate: ~5-10%
 
 ## Threshold Tuning Workflow
 
@@ -108,7 +120,7 @@ pureframe plan video.mp4 --threshold 0.35
 | **0.90+** | Model is very confident - almost certainly explicit | Always censor |
 | **0.70-0.89** | Strong signal - very likely explicit | Censor at medium/high strictness |
 | **0.50-0.69** | Moderate signal - possible explicit content | Censor at high strictness; review at medium |
-| **0.30-0.49** | Weak signal - could be skin, swimwear, or artistic nudity | Only censor at high strictness |
+| **0.30-0.49** | Weak signal - could be skin, swimwear, or artistic nudity | Only censor at high strictness; the second-pass rescan re-examines shots in this band |
 | **<0.30** | Background noise - very unlikely to be explicit | Almost never censor |
 
 ## Running the Benchmark
@@ -119,4 +131,4 @@ To see how thresholds perform across different content types:
 pureframe evaluate --threshold 0.5 --output eval_report.json
 ```
 
-This runs 50 synthetic test scenarios and shows precision/recall at multiple threshold levels.
+This runs the synthetic test corpus (52 scenarios across 8 content genres) and shows precision/recall at multiple threshold levels. The committed `eval-baseline.json` pins the detector's exact behavior on every scenario; `scripts/check_eval_parity.py` fails if any score drifts.

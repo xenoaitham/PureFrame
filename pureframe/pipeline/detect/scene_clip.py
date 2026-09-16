@@ -28,6 +28,13 @@ class ShotContext(BaseModel):
     implied_sex_score: float
     kissing_score: float
     safe_score: float
+    # Benign high-skin contexts (beach/pool, gym/sports). When one of
+    # these is confident and no sexual context is, fuse raises the
+    # effective nudity threshold by the configured scene-context factor
+    # so swimwear and shirtless athletes stop flagging. 0.0 when CLIP is
+    # disabled (CPU profiles), which leaves the gate inert there.
+    beach_pool_score: float = 0.0
+    sports_score: float = 0.0
 
 
 PROMPT_SETS = {
@@ -54,6 +61,18 @@ PROMPT_SETS = {
         "a meeting in an office",
         "people eating dinner",
         "a fight scene",
+    ],
+    "beach_pool": [
+        "people at a beach in swimwear",
+        "a crowded swimming pool on a sunny day",
+        "sunbathers in bikinis at the shore",
+        "people in swimsuits by the water",
+    ],
+    "sports_gym": [
+        "athletes competing in a sports match",
+        "people working out in a gym",
+        "a wrestling or martial arts match",
+        "a swimming competition in a stadium",
     ],
 }
 
@@ -114,6 +133,8 @@ class SceneClassifier:
                 implied_sex_score=0.0,
                 kissing_score=0.0,
                 safe_score=1.0,
+                beach_pool_score=0.0,
+                sports_score=0.0,
             )
 
         image = Image.fromarray(representative_frame_bgr[:, :, ::-1])  # BGR to RGB
@@ -149,6 +170,8 @@ class SceneClassifier:
             implied_sex_score=scores["implied_sex_context"],
             kissing_score=scores["kissing"],
             safe_score=scores["safe_neutral"],
+            beach_pool_score=scores["beach_pool"],
+            sports_score=scores["sports_gym"],
         )
 
     def unload(self):

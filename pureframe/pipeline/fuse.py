@@ -23,6 +23,42 @@ NUDITY_PARTIAL_LABELS = {
 # All nudity-related labels
 ALL_NUDITY_LABELS = NUDITY_EXPLICIT_LABELS | NUDITY_PARTIAL_LABELS
 
+# A benign high-skin context (beach/pool, gym/sports) counts as confident
+# at this mapped-CLIP score, the same [0, 1] scale the other scene
+# thresholds live on.
+SCENE_CONTEXT_CONFIDENCE = 0.60
+
+
+def scene_context_factor(scene_ctx: ShotContext, config: Config) -> float:
+    """Threshold multiplier for confident benign high-skin contexts.
+
+    1.0 (no change) unless a beach/pool or gym/sports context scores at
+    or above :data:`SCENE_CONTEXT_CONFIDENCE` while neither sexual
+    context category is anywhere near its own threshold. The gate only
+    ever RAISES the nudity bar (fewer false positives on swimwear,
+    shirtless athletes); it can never lower one, and a confident sexual
+    scene signal switches it off entirely so nude-scene recall is never
+    touched. fuse() and the plan pipeline share this helper so the
+    verdict bar and the densify/rescan bars can never disagree.
+    """
+    factor = config.scene_context_factor
+    if factor <= 1.0:
+        return 1.0
+    _, eff_clip, _ = config.get_effective_thresholds()
+    explicit_act_thresh = 0.40 * (eff_clip / 0.50)
+    implied_sex_thresh = 0.45 * (eff_clip / 0.50)
+    context_confident = (
+        scene_ctx.beach_pool_score >= SCENE_CONTEXT_CONFIDENCE
+        or scene_ctx.sports_score >= SCENE_CONTEXT_CONFIDENCE
+    )
+    sexual_context = (
+        scene_ctx.explicit_act_score >= explicit_act_thresh
+        or scene_ctx.implied_sex_score >= implied_sex_thresh
+    )
+    if context_confident and not sexual_context:
+        return factor
+    return 1.0
+
 
 def context_audio_needed(
     scene_ctx: ShotContext, config: Config, strict_mode: bool = False
@@ -67,11 +103,22 @@ def fuse(
     # Legacy strict_mode applies an additional 0.85 multiplier for backward compat
     t_mod = 0.85 if strict_mode else 1.0
 
+    # Explicit-act and implied-sex scene bars - needed here both for the
+    # context gate below and for their own branches further down.
+    explicit_act_thresh = 0.40 * t_mod * (eff_clip / 0.50)
+    implied_sex_thresh = 0.45 * t_mod * (eff_clip / 0.50)
+
     # A parental-guide window lowers the nudity bar for shots the guide
     # marked: inside those windows detection gets a second chance at a
     # stricter effective bar. The factor only ever applies where the guide
     # marked - generate_plan passes 1.0 everywhere else.
-    nudity_thresh = eff_nudity * t_mod * guide_threshold_factor
+    guide_factor = guide_threshold_factor
+
+    # Confident benign high-skin context (beach/pool, gym/sports) raises
+    # the nudity bar; see scene_context_factor for the recall guard.
+    context_factor = scene_context_factor(scene_ctx, config)
+
+    nudity_thresh = eff_nudity * t_mod * guide_factor * context_factor
 
     # 1. Explicit Nudity
     max_nudity_score = 0.0
@@ -99,9 +146,6 @@ def fuse(
         )
 
     # 2. SEXUAL_ACT_VISIBLE - requires both visual and audio signals
-    explicit_act_thresh = (
-        0.40 * t_mod * (eff_clip / 0.50)
-    )  # Scale by effective clip threshold
     sexual_audio_thresh = 0.30 * t_mod * (eff_audio / 0.60)
 
     if (
@@ -119,7 +163,6 @@ def fuse(
         )
 
     # 3. SEXUAL_CONTEXT_NO_NUDITY - implied sex with audio cues
-    implied_sex_thresh = 0.45 * t_mod * (eff_clip / 0.50)
     moaning_thresh = 0.35 * t_mod * (eff_audio / 0.60)
 
     if scene_ctx.implied_sex_score >= implied_sex_thresh and (

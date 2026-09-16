@@ -47,7 +47,7 @@ from pureframe.pipeline.detect.audio import AudioClassifier, AudioContext
 from pureframe.pipeline.detect.face import FaceDetector
 from pureframe.pipeline.detect.nudity import NudityDetector
 from pureframe.pipeline.detect.scene_clip import SceneClassifier
-from pureframe.pipeline.fuse import context_audio_needed, fuse
+from pureframe.pipeline.fuse import context_audio_needed, fuse, scene_context_factor
 from pureframe.pipeline.probe import probe_video
 from pureframe.pipeline.render.apply import apply_censoring
 from pureframe.pipeline.render.plan import CensorPlan
@@ -585,6 +585,11 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
 
                         start_sec = shot.start_frame / meta.fps
                         end_sec = shot.end_frame / meta.fps
+                        # Benign high-skin context (beach/pool, gym/sports)
+                        # raises this shot's nudity bar - the same factor
+                        # fuse() applies below, so the densify and rescan
+                        # bars can never disagree with the verdict bar.
+                        shot_context_factor = scene_context_factor(scene_ctx, config)
                         if audio_classifier.enabled and context_audio_needed(
                             scene_ctx, config, config.strict
                         ):
@@ -630,8 +635,10 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                         # candidates only, never the whole video.
                         second_dets: dict[int, list] = {}
                         if config.second_pass and verdict.action == Action.NONE:
-                            shot_bar = densify_threshold * guide_factor_by_shot.get(
-                                shot.index, 1.0
+                            shot_bar = (
+                                densify_threshold
+                                * guide_factor_by_shot.get(shot.index, 1.0)
+                                * shot_context_factor
                             )
                             if (
                                 shot_has_weak_signal(batch_dets)
@@ -810,15 +817,16 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                             config.input_path,
                                             detector,
                                             settings,
-                                            # Keep every detection the boosted
-                                            # guide bar could have flagged on:
-                                            # densifying at the unboosted
-                                            # threshold here would strip the
-                                            # boxes off guide-hinted marginal
-                                            # detections (the v0.2.2 class of
-                                            # bug, one layer down).
+                                            # Keep every detection the bars
+                                            # fuse() could have flagged on:
+                                            # the boosted guide bar and the
+                                            # raised context bar both apply
+                                            # here exactly as they did in
+                                            # the verdict (the v0.2.2 class
+                                            # of bug, one layer down).
                                             densify_threshold
-                                            * guide_factor_by_shot.get(shot.index, 1.0),
+                                            * guide_factor_by_shot.get(shot.index, 1.0)
+                                            * shot_context_factor,
                                             meta=meta,
                                         )
                                 if second_dets:
@@ -1111,6 +1119,16 @@ def plan_cmd(
             "small/flash catches"
         ),
     ),
+    scene_context_factor: float = typer.Option(
+        1.4,
+        "--scene-context-factor",
+        min=1.0,
+        max=2.0,
+        help=(
+            "Nudity-threshold multiplier when CLIP reads a confident "
+            "beach/pool or gym/sports context (1.0 disables the gate)"
+        ),
+    ),
     device: int | None = typer.Option(
         None,
         "--device",
@@ -1201,6 +1219,7 @@ def plan_cmd(
         strictness=strictness,
         quantize_cpu=not no_quant,
         second_pass=not no_second_pass,
+        scene_context_factor=scene_context_factor,
         blur_mode=blur_mode if blur_mode is not None else BlurMode.BLUR,
         emoji_char=emoji_char if emoji_char is not None else "",
         no_cache=no_cache,
@@ -1421,6 +1440,16 @@ def process_cmd(
             "small/flash catches"
         ),
     ),
+    scene_context_factor: float = typer.Option(
+        1.4,
+        "--scene-context-factor",
+        min=1.0,
+        max=2.0,
+        help=(
+            "Nudity-threshold multiplier when CLIP reads a confident "
+            "beach/pool or gym/sports context (1.0 disables the gate)"
+        ),
+    ),
     device: int | None = typer.Option(
         None,
         "--device",
@@ -1517,6 +1546,7 @@ def process_cmd(
                 force=force,
                 quantize_cpu=not no_quant,
                 second_pass=not no_second_pass,
+                scene_context_factor=scene_context_factor,
                 blur_mode=blur_mode if blur_mode is not None else BlurMode.BLUR,
                 emoji_char=emoji_char if emoji_char is not None else "",
                 no_cache=no_cache,
@@ -1543,6 +1573,7 @@ def process_cmd(
             force=force,
             quantize_cpu=not no_quant,
             second_pass=not no_second_pass,
+            scene_context_factor=scene_context_factor,
             blur_mode=blur_mode if blur_mode is not None else BlurMode.BLUR,
             emoji_char=emoji_char if emoji_char is not None else "",
             no_cache=no_cache,

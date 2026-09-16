@@ -137,6 +137,21 @@ class Config(BaseSettings):
     # content, so pre-0.2.5 cached plans must not survive it silently.
     second_pass: bool = True
 
+    # Scene-context gate: when CLIP reads a confident benign high-skin
+    # context (beach/pool, gym/sports) and no sexual context, the nudity
+    # threshold scales by this factor so swimwear and shirtless athletes
+    # stop flagging. 1.0 disables. Values above 1.0 only; the gate can
+    # never lower a threshold. Always hashed for the same reason as
+    # second_pass: it changes verdicts on previously analyzed content.
+    scene_context_factor: float = 1.4
+
+    @field_validator("scene_context_factor")
+    @classmethod
+    def _validate_scene_context_factor(cls, value: float) -> float:
+        if not 1.0 <= value <= 2.0:
+            raise ValueError(f"scene_context_factor must be in [1.0, 2.0], got {value}")
+        return value
+
     # Checkpoint cache: SHA-256 of the input's bytes, filled in by from_cli.
     # Folds into config_hash so a replaced file is a cache miss; direct
     # constructions (tests, programmatic use) leave it empty, which matches
@@ -285,6 +300,7 @@ class Config(BaseSettings):
             "strictness": self.strictness.value,
             "quantize_cpu": self.quantize_cpu,
             "second_pass": self.second_pass,
+            "scene_context_factor": self.scene_context_factor,
         }
         # Only when set: empty fingerprints (direct constructions,
         # pre-fingerprint checkpoints) and empty override maps must keep
