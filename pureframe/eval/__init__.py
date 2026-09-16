@@ -536,6 +536,13 @@ SYNTHETIC_SCENARIOS = [
         "explicit": True,
         "frame_type": "small_distant",
     },
+    {
+        "id": "EC-012",
+        "genre": "edge-case",
+        "desc": "Extreme close-up, body part filling the frame",
+        "explicit": True,
+        "frame_type": "extreme_closeup",
+    },
 ]
 
 
@@ -631,6 +638,13 @@ def _generate_synthetic_frame(frame_type: str) -> np.ndarray:
         # size class the tiled second pass exists for
         frame[:] = [70, 80, 90]
         frame[300:340, 430:470] = [180, 200, 230]
+
+    elif frame_type == "extreme_closeup":
+        # A body part filling the whole frame - the scale the close-up
+        # quadrant-zoom rescan exists for
+        frame[:] = [175, 198, 228]
+        frame[40:440, 100:540] = [168, 192, 224]
+        frame[180:300, 240:400] = [160, 186, 220]
 
     elif frame_type == "art_painting":
         # A framed classical painting on a gallery wall: skin-toned

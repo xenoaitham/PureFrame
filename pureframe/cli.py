@@ -47,12 +47,18 @@ from pureframe.pipeline.detect.audio import AudioClassifier, AudioContext
 from pureframe.pipeline.detect.face import FaceDetector
 from pureframe.pipeline.detect.nudity import NudityDetector
 from pureframe.pipeline.detect.scene_clip import SceneClassifier
-from pureframe.pipeline.fuse import context_audio_needed, fuse, scene_context_factor
+from pureframe.pipeline.fuse import (
+    context_audio_needed,
+    fuse,
+    scene_context_factor,
+    scene_is_sexual,
+)
 from pureframe.pipeline.probe import probe_video
 from pureframe.pipeline.render.apply import apply_censoring
 from pureframe.pipeline.render.plan import CensorPlan
 from pureframe.pipeline.sample import extract_frames, sample_keyframes
 from pureframe.pipeline.second_pass import (
+    closeup_scan,
     merge_rescan_detections,
     rescan_shot,
     shot_has_weak_signal,
@@ -631,8 +637,13 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                         # the rescan floor, or a parental-guide window marked
                         # it - gets one bounded re-look with a denser sample
                         # stride, and the frames that still read below the
-                        # shot's bar go through the tiled zoom. Cost guard:
-                        # candidates only, never the whole video.
+                        # shot's bar go through the tiled zoom. A shot that
+                        # is fully silent but sits in a sexual scene gets
+                        # the close-up pass instead: extreme close-ups fill
+                        # the frame with a body part the body-scale detector
+                        # reads nothing on, and a 2x quadrant zoom restores
+                        # its expected scale. Cost guard: candidates only,
+                        # never the whole video.
                         second_dets: dict[int, list] = {}
                         if config.second_pass and verdict.action == Action.NONE:
                             shot_bar = (
@@ -651,6 +662,17 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                         detector,
                                         settings,
                                         meta,
+                                        threshold=shot_bar,
+                                    )
+                            elif scene_is_sexual(scene_ctx, config, config.strict):
+                                with timers.phase("second_pass"):
+                                    second_dets = closeup_scan(
+                                        {
+                                            i: frames_bgr[i]
+                                            for i in kf_indices
+                                            if i in frames_bgr
+                                        },
+                                        detector,
                                         threshold=shot_bar,
                                     )
                             if second_dets:
