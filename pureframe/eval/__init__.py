@@ -350,6 +350,13 @@ SYNTHETIC_SCENARIOS = [
         "explicit": False,
         "frame_type": "dark_no_skin",
     },
+    {
+        "id": "DK-006",
+        "genre": "low-light",
+        "desc": "Candlelit explicit scene, near-black frame",
+        "explicit": True,
+        "frame_type": "very_dark_skin",
+    },
     # Music videos
     {
         "id": "MV-001",
@@ -574,6 +581,12 @@ def _generate_synthetic_frame(frame_type: str) -> np.ndarray:
         frame[:] = [base, base, base]
         if "skin" in frame_type:
             frame[200:350, 250:400] = [80, 90, 100]
+
+    elif frame_type == "very_dark_skin":
+        # Near-black frame with a faintly lifted region - the class the
+        # low-light normalization branch exists for
+        frame[:] = [18, 18, 18]
+        frame[200:350, 250:400] = [55, 62, 70]
 
     elif frame_type == "flash_frame":
         # Single bright frame
