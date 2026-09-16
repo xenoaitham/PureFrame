@@ -508,6 +508,13 @@ SYNTHETIC_SCENARIOS = [
         "explicit": False,
         "frame_type": "no_skin",
     },
+    {
+        "id": "EC-011",
+        "genre": "edge-case",
+        "desc": "Small distant figure in a wide shot",
+        "explicit": True,
+        "frame_type": "small_distant",
+    },
 ]
 
 
@@ -591,6 +598,12 @@ def _generate_synthetic_frame(frame_type: str) -> np.ndarray:
         gray = 180
         frame[:] = [gray, gray, gray]
         frame[100:350, 150:450] = [200, 200, 200]
+
+    elif frame_type == "small_distant":
+        # Wide shot: a small skin-toned region far from the camera - the
+        # size class the tiled second pass exists for
+        frame[:] = [70, 80, 90]
+        frame[300:340, 430:470] = [180, 200, 230]
 
     # Photographic texture pass - identical for every frame type.
     frame = cv2.GaussianBlur(frame, (7, 7), 0)

@@ -129,6 +129,14 @@ class Config(BaseSettings):
     # (2-4x CPU inference; accuracy gated by the eval-parity CI job).
     quantize_cpu: bool = True
 
+    # Second-pass rescan (pureframe.pipeline.second_pass): shots the first
+    # pass left unflagged but not silent - any detection at or above the
+    # rescan floor, or inside a parental-guide window - get one bounded
+    # re-look with a denser sample stride and a tiled zoom pass. Always
+    # hashed: turning it on changed verdicts on previously analyzed
+    # content, so pre-0.2.5 cached plans must not survive it silently.
+    second_pass: bool = True
+
     # Checkpoint cache: SHA-256 of the input's bytes, filled in by from_cli.
     # Folds into config_hash so a replaced file is a cache miss; direct
     # constructions (tests, programmatic use) leave it empty, which matches
@@ -276,6 +284,7 @@ class Config(BaseSettings):
             "content_type": self.content_type.value,
             "strictness": self.strictness.value,
             "quantize_cpu": self.quantize_cpu,
+            "second_pass": self.second_pass,
         }
         # Only when set: empty fingerprints (direct constructions,
         # pre-fingerprint checkpoints) and empty override maps must keep

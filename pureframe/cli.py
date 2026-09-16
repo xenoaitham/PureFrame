@@ -52,6 +52,11 @@ from pureframe.pipeline.probe import probe_video
 from pureframe.pipeline.render.apply import apply_censoring
 from pureframe.pipeline.render.plan import CensorPlan
 from pureframe.pipeline.sample import extract_frames, sample_keyframes
+from pureframe.pipeline.second_pass import (
+    merge_rescan_detections,
+    rescan_shot,
+    shot_has_weak_signal,
+)
 from pureframe.pipeline.shots import Action, Category, ShotVerdict, detect_shots
 from pureframe.pipeline.smooth import smooth_detections
 from pureframe.utils.ffmpeg import PureFrameError
@@ -616,6 +621,58 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                         if config.strict and verdict.category == Category.KISS_LIGHT:
                             verdict.action = Action.BLACK_BOX
 
+                        # Second-pass rescan: a shot the first pass left
+                        # unflagged but not silent - some detection reached
+                        # the rescan floor, or a parental-guide window marked
+                        # it - gets one bounded re-look with a denser sample
+                        # stride, and the frames that still read below the
+                        # shot's bar go through the tiled zoom. Cost guard:
+                        # candidates only, never the whole video.
+                        second_dets: dict[int, list] = {}
+                        if config.second_pass and verdict.action == Action.NONE:
+                            shot_bar = densify_threshold * guide_factor_by_shot.get(
+                                shot.index, 1.0
+                            )
+                            if (
+                                shot_has_weak_signal(batch_dets)
+                                or shot.index in guide_factor_by_shot
+                            ):
+                                with timers.phase("second_pass"):
+                                    second_dets = rescan_shot(
+                                        shot,
+                                        config.input_path,
+                                        detector,
+                                        settings,
+                                        meta,
+                                        threshold=shot_bar,
+                                    )
+                            if second_dets:
+                                first_flat = [d for dets in batch_dets for d in dets]
+                                second_flat = [
+                                    d for dets in second_dets.values() for d in dets
+                                ]
+                                with timers.phase("fuse"):
+                                    rescan_verdict = fuse(
+                                        shot,
+                                        [first_flat + second_flat],
+                                        scene_ctx,
+                                        audio_ctx,
+                                        config,
+                                        strict_mode=config.strict,
+                                        plugin_detections=plugin_detections,
+                                        plugin_threshold_bases=plugin_threshold_bases,
+                                        guide_threshold_factor=guide_factor_by_shot.get(
+                                            shot.index, 1.0
+                                        ),
+                                    )
+                                if rescan_verdict.action != Action.NONE:
+                                    verdict = rescan_verdict
+                                    console.print(
+                                        "[bold blue]Second pass:[/bold blue] "
+                                        f"shot {shot.index + 1} flagged on "
+                                        f"rescan - {rescan_verdict.reasoning}"
+                                    )
+
                         # Window mode: a guide-marked shot the detectors did
                         # not flag still becomes whole-shot blur, visibly
                         # categorized for review before the plan is applied.
@@ -708,6 +765,21 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                     shot.frames[idx] = FrameResult(
                                         frame_idx=idx, detections=dets
                                     )
+                                if second_dets:
+                                    # The plan must show what the rescan saw:
+                                    # join its detections to the stored
+                                    # keyframe results so review reflects the
+                                    # evidence the verdict flags on.
+                                    for idx, dets in second_dets.items():
+                                        existing = shot.frames.get(idx)
+                                        if existing is not None:
+                                            existing.detections = (
+                                                list(existing.detections) + dets
+                                            )
+                                        else:
+                                            shot.frames[idx] = FrameResult(
+                                                frame_idx=idx, detections=dets
+                                            )
 
                                 if verdict.category == Category.PLUGIN_BOX:
                                     # Plugin-flagged shot: densify through
@@ -749,6 +821,14 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                             * guide_factor_by_shot.get(shot.index, 1.0),
                                             meta=meta,
                                         )
+                                if second_dets:
+                                    # Rescan detections join the densify
+                                    # output before tracking so the tiled
+                                    # boxes (the ones that proved the flag)
+                                    # anchor the smoothed blur too.
+                                    dense_dets = merge_rescan_detections(
+                                        dense_dets, second_dets
+                                    )
                                 smooth_boxes = smooth_detections(
                                     dense_dets, shot, config.box_padding_pct
                                 )
@@ -1022,6 +1102,15 @@ def plan_cmd(
         "--no-quant",
         help="Disable int8 CPU model quantization (GPU profiles unaffected)",
     ),
+    no_second_pass: bool = typer.Option(
+        False,
+        "--no-second-pass",
+        help=(
+            "Disable the second-pass rescan (denser stride + tiled zoom on "
+            "shots with a weak signal or a guide mark); saves time, costs "
+            "small/flash catches"
+        ),
+    ),
     device: int | None = typer.Option(
         None,
         "--device",
@@ -1111,6 +1200,7 @@ def plan_cmd(
         content_type=content_type,
         strictness=strictness,
         quantize_cpu=not no_quant,
+        second_pass=not no_second_pass,
         blur_mode=blur_mode if blur_mode is not None else BlurMode.BLUR,
         emoji_char=emoji_char if emoji_char is not None else "",
         no_cache=no_cache,
@@ -1322,6 +1412,15 @@ def process_cmd(
         "--no-quant",
         help="Disable int8 CPU model quantization (GPU profiles unaffected)",
     ),
+    no_second_pass: bool = typer.Option(
+        False,
+        "--no-second-pass",
+        help=(
+            "Disable the second-pass rescan (denser stride + tiled zoom on "
+            "shots with a weak signal or a guide mark); saves time, costs "
+            "small/flash catches"
+        ),
+    ),
     device: int | None = typer.Option(
         None,
         "--device",
@@ -1417,6 +1516,7 @@ def process_cmd(
                 strictness=strictness,
                 force=force,
                 quantize_cpu=not no_quant,
+                second_pass=not no_second_pass,
                 blur_mode=blur_mode if blur_mode is not None else BlurMode.BLUR,
                 emoji_char=emoji_char if emoji_char is not None else "",
                 no_cache=no_cache,
@@ -1442,6 +1542,7 @@ def process_cmd(
             strictness=strictness,
             force=force,
             quantize_cpu=not no_quant,
+            second_pass=not no_second_pass,
             blur_mode=blur_mode if blur_mode is not None else BlurMode.BLUR,
             emoji_char=emoji_char if emoji_char is not None else "",
             no_cache=no_cache,
