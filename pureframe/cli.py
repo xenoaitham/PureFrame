@@ -45,6 +45,7 @@ from pureframe.eta import (
 from pureframe.hardware import HardwareProfile, detect_profile, get_settings
 from pureframe.pipeline.densify import densify_shot
 from pureframe.pipeline.detect.audio import AudioClassifier, AudioContext
+from pureframe.pipeline.detect.audio_gate import segment_audio_profile
 from pureframe.pipeline.detect.face import FaceDetector
 from pureframe.pipeline.detect.nudity import NudityDetector
 from pureframe.pipeline.detect.scene_clip import SceneClassifier
@@ -652,6 +653,26 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                 audio_ctx = audio_classifier.classify_segment(
                                     config.analysis_source, start_sec, end_sec
                                 )
+                            # Light energy/spectral pre-pass (no model) so
+                            # the audio gate can see music masking. Runs
+                            # only where the PANNs run was already
+                            # justified; a classifier that fills the
+                            # features itself makes this a no-op.
+                            if (
+                                audio_ctx.rms_db is None
+                                or audio_ctx.spectral_flatness is None
+                            ):
+                                with timers.phase("audio_profile"):
+                                    profile = segment_audio_profile(
+                                        config.input_path, start_sec, end_sec
+                                    )
+                                    if profile is not None:
+                                        audio_ctx = audio_ctx.model_copy(
+                                            update={
+                                                "rms_db": profile[0],
+                                                "spectral_flatness": profile[1],
+                                            }
+                                        )
                         else:
                             # The audio score cannot change the verdict when the
                             # CLIP scene signal is below its thresholds - skip the
