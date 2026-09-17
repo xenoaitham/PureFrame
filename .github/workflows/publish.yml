@@ -60,7 +60,11 @@ jobs:
   publish:
     name: Publish to PyPI
     needs: build
-    if: build.outputs.prerelease == 'false'
+    # needs.build.outputs, not build.outputs: the workflow_dispatch
+    # API validates job-level if expressions strictly and rejects the
+    # bare job-name form with HTTP 422, which is why manual publishes
+    # could not be triggered.
+    if: needs.build.outputs.prerelease == 'false'
     runs-on: ubuntu-latest
     environment:
       name: pypi
