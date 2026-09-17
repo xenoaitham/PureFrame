@@ -74,10 +74,52 @@ CASES = {
 }
 
 
-def _av1_encoder_available() -> bool:
-    from pureframe.utils.ffmpeg import available_encoders
+_AV1_PROBE_OK: bool | None = None
 
-    return bool({"libsvtav1", "libaom-av1"} & available_encoders())
+
+def _av1_encoder_available() -> bool:
+    """True when an AV1 encoder is listed AND actually encodes.
+
+    Listed is not enough: some Windows ffmpeg builds ship a libsvtav1
+    that crashes at runtime, which would fail fixture generation rather
+    than skip cleanly. One tiny probe encode, cached for the session.
+    """
+    global _AV1_PROBE_OK
+    if _AV1_PROBE_OK is None:
+        from pureframe.utils.ffmpeg import available_encoders
+
+        candidates = [
+            name for name in ("libsvtav1", "libaom-av1") if name in available_encoders()
+        ]
+        _AV1_PROBE_OK = False
+        for encoder in candidates:
+            try:
+                subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-nostdin",
+                        "-y",
+                        "-loglevel",
+                        "error",
+                        "-f",
+                        "lavfi",
+                        "-i",
+                        "testsrc=duration=0.2:size=128x96:rate=15",
+                        "-c:v",
+                        encoder,
+                        "-f",
+                        "null",
+                        "-",
+                    ],
+                    check=True,
+                    capture_output=True,
+                    timeout=120,
+                )
+                _AV1_PROBE_OK = True
+                break
+            except Exception:
+                continue
+    return _AV1_PROBE_OK
 
 
 def _generate_single_shot_clip(path: Path, codec_args: list[str]) -> None:
