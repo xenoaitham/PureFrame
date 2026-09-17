@@ -664,7 +664,7 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                             ):
                                 with timers.phase("audio_profile"):
                                     profile = segment_audio_profile(
-                                        config.input_path, start_sec, end_sec
+                                        config.analysis_source, start_sec, end_sec
                                     )
                                     if profile is not None:
                                         audio_ctx = audio_ctx.model_copy(
