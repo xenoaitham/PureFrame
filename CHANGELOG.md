@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-09-17
+
+The limitations offensive: eleven items from the known-limitations
+list closed with engineering, each with a regression test, and the
+limitations doc restructured into fixed / improved / accepted.
+
 ### Added
 - **Parental-guide marks (`--guide`).** Hand PureFrame externally
   documented targets - e.g. the timestamps from a saved Parents Guide
@@ -21,6 +27,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   applying. Guide settings fold into the checkpoint hash; the densify
   pass scales its bar by the same factor, so boosted marginal
   detections keep their blur boxes.
+- **Second-pass rescan (`#128`).** Shots the first pass left unflagged
+  but not silent - any detection at or above the 0.25 rescan floor, or
+  inside a guide window - get one bounded re-look: a denser sample
+  stride plus a tiled 2x zoom (overlapping grid, class-aware NMS) on
+  frames still reading below the bar. Catches flash frames, small or
+  distant nudity and screen-in-screen size classes. Candidates only,
+  never the whole video; `--no-second-pass` disables.
+- **Dark and low-contrast detection branch (`#129`).** Frames that
+  measure dark or near-grayscale with a compressed histogram get a
+  percentile stretch before inference (detection-only; renders keep
+  the original pixels). `--content-type low-light` rides it
+  automatically instead of only lowering thresholds.
+- **Scene-context gate (`#130`).** Confident beach/pool or gym/sports
+  context raises the shot's nudity bar 1.4x (`--scene-context-factor`,
+  1.0 disables). Bars never drop, and a confident sexual scene signal
+  switches the gate off - swimwear stops flagging, sex scenes do not.
+- **Art and medical profiles (`#131`).** `--content-type art` (1.5x)
+  and `--content-type medical` (1.4x), plus museum/gallery and
+  medical/clinical context gates: Renaissance paintings, statues and
+  surgical footage stop flagging while real explicit scenes in the
+  same documentary still do.
+- **Close-up rescan (`#132`).** Detector-silent shots in a sexual scene
+  re-run the detector on center-crop quadrants (2x zoom) of the
+  keyframes already in memory - extreme close-ups flip from miss to
+  catch at four extra inferences per keyframe.
+- **Automatic VFR handling (`#133`).** Variable-frame-rate input is
+  detected at probe time (peak vs average rate, frame-count drift) and
+  converted to CFR into a temp dir automatically - no more hand-running
+  ffmpeg. Analysis and render read the CFR file; checkpoints stay keyed
+  on the original.
+- **Audio gate (`#135`).** Loud tonal music raises the audio bars 25
+  percent (masking); a marginal audio score in a CLIP-sexual scene
+  lowers them 20 percent. Foreign-language gaps unchanged.
+- **Eval corpus grew to 55 scenarios.** Each fixed category ships with
+  a pin (EC-011 small/distant, DK-006 near-black, ART-001, MED-001,
+  EC-012 close-up); zero label drift on the pre-existing scenes across
+  every detection change.
 
 ### Fixed
 - **The CLI crashed on Windows legacy consoles.** Any `process`/`plan`
@@ -30,6 +73,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   which is exactly what that smoke exists to catch. The CLI now keeps
   the console's encoding but replaces unencodable characters instead of
   dying.
+- **AV1 sources re-encode in AV1 (`#134`).** AV1 WebM no longer falls
+  through to an H.264 re-encode the container rejects: libsvtav1
+  preferred, libaom-av1 fallback, historical behavior when neither
+  exists. AV1 container tests skip cleanly on machines whose encoder
+  cannot handle the fixtures.
+
+### Improved
+- **HDR10 metadata survives the re-encode (`#136`).** Mastering
+  display and content light level (read from stream or first-frame SEI
+  side data) are re-injected into x265 and the color tags stay on the
+  output, so players keep the right transfer function. The 8-bit frame
+  pipe is unchanged: metadata and tags are preserved, the full 10-bit
+  signal is not.
+- **docs/KNOWN_LIMITATIONS.md** restructured into fixed / improved /
+  accepted with every fixed row naming its PR and test.
 
 ## [0.2.4] - 2026-09-13
 
