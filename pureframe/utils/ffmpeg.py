@@ -34,7 +34,69 @@ class VideoMetadata(BaseModel):
     video_codec: str
     pixel_format: str
     color_space: str
+    color_transfer: str = "unknown"
+    color_primaries: str = "unknown"
     is_hdr: bool
+    # HDR10 (static) metadata, pre-formatted for x265's -x265-params:
+    # master_display is the G()B()R()WP()L() string, max_cll is
+    # "cll,fall". Empty when the source carries no such metadata; the
+    # renderer re-injects both so colors do not shift on re-encode.
+    master_display: str = ""
+    max_cll: str = ""
+
+
+def _parse_fraction(value: str) -> float:
+    """Parse an ffprobe fraction ('34000/50000') or float."""
+    try:
+        if "/" in value:
+            num, den = value.split("/", 1)
+            return float(num) / float(den)
+        return float(value)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return 0.0
+
+
+def _master_display_from_side_data(side_data: dict) -> str:
+    """Build x265's master-display string from mastering-display fields.
+
+    Chromaticity coordinates scale to 50000, luminance to 10000 - the
+    units x265's ``master-display`` option expects.
+    """
+
+    def coord(key: str) -> str:
+        return str(int(round(_parse_fraction(side_data.get(key, "0")) * 50000)))
+
+    def luminance(key: str, default: int) -> str:
+        raw = side_data.get(key)
+        if not raw:
+            return str(default)
+        return str(int(round(_parse_fraction(raw) * 10000)))
+
+    return (
+        f"G({coord('green_x')},{coord('green_y')})"
+        f"B({coord('blue_x')},{coord('blue_y')})"
+        f"R({coord('red_x')},{coord('red_y')})"
+        f"WP({coord('white_point_x')},{coord('white_point_y')})"
+        f"L({luminance('max_luminance', 10000000)},{luminance('min_luminance', 1)})"
+    )
+
+
+def _hdr10_from_side_data(side_data_list: list[dict]) -> tuple[str, str]:
+    """(master_display, max_cll) from a side-data entry list, if any."""
+    master_display = ""
+    max_cll = ""
+    for side_data in side_data_list:
+        if not isinstance(side_data, dict):
+            continue
+        data_type = side_data.get("side_data_type", "")
+        if "Mastering display" in data_type and not master_display:
+            master_display = _master_display_from_side_data(side_data)
+        if "Content light" in data_type and not max_cll:
+            max_cll = (
+                f"{side_data.get('max_content', '0')},"
+                f"{side_data.get('max_average', '0')}"
+            )
+    return master_display, max_cll
 
 
 def probe(path: Path) -> dict:
@@ -91,6 +153,13 @@ def extract_metadata(probe_result: dict) -> VideoMetadata:
     color_transfer = video_stream.get("color_transfer", "unknown")
     is_hdr = "smpte2084" in color_transfer or "arib-std-b67" in color_transfer
 
+    # HDR10 static metadata at stream level (containers that mux it).
+    # Frame-level SEI metadata is picked up later by probe_video, which
+    # can afford a second ffprobe pass on HDR streams only.
+    master_display, max_cll = _hdr10_from_side_data(
+        video_stream.get("side_data_list", [])
+    )
+
     return VideoMetadata(
         width=width,
         height=height,
@@ -105,7 +174,11 @@ def extract_metadata(probe_result: dict) -> VideoMetadata:
         video_codec=video_stream.get("codec_name", "unknown"),
         pixel_format=video_stream.get("pix_fmt", "unknown"),
         color_space=color_space,
+        color_transfer=color_transfer,
+        color_primaries=video_stream.get("color_primaries", "unknown"),
         is_hdr=is_hdr,
+        master_display=master_display,
+        max_cll=max_cll,
     )
 
 
@@ -383,7 +456,12 @@ def write_video_with_overlay(
     import os
     import tempfile
 
-    meta = extract_metadata(probe(input_path))
+    # probe_video (not the bare probe) so HDR10 metadata living at frame
+    # level - x265's SEI injection - is part of the metadata the encode
+    # re-injects below. Lazy import: pipeline.probe imports this module.
+    from pureframe.pipeline.probe import probe_video
+
+    meta = probe_video(Path(input_path))
 
     # temp file for video
     temp_fd, temp_video = tempfile.mkstemp(suffix=".mkv")
@@ -438,8 +516,26 @@ def write_video_with_overlay(
     if preset_arg:
         out_kwargs["preset"] = preset_arg
 
-    # Colorspace is not passed through to avoid encoder compat issues;
-    # ffmpeg will autodetect from input.
+    # HDR10 metadata re-injection: without the mastering-display SEI and
+    # the color tags, players read the re-encode with the wrong transfer
+    # function and colors shift. Only libx265 speaks x265-params; the
+    # color tags are generic ffmpeg options every encoder accepts. The
+    # frame pipe stays 8-bit BGR, so this preserves the metadata and the
+    # tags, not the full 10-bit signal - documented in
+    # KNOWN_LIMITATIONS as improved rather than fixed.
+    if meta.master_display and encoder == "libx265":
+        x265_params = f"master-display={meta.master_display}"
+        if meta.max_cll:
+            x265_params += f":max-cll={meta.max_cll}"
+        out_kwargs["x265-params"] = x265_params
+    if meta.is_hdr:
+        for out_key, meta_value in (
+            ("color_primaries", meta.color_primaries),
+            ("color_trc", meta.color_transfer),
+            ("colorspace", meta.color_space),
+        ):
+            if meta_value and meta_value != "unknown":
+                out_kwargs[out_key] = meta_value
 
     # Ensure even dimensions (ffmpeg encoders require this for yuv420p)
     enc_width = meta.width - (meta.width % 2)

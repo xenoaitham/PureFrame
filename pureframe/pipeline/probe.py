@@ -18,12 +18,22 @@ N / fps seconds" is wrong and blur windows land off-target. When the
 probe detects VFR, :func:`convert_to_cfr` transcodes to a constant
 frame rate intermediate the normal pipeline can trust - no more asking
 users to run ffmpeg by hand.
+
+HDR10 metadata hides at frame level too: x265 injects mastering display
+into the bitstream and ffprobe surfaces it on the first frame's side
+data rather than the stream. :func:`probe_video` reads it (HDR streams
+only) so the renderer can re-inject it and colors survive the re-encode.
 """
 
 import subprocess
 from pathlib import Path
 
-from pureframe.utils.ffmpeg import VideoMetadata, extract_metadata, probe
+from pureframe.utils.ffmpeg import (
+    VideoMetadata,
+    _hdr10_from_side_data,
+    extract_metadata,
+    probe,
+)
 
 # Containers whose frame-count metadata is known to overcount. Extend
 # when a format proves untrustworthy; the recount is a demux-only pass,
@@ -157,4 +167,50 @@ def probe_video(path: Path) -> VideoMetadata:
         counted = _count_video_packets(path)
         if counted > 0 and counted != meta.total_frames:
             meta = meta.model_copy(update={"total_frames": counted})
+    if meta.is_hdr and not meta.master_display:
+        meta = _probe_hdr10_from_frames(path, meta)
+    return meta
+
+
+def _probe_hdr10_from_frames(path: Path, meta: VideoMetadata) -> VideoMetadata:
+    """Read HDR10 metadata off the first frame's SEI-derived side data.
+
+    x265 injects mastering display into the bitstream; ffprobe surfaces it
+    at frame level, not stream level, so HEVC sources muxed without
+    container-level metadata need this extra (HDR-only, one-frame) pass.
+    """
+    result = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_frames",
+            "-read_intervals",
+            "%+#1",
+            "-of",
+            "json",
+            str(path),
+        ],
+        capture_output=True,
+        check=False,
+        text=True,
+        shell=False,
+    )
+    if result.returncode != 0 or not result.stdout:
+        return meta
+    try:
+        import json
+
+        frames = json.loads(result.stdout).get("frames", [])
+    except ValueError:
+        return meta
+    if not frames:
+        return meta
+    master_display, max_cll = _hdr10_from_side_data(frames[0].get("side_data_list", []))
+    if master_display or max_cll:
+        return meta.model_copy(
+            update={"master_display": master_display, "max_cll": max_cll}
+        )
     return meta
