@@ -66,7 +66,7 @@ CASES = {
     ),
     "webm-av1": (
         "webm",
-        ["-c:v", "libsvtav1", "-crf", "45", "-preset", "10"],
+        ["-c:v", "libsvtav1", "-crf", "45", "-preset", "8"],
         True,
     ),
     "avi-mpeg4": ("avi", ["-c:v", "mpeg4", "-qscale:v", "6"], True),
@@ -74,52 +74,45 @@ CASES = {
 }
 
 
-_AV1_PROBE_OK: bool | None = None
+_AV1_PROBE_CACHE: dict[tuple, bool] = {}
 
 
-def _av1_encoder_available() -> bool:
-    """True when an AV1 encoder is listed AND actually encodes.
+def _av1_encoder_available(codec_args: list[str]) -> bool:
+    """True when *codec_args* actually encodes AV1 on this machine.
 
-    Listed is not enough: some Windows ffmpeg builds ship a libsvtav1
-    that crashes at runtime, which would fail fixture generation rather
-    than skip cleanly. One tiny probe encode, cached for the session.
+    Listed is not the same as working: Windows builds ship a libsvtav1
+    that rejects configs at runtime, macOS builds have hung on encode,
+    and both must skip cleanly instead of failing fixture generation.
+    One tiny probe with the exact options the fixtures will use,
+    cached per option set.
     """
-    global _AV1_PROBE_OK
-    if _AV1_PROBE_OK is None:
-        from pureframe.utils.ffmpeg import available_encoders
-
-        candidates = [
-            name for name in ("libsvtav1", "libaom-av1") if name in available_encoders()
-        ]
-        _AV1_PROBE_OK = False
-        for encoder in candidates:
-            try:
-                subprocess.run(
-                    [
-                        "ffmpeg",
-                        "-nostdin",
-                        "-y",
-                        "-loglevel",
-                        "error",
-                        "-f",
-                        "lavfi",
-                        "-i",
-                        "testsrc=duration=0.2:size=128x96:rate=15",
-                        "-c:v",
-                        encoder,
-                        "-f",
-                        "null",
-                        "-",
-                    ],
-                    check=True,
-                    capture_output=True,
-                    timeout=120,
-                )
-                _AV1_PROBE_OK = True
-                break
-            except Exception:
-                continue
-    return _AV1_PROBE_OK
+    key = tuple(codec_args)
+    if key not in _AV1_PROBE_CACHE:
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-nostdin",
+                    "-y",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "testsrc=duration=0.5:size=160x120:rate=15",
+                    *codec_args,
+                    "-f",
+                    "null",
+                    "-",
+                ],
+                check=True,
+                capture_output=True,
+                timeout=60,
+            )
+            _AV1_PROBE_CACHE[key] = True
+        except Exception:
+            _AV1_PROBE_CACHE[key] = False
+    return _AV1_PROBE_CACHE[key]
 
 
 def _generate_single_shot_clip(path: Path, codec_args: list[str]) -> None:
@@ -271,8 +264,8 @@ def _assert_rendered_in_place(
 @pytest.fixture(scope="session")
 def single_shot_clip(request, tmp_path_factory):
     ext, codec_args, _ = CASES[request.param]
-    if request.param == "webm-av1" and not _av1_encoder_available():
-        pytest.skip("no AV1 encoder in the local ffmpeg")
+    if request.param == "webm-av1" and not _av1_encoder_available(codec_args):
+        pytest.skip("this ffmpeg cannot encode AV1 with the fixture options")
     clip = tmp_path_factory.mktemp("container") / f"{request.param}.{ext}"
     _generate_single_shot_clip(clip, codec_args)
     return clip
@@ -281,8 +274,8 @@ def single_shot_clip(request, tmp_path_factory):
 @pytest.fixture(scope="session")
 def three_shot_clip(request, tmp_path_factory):
     ext, codec_args, _ = CASES[request.param]
-    if request.param == "webm-av1" and not _av1_encoder_available():
-        pytest.skip("no AV1 encoder in the local ffmpeg")
+    if request.param == "webm-av1" and not _av1_encoder_available(codec_args):
+        pytest.skip("this ffmpeg cannot encode AV1 with the fixture options")
     clip = tmp_path_factory.mktemp("container") / f"{request.param}-3shot.{ext}"
     return generate_three_shot_clip(clip, codec_args)
 

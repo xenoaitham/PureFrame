@@ -285,7 +285,10 @@ def _quality_args(encoder: str, crf: int) -> dict:
     if encoder == "mpeg4":
         return {"qscale:v": min(max(round(crf / 2.5), 2), 31)}
     if encoder == "libsvtav1":
-        return {"crf": min(max(crf, 0), 63), "preset": 10}
+        # Preset 8: the long-standing SVT default, accepted by every
+        # SVT-AV1 version shipped in ffmpeg builds - higher presets are
+        # rejected by some of them at encode time.
+        return {"crf": min(max(crf, 0), 63), "preset": 8}
     if encoder == "libaom-av1":
         return {"crf": min(max(crf, 0), 63), "b:v": 0, "cpu-used": 5, "row-mt": 1}
     return {"crf": crf}
