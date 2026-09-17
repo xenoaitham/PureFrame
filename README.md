@@ -124,6 +124,12 @@ pureframe process anime.mkv --content-type anime
 
 # Dark/low-light scenes (increased sensitivity)
 pureframe process horror.mp4 --content-type low-light
+
+# Museums and galleries (highest bar; classical art stops flagging)
+pureframe process gallery_tour.mp4 --content-type art
+
+# Clinical footage (surgery and anatomy stop flagging)
+pureframe process surgery_lecture.mp4 --content-type medical
 ```
 
 ## Strictness Levels
@@ -245,11 +251,12 @@ cd gui && npm install && npm run tauri dev
 
 ## Known Limitations
 
-PureFrame is honest about what it can and can't do. See [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) for a full breakdown of false positive/negative categories, audio detection gaps, and rendering limitations.
+PureFrame is honest about what it can and can't do. See [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) for the full breakdown: what was fixed with engineering, what was improved (with the residual stated), and what is accepted with a reason.
 
 Briefly:
-- **False positives** happen on swimwear, skin-tone backgrounds, and stylized animation.
-- **Dark scenes** reduce detection confidence. Use `--content-type low-light`.
+- **Swimwear and shirtless athletes** are gated by the scene-context factor; museums and surgical footage get `--content-type art` / `--content-type medical`.
+- **Dark scenes, grayscale, flash frames, small/distant figures and extreme close-ups** get engineered second chances (normalization plus a bounded rescan with tiled zoom).
+- **Variable frame rate input converts to CFR automatically.** AV1 stays AV1 on re-encode; HDR10 metadata survives it.
 - **Not perfect.** Some explicit content may slip through. PureFrame is a tool - not a replacement for parental judgment.
 
 ## FAQ
