@@ -35,10 +35,35 @@ class TestSelectRenderEncoder:
         assert select_render_encoder(HardwareProfile.CPU, "h264", "h264") == "libx264"
         assert select_render_encoder(HardwareProfile.CPU, "hevc", "h264") == "libx265"
 
+    def test_av1_follows_the_source_with_fallback_chain(self):
+        # SVT preferred for speed, libaom when SVT is missing, and the
+        # historical configured-codec behavior when no AV1 encoder exists.
+        with patch(
+            "pureframe.utils.ffmpeg.available_encoders",
+            return_value={"libsvtav1", "libaom-av1"},
+        ):
+            assert select_render_encoder(HardwareProfile.CPU, "h264", "av1") == (
+                "libsvtav1"
+            )
+        with patch(
+            "pureframe.utils.ffmpeg.available_encoders",
+            return_value={"libaom-av1"},
+        ):
+            assert select_render_encoder(HardwareProfile.CPU, "h264", "av1") == (
+                "libaom-av1"
+            )
+        with patch(
+            "pureframe.utils.ffmpeg.available_encoders",
+            return_value=set(),
+        ):
+            assert select_render_encoder(HardwareProfile.CPU, "h264", "av1") == (
+                "libx264"
+            )
+
     def test_unknown_or_missing_source_uses_configured_codec(self):
         assert select_render_encoder(HardwareProfile.CPU, "h264", None) == "libx264"
-        assert select_render_encoder(HardwareProfile.CPU, "h264", "av1") == "libx264"
         assert select_render_encoder(HardwareProfile.CPU, "h264", "") == "libx264"
+        assert select_render_encoder(HardwareProfile.CPU, "h264", "prores") == "libx264"
 
     def test_gpu_profiles_still_pick_hardware_encoders_for_h264_and_hevc(self):
         with patch("pureframe.utils.ffmpeg.subprocess.check_output") as co:
@@ -82,12 +107,21 @@ class TestQualityArgs:
         assert _quality_args("mpeg4", 200) == {"qscale:v": 31}
         assert "crf" not in _quality_args("mpeg4", 20)
 
+    def test_av1_encoders_use_their_own_dials(self):
+        svt = _quality_args("libsvtav1", 20)
+        assert svt["crf"] == 20 and "preset" in svt
+        assert _quality_args("libsvtav1", 99)["crf"] == 63
+        aom = _quality_args("libaom-av1", 20)
+        assert aom["crf"] == 20 and aom["b:v"] == 0 and "row-mt" in aom
+
 
 class TestPresetGating:
     def test_libvpx_and_mpeg4_do_not_get_x264_presets(self):
         assert _encoder_preset_arg("libvpx", "veryfast") is None
         assert _encoder_preset_arg("libvpx-vp9", "veryfast") is None
         assert _encoder_preset_arg("mpeg4", "veryfast") is None
+        assert _encoder_preset_arg("libsvtav1", "veryfast") is None
+        assert _encoder_preset_arg("libaom-av1", "veryfast") is None
 
 
 class TestContainerBsf:
@@ -116,6 +150,8 @@ def test_encoder_codec_families():
     assert encoder_codec("libvpx") == "vp8"
     assert encoder_codec("libvpx-vp9") == "vp9"
     assert encoder_codec("mpeg4") == "mpeg4"
+    assert encoder_codec("libsvtav1") == "av1"
+    assert encoder_codec("libaom-av1") == "av1"
 
 
 def test_probe_video_codec_is_tolerant(tmp_path):
