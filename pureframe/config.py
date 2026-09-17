@@ -193,6 +193,20 @@ class Config(BaseSettings):
     guide_mode: str = "hint"
     guide_threshold_factor: float = 0.7
 
+    # Automatic variable-frame-rate handling: when the probe detects VFR
+    # input, the pipeline transcodes to constant frame rate and points
+    # this at the intermediate; every media reader goes through
+    # :attr:`analysis_source`. Checkpoint identity deliberately stays
+    # keyed on ``input_path`` and its content fingerprint (the CFR file
+    # is a per-run derived intermediate in the system temp dir), so this
+    # is excluded from config_hash on purpose.
+    cfr_input_path: Path | None = None
+
+    @property
+    def analysis_source(self) -> Path:
+        """The file analysis and rendering should actually read."""
+        return self.cfr_input_path if self.cfr_input_path else self.input_path
+
     model_config = SettingsConfigDict(env_prefix="PUREFRAME_")
 
     @field_validator("guide_mode")

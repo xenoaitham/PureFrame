@@ -21,6 +21,10 @@ class VideoMetadata(BaseModel):
     width: int
     height: int
     fps: Fraction
+    # Average frame rate (ffmpeg's avg_frame_rate): total frames over total
+    # duration. For constant-frame-rate input it equals ``fps``; a gap
+    # between the two is the primary variable-frame-rate signal.
+    avg_fps: Fraction = Fraction(0)
     duration_seconds: float
     total_frames: int
     has_audio: bool
@@ -65,6 +69,13 @@ def extract_metadata(probe_result: dict) -> VideoMetadata:
     except Exception:
         fps = Fraction(24, 1)  # Fallback
 
+    avg_frame_rate = video_stream.get("avg_frame_rate", "0/1")
+    try:
+        num, den = map(int, avg_frame_rate.split("/"))
+        avg_fps = Fraction(num, den) if den != 0 else Fraction(0)
+    except Exception:
+        avg_fps = Fraction(0)
+
     duration = float(format_info.get("duration", 0.0))
     if "duration" in video_stream:
         duration = float(video_stream["duration"])
@@ -84,6 +95,7 @@ def extract_metadata(probe_result: dict) -> VideoMetadata:
         width=width,
         height=height,
         fps=fps,
+        avg_fps=avg_fps,
         duration_seconds=duration,
         total_frames=total_frames,
         has_audio=len(audio_streams) > 0,
