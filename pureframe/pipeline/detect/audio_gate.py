@@ -57,8 +57,14 @@ def segment_audio_profile(
     import ffmpeg as ffmpeg_python
 
     try:
+        # float() before formatting: callers pass Fraction, and
+        # Fraction.__format__ with a float spec raises on Python 3.11.
         out, _ = (
-            ffmpeg_python.input(str(path), ss=f"{start_sec:.3f}", to=f"{end_sec:.3f}")
+            ffmpeg_python.input(
+                str(path),
+                ss=f"{float(start_sec):.3f}",
+                to=f"{float(end_sec):.3f}",
+            )
             .output("pipe:", format="s16le", ac=1, ar=16000)
             .run(capture_stdout=True, capture_stderr=True, quiet=True)
         )
