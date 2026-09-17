@@ -95,6 +95,15 @@ pureframe process surgery_lecture.mp4 --content-type medical
 - The 1.4x bar plus the medical scene gate keep surgical and anatomical footage unflagged
 - Same recall guarantee: explicit scenes elsewhere in the recording flag normally
 
+## Audio Thresholds and the Audio Gate
+
+The audio classifier (PANNs) scores moaning and sexual audio against the strictness preset's audio threshold. Two automatic adjustments apply per shot:
+
+- **Music masking**: loud tonal audio (RMS at or above -30 dBFS with spectral flatness at or below 0.15) raises both audio bars 25 percent - a concert score should not flag masking artifacts.
+- **Marginal cues**: when the CLIP scene reads sexual and an audio score sits between half the bar and the bar, the bars drop 20 percent - quiet or whispered cues get benefit of the doubt exactly where the scene justifies it.
+
+Music masking wins if both conditions hold. Bars never drop without a sexual scene signal, and foreign-language gaps are unchanged: the classifier hears sounds, not words.
+
 ## Threshold Tuning Workflow
 
 If the defaults don't work for your content:
