@@ -17,6 +17,12 @@ class AudioContext(BaseModel):
     sexual_audio_score: float
     music_score: float
     speech_score: float
+    # Cheap spectral features of the same segment (PANNs-free): loudness
+    # in dBFS and spectral flatness (0 = tonal, 1 = noise-like). Filled
+    # by the light pre-pass in the plan pipeline; None when audio did
+    # not decode, which leaves the music gate neutral.
+    rms_db: float | None = None
+    spectral_flatness: float | None = None
 
 
 # PANNs inference cost scales linearly with segment length; a long shot's

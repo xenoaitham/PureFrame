@@ -1,5 +1,6 @@
 from pureframe.config import Config
 from pureframe.pipeline.detect.audio import AudioContext
+from pureframe.pipeline.detect.audio_gate import audio_gate
 from pureframe.pipeline.detect.nudity import Detection
 from pureframe.pipeline.detect.scene_clip import ShotContext
 from pureframe.pipeline.shots import Action, Category, Shot, ShotVerdict
@@ -172,8 +173,20 @@ def fuse(
             reasoning=f"Explicit nudity detected (score: {max_nudity_score:.2f}, threshold: {nudity_thresh:.2f})",
         )
 
-    # 2. SEXUAL_ACT_VISIBLE - requires both visual and audio signals
+    # 2. SEXUAL_ACT_VISIBLE - requires both visual and audio signals.
+    # The audio gate adjusts both audio bars first: loud tonal music
+    # masks quiet cues (bars rise), and a sexual scene with a marginal
+    # score gets one notch of benefit of the doubt (bars drop).
     sexual_audio_thresh = 0.30 * t_mod * (eff_audio / 0.60)
+    moaning_thresh = 0.35 * t_mod * (eff_audio / 0.60)
+    moan_mult, sex_mult = audio_gate(
+        audio_ctx,
+        scene_is_sexual(scene_ctx, config, strict_mode),
+        moaning_thresh,
+        sexual_audio_thresh,
+    )
+    moaning_thresh *= moan_mult
+    sexual_audio_thresh *= sex_mult
 
     if (
         scene_ctx.explicit_act_score >= explicit_act_thresh
@@ -190,8 +203,6 @@ def fuse(
         )
 
     # 3. SEXUAL_CONTEXT_NO_NUDITY - implied sex with audio cues
-    moaning_thresh = 0.35 * t_mod * (eff_audio / 0.60)
-
     if scene_ctx.implied_sex_score >= implied_sex_thresh and (
         audio_ctx.moaning_score >= moaning_thresh
         or audio_ctx.sexual_audio_score >= sexual_audio_thresh
