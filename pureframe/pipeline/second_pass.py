@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
+
 from pureframe.hardware import ProfileSettings
 from pureframe.pipeline.detect.nudity import Detection, NudityDetector
 from pureframe.pipeline.detect.tiling import tiled_detect_frame
@@ -80,6 +82,30 @@ def rescan_shot(
         tiled_pass = [d for d in tiled if d.score >= threshold]
         if tiled_pass:
             results[idx] = tiled_pass
+    return results
+
+
+def closeup_scan(
+    frames: dict[int, np.ndarray],
+    detector: NudityDetector,
+    threshold: float,
+    grid: tuple[int, int] = (2, 2),
+) -> dict[int, list[Detection]]:
+    """Quadrant-zoom rescan for detector-silent shots in a sexual scene.
+
+    Extreme close-ups fill the frame with a body part; a detector
+    trained on body-scale views reads nothing at full-frame scale. A 2x
+    zoom - exact center-crop quadrants, no overlap - restores the scale
+    the model expects. Only detections at or above *threshold* come
+    back; the caller re-fuses with the same bar so the verdict and the
+    boxes cannot disagree.
+    """
+    results: dict[int, list[Detection]] = {}
+    for idx, frame in frames.items():
+        tiled = tiled_detect_frame(frame, detector, grid=grid, overlap=0.0)
+        passing = [d for d in tiled if d.score >= threshold]
+        if passing:
+            results[idx] = passing
     return results
 
 

@@ -67,6 +67,26 @@ def scene_context_factor(scene_ctx: ShotContext, config: Config) -> float:
     return 1.0
 
 
+def scene_is_sexual(
+    scene_ctx: ShotContext, config: Config, strict_mode: bool = False
+) -> bool:
+    """True when the CLIP scene itself reads as a sexual situation.
+
+    Same bars the sexual-act and implied-sex branches in fuse() use
+    (strict-mode factor included), exposed for pipeline heuristics that
+    want to spend extra detection effort only where the scene context
+    justifies it - the close-up rescan is the consumer.
+    """
+    t_mod = 0.85 if strict_mode else 1.0
+    _, eff_clip, _ = config.get_effective_thresholds()
+    explicit_act_thresh = 0.40 * t_mod * (eff_clip / 0.50)
+    implied_sex_thresh = 0.45 * t_mod * (eff_clip / 0.50)
+    return (
+        scene_ctx.explicit_act_score >= explicit_act_thresh
+        or scene_ctx.implied_sex_score >= implied_sex_thresh
+    )
+
+
 def context_audio_needed(
     scene_ctx: ShotContext, config: Config, strict_mode: bool = False
 ) -> bool:
