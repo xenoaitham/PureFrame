@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 
 # When running as a PyInstaller-frozen executable, prepend the executable's
@@ -53,7 +54,7 @@ from pureframe.pipeline.fuse import (
     scene_context_factor,
     scene_is_sexual,
 )
-from pureframe.pipeline.probe import probe_video
+from pureframe.pipeline.probe import is_vfr, probe_video
 from pureframe.pipeline.render.apply import apply_censoring
 from pureframe.pipeline.render.plan import CensorPlan
 from pureframe.pipeline.sample import extract_frames, sample_keyframes
@@ -365,7 +366,7 @@ def _extraction_worker(
             kf_indices = sample_keyframes(shot, settings.sample_keyframes_per_shot)
             with timers.phase("extract"):
                 frames = extract_frames(
-                    config.input_path,
+                    config.analysis_source,
                     kf_indices,
                     settings.detection_resolution,
                     meta=meta,
@@ -378,12 +379,60 @@ def _extraction_worker(
         _put(None)
 
 
+def _ensure_cfr(config: Config, settings) -> None:
+    """Convert variable-frame-rate input to CFR, once per config instance.
+
+    Screen recordings and phone timelapses carry uneven timestamps that
+    make "frame N is at N / fps" wrong, so blur windows land off-target.
+    On detection, the input transcodes into a per-run temp dir (codec
+    family preserved so the render can still mux into the original
+    container) and every media reader picks it up via
+    ``config.analysis_source``. Job identity stays keyed on the original
+    path, so cached plans remain valid across runs.
+    """
+    if config.cfr_input_path is not None:
+        return
+    meta = probe_video(config.input_path)
+    if not is_vfr(meta):
+        return
+    console.print(
+        f"[yellow]Variable frame rate detected "
+        f"(peak {float(meta.fps):.3f} fps, average {float(meta.avg_fps):.3f} fps) - "
+        "converting to constant frame rate...[/yellow]"
+    )
+    from pureframe.pipeline.probe import convert_to_cfr
+    from pureframe.utils.ffmpeg import select_render_encoder
+
+    tmp_dir = Path(tempfile.mkdtemp(prefix="pureframe-cfr-"))
+    encoder = select_render_encoder(
+        settings.profile, config.output_codec, meta.video_codec
+    )
+    dest = convert_to_cfr(
+        config.input_path,
+        tmp_dir,
+        meta,
+        encoder,
+        config.output_crf,
+        preset=settings.encoder_preset,
+    )
+    config.cfr_input_path = dest
+    console.print(f"[yellow]Converted to constant frame rate: {dest}[/yellow]")
+
+
+def _cleanup_cfr(config: Config) -> None:
+    """Remove the per-run CFR intermediate directory, if any."""
+    if config.cfr_input_path is not None:
+        shutil.rmtree(config.cfr_input_path.parent, ignore_errors=True)
+        config.cfr_input_path = None
+
+
 def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPlan:
     timers = timers or PhaseTimers()
     store = get_store()
     job = store.find_or_create_job(config.input_path, config.output_path, config)
 
     settings = get_settings(config.profile, cuda_device=config.device or 0)
+    _ensure_cfr(config, settings)
 
     try:
         package_version = version("pureframe")
@@ -396,9 +445,9 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
 
     if job.status == "DONE" or job.status == "RENDERING":
         verdicts = store.load_verdicts(job.id)
-        meta = probe_video(config.input_path)
+        meta = probe_video(config.analysis_source)
         shots = detect_shots(
-            config.input_path,
+            config.analysis_source,
             frame_skip=settings.scene_frame_skip,
             total_frames=meta.total_frames,
         )
@@ -406,7 +455,7 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
         store.update_status(job.id, "DETECTING")
 
         with console.status("[bold green]Probing video..."), timers.phase("probe"):
-            meta = probe_video(config.input_path)
+            meta = probe_video(config.analysis_source)
 
         if meta.total_frames > 0:
             console.print(
@@ -419,7 +468,7 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
             timers.phase("scene_detect"),
         ):
             shots = detect_shots(
-                config.input_path,
+                config.analysis_source,
                 frame_skip=settings.scene_frame_skip,
                 total_frames=meta.total_frames,
             )
@@ -601,7 +650,7 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                         ):
                             with timers.phase("detect_audio"):
                                 audio_ctx = audio_classifier.classify_segment(
-                                    config.input_path, start_sec, end_sec
+                                    config.analysis_source, start_sec, end_sec
                                 )
                         else:
                             # The audio score cannot change the verdict when the
@@ -658,7 +707,7 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                 with timers.phase("second_pass"):
                                     second_dets = rescan_shot(
                                         shot,
-                                        config.input_path,
+                                        config.analysis_source,
                                         detector,
                                         settings,
                                         meta,
@@ -744,7 +793,7 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                     all_frames.append(shot.end_frame - 1)
                                 with timers.phase("extract_kiss"):
                                     all_bgr = extract_frames(
-                                        config.input_path,
+                                        config.analysis_source,
                                         all_frames,
                                         settings.detection_resolution,
                                         meta=meta,
@@ -836,7 +885,7 @@ def generate_plan(config: Config, timers: PhaseTimers | None = None) -> CensorPl
                                     with timers.phase("densify"):
                                         dense_dets = densify_shot(
                                             shot,
-                                            config.input_path,
+                                            config.analysis_source,
                                             detector,
                                             settings,
                                             # Keep every detection the bars
@@ -962,7 +1011,7 @@ def execute_render(
                     from pureframe.pipeline.render.smart import apply_censoring_smart
 
                     apply_censoring_smart(
-                        config.input_path,
+                        config.analysis_source,
                         config.output_path,
                         frame_actions,
                         config,
@@ -973,7 +1022,7 @@ def execute_render(
                     )
                 else:
                     apply_censoring(
-                        config.input_path,
+                        config.analysis_source,
                         config.output_path,
                         frame_actions,
                         config,
@@ -1033,12 +1082,15 @@ def process_file(config: Config):
         return
 
     timers = PhaseTimers()
-    plan = generate_plan(config, timers)
+    try:
+        plan = generate_plan(config, timers)
 
-    console.print(
-        f"Flagged {sum(1 for v in plan.verdicts if v.action != Action.NONE)} shots for censoring."
-    )
-    execute_render(plan, config, timers=timers)
+        console.print(
+            f"Flagged {sum(1 for v in plan.verdicts if v.action != Action.NONE)} shots for censoring."
+        )
+        execute_render(plan, config, timers=timers)
+    finally:
+        _cleanup_cfr(config)
 
     if config.log_level == "DEBUG":
         console.print(timers.summary())
@@ -1255,8 +1307,11 @@ def plan_cmd(
     )
 
     timers = PhaseTimers()
-    plan = generate_plan(config, timers)
-    plan.serialize(output)
+    try:
+        plan = generate_plan(config, timers)
+        plan.serialize(output)
+    finally:
+        _cleanup_cfr(config)
 
     if verbose:
         console.print(timers.summary())
@@ -1313,6 +1368,9 @@ def apply_cmd(
     console.print("[bold blue]PureFrame Apply[/bold blue]")
     console.print(f"Applying plan: {plan_path.name}")
     try:
+        _ensure_cfr(
+            config, get_settings(config.profile, cuda_device=config.device or 0)
+        )
         execute_render(plan, config)
     except Exception as e:
         import traceback
@@ -1320,6 +1378,8 @@ def apply_cmd(
         console.print(f"[red]APPLY ERROR:[/red] {e}")
         console.print(traceback.format_exc())
         raise
+    finally:
+        _cleanup_cfr(config)
 
 
 @app.command("plan-edit")
