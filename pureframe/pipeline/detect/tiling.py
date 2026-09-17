@@ -128,9 +128,9 @@ def tiled_detect_frame(
 ) -> list[Detection]:
     """Detect over an overlapping tile grid, merged back with NMS.
 
-    Each tile is upscaled so its long edge matches the frame's long edge -
-    a 2x2 grid effectively doubles the resolution the detector sees per
-    region. Returns native-frame-space detections.
+    Each tile is upscaled so its long edge matches the frame's long edge;
+    a 2x2 grid with the default 15 percent overlap zooms each region by
+    roughly 1.74x. Returns native-frame-space detections.
     """
     h, w = frame.shape[:2]
     target = max(w, h)

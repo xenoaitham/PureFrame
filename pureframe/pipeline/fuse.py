@@ -142,8 +142,9 @@ def fuse(
     # marked - generate_plan passes 1.0 everywhere else.
     guide_factor = guide_threshold_factor
 
-    # Confident benign high-skin context (beach/pool, gym/sports) raises
-    # the nudity bar; see scene_context_factor for the recall guard.
+    # Confident benign high-skin context (beach/pool, gym/sports,
+    # museum/gallery, medical/clinical) raises the nudity bar; see
+    # scene_context_factor for the recall guard.
     context_factor = scene_context_factor(scene_ctx, config)
 
     nudity_thresh = eff_nudity * t_mod * guide_factor * context_factor

@@ -156,4 +156,4 @@ To see how thresholds perform across different content types:
 pureframe evaluate --threshold 0.5 --output eval_report.json
 ```
 
-This runs the synthetic test corpus (52 scenarios across 8 content genres) and shows precision/recall at multiple threshold levels. The committed `eval-baseline.json` pins the detector's exact behavior on every scenario; `scripts/check_eval_parity.py` fails if any score drifts.
+This runs the synthetic test corpus (55 scenarios across 8 content genres) and shows precision/recall at multiple threshold levels. The committed `eval-baseline.json` pins the detector's exact behavior on every scenario; `scripts/check_eval_parity.py` fails if any score drifts.
