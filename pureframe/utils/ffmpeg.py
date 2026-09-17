@@ -163,7 +163,39 @@ _SOURCE_MATCHED_ENCODERS = {
     "vp8": "libvpx",
     "vp9": "libvpx-vp9",
     "mpeg4": "mpeg4",
+    "av1": "libsvtav1",
 }
+
+# SVT-AV1 encodes an order of magnitude faster than libaom at equal
+# settings; aom is the fallback when the local ffmpeg lacks SVT.
+_AV1_ENCODER_FALLBACK = ("libsvtav1", "libaom-av1")
+
+_ENCODER_CACHE: set[str] | None = None
+
+
+def available_encoders() -> set[str]:
+    """Names of the local ffmpeg's video encoders, parsed once per process."""
+    global _ENCODER_CACHE
+    if _ENCODER_CACHE is None:
+        try:
+            output = subprocess.check_output(
+                ["ffmpeg", "-hide_banner", "-encoders"],
+                stderr=subprocess.DEVNULL,
+                text=True,
+            )
+        except Exception:
+            _ENCODER_CACHE = set()
+            return _ENCODER_CACHE
+        names: set[str] = set()
+        for line in output.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("V"):
+                continue
+            parts = stripped.split()
+            if len(parts) >= 2:
+                names.add(parts[1])
+        _ENCODER_CACHE = names
+    return _ENCODER_CACHE
 
 
 def select_render_encoder(
@@ -173,14 +205,25 @@ def select_render_encoder(
 
     Re-encoded chunks are joined to stream-copied chunks of the original and
     written into the input's own container, so the codec has to follow the
-    source: VP8/VP9 for WebM, MPEG-4 for AVI, and HEVC stays HEVC (mixing it
+    source: VP8/VP9/AV1 for WebM, MPEG-4 for AVI, and HEVC stays HEVC (mixing it
     with H.264 broke concat and silently forced a full re-encode). H.264
     sources - and anything we cannot match - keep honoring ``output_codec``
-    exactly as before.
+    exactly as before. AV1 prefers SVT and falls back to libaom; with
+    neither encoder present, the historical configured-codec behavior
+    applies.
     """
     codec = (input_codec or "").lower()
     if codec in _SOURCE_MATCHED_ENCODERS:
-        return _SOURCE_MATCHED_ENCODERS[codec]
+        encoder = _SOURCE_MATCHED_ENCODERS[codec]
+        if encoder != "libsvtav1" or "libsvtav1" in available_encoders():
+            return encoder
+        for fallback in _AV1_ENCODER_FALLBACK[1:]:
+            if fallback in available_encoders():
+                return fallback
+        logger.warning(
+            "No AV1 encoder (libsvtav1/libaom-av1) in the local ffmpeg - "
+            "re-encoding with the configured codec; WebM muxing may fail"
+        )
     if codec in ("hevc", "h265"):
         return select_hw_encoder(profile, "hevc")
     return select_hw_encoder(profile, output_codec)
@@ -208,6 +251,8 @@ def encoder_codec(encoder: str) -> str:
         return "vp9"
     if encoder == "mpeg4":
         return "mpeg4"
+    if encoder in ("libsvtav1", "libaom-av1", "librav1e"):
+        return "av1"
     if encoder == "libx265" or encoder.startswith("hevc_"):
         return "hevc"
     return "h264"
@@ -230,6 +275,8 @@ def _quality_args(encoder: str, crf: int) -> dict:
     x264/x265 and the hardware encoders take ``crf`` directly; libvpx needs
     ``b:v`` alongside it (0 = pure constant quality for VP9, a cap for VP8);
     the MPEG-4 encoder has no ``crf`` at all and uses ``qscale`` (2-31).
+    SVT-AV1 takes ``crf`` (0-63) with a numeric speed ``preset``; libaom
+    needs ``b:v 0`` for pure constant quality plus ``row-mt`` for speed.
     """
     if encoder == "libvpx-vp9":
         return {"crf": min(max(crf, 0), 63), "b:v": 0, "cpu-used": 4, "row-mt": 1}
@@ -237,6 +284,13 @@ def _quality_args(encoder: str, crf: int) -> dict:
         return {"crf": min(max(crf, 4), 63), "b:v": "4M", "cpu-used": 4}
     if encoder == "mpeg4":
         return {"qscale:v": min(max(round(crf / 2.5), 2), 31)}
+    if encoder == "libsvtav1":
+        # Preset 8: the long-standing SVT default, accepted by every
+        # SVT-AV1 version shipped in ffmpeg builds - higher presets are
+        # rejected by some of them at encode time.
+        return {"crf": min(max(crf, 0), 63), "preset": 8}
+    if encoder == "libaom-av1":
+        return {"crf": min(max(crf, 0), 63), "b:v": 0, "cpu-used": 5, "row-mt": 1}
     return {"crf": crf}
 
 
