@@ -32,14 +32,16 @@ SCENE_CONTEXT_CONFIDENCE = 0.60
 def scene_context_factor(scene_ctx: ShotContext, config: Config) -> float:
     """Threshold multiplier for confident benign high-skin contexts.
 
-    1.0 (no change) unless a beach/pool or gym/sports context scores at
+    1.0 (no change) unless one of the benign context categories -
+    beach/pool, gym/sports, museum/gallery, medical/clinical - scores at
     or above :data:`SCENE_CONTEXT_CONFIDENCE` while neither sexual
     context category is anywhere near its own threshold. The gate only
     ever RAISES the nudity bar (fewer false positives on swimwear,
-    shirtless athletes); it can never lower one, and a confident sexual
-    scene signal switches it off entirely so nude-scene recall is never
-    touched. fuse() and the plan pipeline share this helper so the
-    verdict bar and the densify/rescan bars can never disagree.
+    shirtless athletes, classical art, surgical footage); it can never
+    lower one, and a confident sexual scene signal switches it off
+    entirely so nude-scene recall is never touched. fuse() and the plan
+    pipeline share this helper so the verdict bar and the densify/rescan
+    bars can never disagree.
     """
     factor = config.scene_context_factor
     if factor <= 1.0:
@@ -48,8 +50,13 @@ def scene_context_factor(scene_ctx: ShotContext, config: Config) -> float:
     explicit_act_thresh = 0.40 * (eff_clip / 0.50)
     implied_sex_thresh = 0.45 * (eff_clip / 0.50)
     context_confident = (
-        scene_ctx.beach_pool_score >= SCENE_CONTEXT_CONFIDENCE
-        or scene_ctx.sports_score >= SCENE_CONTEXT_CONFIDENCE
+        max(
+            scene_ctx.beach_pool_score,
+            scene_ctx.sports_score,
+            scene_ctx.museum_gallery_score,
+            scene_ctx.medical_score,
+        )
+        >= SCENE_CONTEXT_CONFIDENCE
     )
     sexual_context = (
         scene_ctx.explicit_act_score >= explicit_act_thresh

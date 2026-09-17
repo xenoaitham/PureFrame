@@ -28,13 +28,16 @@ class ShotContext(BaseModel):
     implied_sex_score: float
     kissing_score: float
     safe_score: float
-    # Benign high-skin contexts (beach/pool, gym/sports). When one of
-    # these is confident and no sexual context is, fuse raises the
-    # effective nudity threshold by the configured scene-context factor
-    # so swimwear and shirtless athletes stop flagging. 0.0 when CLIP is
-    # disabled (CPU profiles), which leaves the gate inert there.
+    # Benign high-skin contexts (beach/pool, gym/sports, museum/gallery,
+    # medical/clinical). When one of these is confident and no sexual
+    # context is, fuse raises the effective nudity threshold by the
+    # configured scene-context factor so swimwear, athletes, classical
+    # art and surgical footage stop flagging. 0.0 when CLIP is disabled
+    # (CPU profiles), which leaves the gate inert there.
     beach_pool_score: float = 0.0
     sports_score: float = 0.0
+    museum_gallery_score: float = 0.0
+    medical_score: float = 0.0
 
 
 PROMPT_SETS = {
@@ -73,6 +76,18 @@ PROMPT_SETS = {
         "people working out in a gym",
         "a wrestling or martial arts match",
         "a swimming competition in a stadium",
+    ],
+    "museum_gallery": [
+        "a classical painting in a museum",
+        "a marble statue in a gallery",
+        "people looking at art in a museum",
+        "a fresco or oil painting of figures",
+    ],
+    "medical_clinical": [
+        "surgeons operating in an operating room",
+        "a medical examination in a clinic",
+        "an anatomy lesson with anatomical diagrams",
+        "a hospital procedure with doctors in scrubs",
     ],
 }
 
@@ -172,6 +187,8 @@ class SceneClassifier:
             safe_score=scores["safe_neutral"],
             beach_pool_score=scores["beach_pool"],
             sports_score=scores["sports_gym"],
+            museum_gallery_score=scores["museum_gallery"],
+            medical_score=scores["medical_clinical"],
         )
 
     def unload(self):

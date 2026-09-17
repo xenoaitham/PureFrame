@@ -27,14 +27,16 @@ Each content type multiplies all three base thresholds (capped at 0.99):
 | `animation` | 1.3x | Higher bar (drawn skin tones trigger the detector more easily) |
 | `anime` | 1.4x | Highest bar (anime styling over-triggers) |
 | `low-light` | 0.85x | Lower bar, plus the automatic dark-frame normalization described below |
+| `art` | 1.5x | Museums and galleries - classical paintings and statues stop flagging |
+| `medical` | 1.4x | Clinical footage - surgery and anatomy content stops flagging |
 
 Since 0.2.5, dark scenes get help automatically regardless of content type: when a frame measures dark (mean luma under 70) or near-grayscale with a compressed histogram, the detector sees a range-restored copy while the render keeps the original pixels. Declaring `--content-type low-light` keeps the 0.85x multiplier for content that stays dark in ways the frame-level measurement misses.
 
-### Scene-Context Gate (beach/pool, gym/sports)
+### Scene-Context Gate (beach/pool, gym/sports, museum/gallery, medical)
 
-Swimwear, skin-tight clothing and shirtless athletes produce real detector signals - they are just not nudity. CLIP classifies every shot's context; when a beach/pool or gym/sports context reads confident (score at or above 0.60) and neither sexual context category is near its own threshold, the shot's nudity threshold scales by `--scene-context-factor` (default 1.4, valid range 1.0 to 2.0; 1.0 disables the gate).
+Swimwear, skin-tight clothing, shirtless athletes, classical paintings and surgical footage produce real detector signals - they are just not nudity. CLIP classifies every shot's context; when one of those four benign contexts reads confident (score at or above 0.60) and neither sexual context category is near its own threshold, the shot's nudity threshold scales by `--scene-context-factor` (default 1.4, valid range 1.0 to 2.0; 1.0 disables the gate). The art and medical content types layer on top: they raise the whole run's bar, and the museum/medical scene gate refines it per shot.
 
-The gate can only raise a bar, never lower one, and confident sexual context switches it off entirely - a sex scene at the beach keeps the strict threshold. The factor is part of the plan's config hash: changing it re-analyzes.
+The gate can only raise a bar, never lower one, and confident sexual context switches it off entirely - a sex scene at the beach, or real nudity in the same documentary, keeps the strict threshold. The factor is part of the plan's config hash: changing it re-analyzes.
 
 The parental-guide feature composes with it: inside a `--guide` window the guide factor multiplies on top of whatever the context gate decided.
 
@@ -78,6 +80,20 @@ pureframe process documentary.mp4 --strictness low --content-type live-action
 ```
 - Only flags clearly explicit content
 - Art with classical nudity generally untouched
+
+#### Art Documentary / Museum Footage
+```bash
+pureframe process gallery_tour.mp4 --content-type art
+```
+- The 1.5x bar plus the museum scene gate keep Renaissance paintings and statues unflagged
+- Real explicit content in the same film still flags wherever the sexual context is confident
+
+#### Medical / Educational
+```bash
+pureframe process surgery_lecture.mp4 --content-type medical
+```
+- The 1.4x bar plus the medical scene gate keep surgical and anatomical footage unflagged
+- Same recall guarantee: explicit scenes elsewhere in the recording flag normally
 
 ## Threshold Tuning Workflow
 

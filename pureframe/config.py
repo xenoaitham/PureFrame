@@ -14,6 +14,8 @@ class ContentType(str, Enum):
     ANIMATION = "animation"
     ANIME = "anime"
     LOW_LIGHT = "low-light"
+    ART = "art"
+    MEDICAL = "medical"
 
 
 class Strictness(str, Enum):
@@ -48,12 +50,18 @@ EMOJI_BY_CATEGORY = {
 DEFAULT_EMOJI = "🚫"
 
 
-# Threshold multipliers per content type
+# Threshold multipliers per content type. Art and medical raise the bar
+# for whole-run opt-ins (a museum documentary, surgical footage); the
+# museum/medical scene-context gate refines this per shot when CLIP is
+# active - a real explicit scene inside the same documentary still
+# flags because a confident sexual context switches the gate off.
 CONTENT_TYPE_MULTIPLIERS = {
     ContentType.LIVE_ACTION: 1.0,
     ContentType.ANIMATION: 1.3,
     ContentType.ANIME: 1.4,
     ContentType.LOW_LIGHT: 0.85,
+    ContentType.ART: 1.5,
+    ContentType.MEDICAL: 1.4,
 }
 
 # Strictness presets: (nudity_threshold, clip_threshold, audio_threshold)

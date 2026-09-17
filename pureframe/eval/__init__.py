@@ -415,6 +415,20 @@ SYNTHETIC_SCENARIOS = [
         "explicit": True,
         "frame_type": "high_skin_ratio",
     },
+    {
+        "id": "ART-001",
+        "genre": "documentary",
+        "desc": "Classical nude painting in a gallery",
+        "explicit": False,
+        "frame_type": "art_painting",
+    },
+    {
+        "id": "MED-001",
+        "genre": "documentary",
+        "desc": "Surgical footage in a documentary",
+        "explicit": False,
+        "frame_type": "medical_surgical",
+    },
     # Family / Safe content
     {
         "id": "FM-001",
@@ -617,6 +631,21 @@ def _generate_synthetic_frame(frame_type: str) -> np.ndarray:
         # size class the tiled second pass exists for
         frame[:] = [70, 80, 90]
         frame[300:340, 430:470] = [180, 200, 230]
+
+    elif frame_type == "art_painting":
+        # A framed classical painting on a gallery wall: skin-toned
+        # figures inside a canvas, gilded frame, dark wall
+        frame[:] = [50, 45, 40]
+        frame[80:400, 180:460] = [40, 160, 190]  # gilded frame (BGR)
+        frame[110:370, 210:430] = [60, 90, 120]  # canvas varnish
+        frame[160:330, 260:380] = [165, 190, 225]  # painted figures
+
+    elif frame_type == "medical_surgical":
+        # Operating room: clinical teal drapes, steel, an exposed-skin
+        # surgical site at center
+        frame[:] = [140, 150, 140]
+        frame[150:340, 220:430] = [200, 210, 215]  # steel tray light
+        frame[190:300, 270:380] = [170, 195, 225]  # surgical site
 
     # Photographic texture pass - identical for every frame type.
     frame = cv2.GaussianBlur(frame, (7, 7), 0)

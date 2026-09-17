@@ -129,7 +129,7 @@ class TestEvaluationReport:
 
 class TestSyntheticScenarios:
     def test_scenario_count(self):
-        assert len(SYNTHETIC_SCENARIOS) == 52
+        assert len(SYNTHETIC_SCENARIOS) == 54
 
     def test_genres_covered(self):
         genres = set(s["genre"] for s in SYNTHETIC_SCENARIOS)
